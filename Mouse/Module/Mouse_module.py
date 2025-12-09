@@ -7,7 +7,7 @@ import time
 # Cấu hình file log
 # -------------------------------
 logging.basicConfig(
-    filename="mouse_events.log",
+    filename="../Saved_file/mouse_events.log",
     level=logging.INFO,
     format="%(asctime)s - %(message)s",
 )
@@ -38,7 +38,7 @@ def on_scroll(x, y, dx, dy):
     return check_timeout()
 
 # -------------------------------
-# Kiểm tra hết 20 phút
+# Kiểm tra hết 5s
 # -------------------------------
 def check_timeout():
     if datetime.now() >= end_time:

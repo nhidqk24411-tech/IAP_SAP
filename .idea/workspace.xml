@@ -5,9 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="af2765fa-5722-4e4b-b348-4caae5d6a0eb" name="Changes" comment="start">
+      <change afterPath="$PROJECT_DIR$/Mouse/Models/MouseEvents.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Mouse/Models/MouseResult.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Mouse/Module/Process_Excel.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Mouse/Module/Process_mouse_data.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Main.py" beforeDir="false" afterPath="$PROJECT_DIR$/Main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Mouse_module.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse_module.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mouse_module.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Module/Mouse_module.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mouse_events.log" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Saved_file/mouse_events.log" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -60,6 +65,13 @@
     "git-widget-placeholder": "master"
   }
 }]]></component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\legal\PycharmProjects\PythonProject\Mouse" />
+      <recent name="C:\Users\legal\PycharmProjects\PythonProject\Mouse\Saved_file" />
+      <recent name="C:\Users\legal\PycharmProjects\PythonProject\Mouse\Module" />
+    </key>
+  </component>
   <component name="RunManager" selected="Python.Mouse_module">
     <configuration name="Main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PythonProject" />
@@ -96,7 +108,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Mouse_module.py" />
+      <option name="SCRIPT_NAME" value="C:\Users\legal\PycharmProjects\PythonProject\Mouse\Module\Mouse_module.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
