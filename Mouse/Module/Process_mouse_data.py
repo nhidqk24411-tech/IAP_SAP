@@ -5,15 +5,15 @@ Xử lý log file → trả về MouseResult object
 import re
 from datetime import datetime, timedelta
 from typing import List, Dict
-from models.MouseEvents import MouseEvent, EventType
-from models.MouseResult import MouseResult
+from Mouse.Models.MouseEvents import MouseEvent, EventType
+from Mouse.Models.MouseResult import MouseResult
 import math
 
 
 class LogProcessor:
     """Xử lý file log mouse_events.log"""
 
-    def __init__(self, log_file_path="mouse_events.log"):
+    def __init__(self, log_file_path):
         self.log_file = log_file_path
         self.events: List[MouseEvent] = []
 

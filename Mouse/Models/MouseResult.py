@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Dict, Optional
-from .MouseEvents import MouseEvent
+from Mouse.Models.MouseEvents import MouseEvent
 
 
 @dataclass
@@ -19,18 +19,18 @@ class MouseResult:
     total_scrolls: int
 
     # Metrics tính toán từ công thức
-    total_distance: float  # Công thức (6)
-    x_axis_distance: float  # Công thức (7)
-    y_axis_distance: float  # Công thức (8)
-    x_flips: int  # Công thức (15)
-    y_flips: int  # Công thức (17)
-    meaningful_clicks: int  # Click có ý nghĩa
+    total_distance: float
+    x_axis_distance: float
+    y_axis_distance: float
+    x_flips: int
+    y_flips: int
+    meaningful_clicks: int
 
     # Thời gian
-    duration_seconds: float  # Công thức (2)
-    movement_time_span: float  # Công thức (3)
-    init_time_avg: float  # Công thức (4) trung bình
-    react_time_avg: float  # Công thức (5) trung bình
+    duration_seconds: float
+    movement_time_span: float
+    init_time_avg: float
+    react_time_avg: float
 
     # Phát hiện bất thường
     alerts: List[Dict]  # Danh sách cảnh báo
@@ -71,7 +71,7 @@ class MouseResult:
         print(f"Distance: {self.total_distance:.1f}px (X: {self.x_axis_distance:.1f}, Y: {self.y_axis_distance:.1f})")
         print(f"Flips: X={self.x_flips}, Y={self.y_flips}")
         print(f"Meaningful Clicks: {self.meaningful_clicks}")
-        print(f"Suspicious: {'YES ⚠️' if self.is_suspicious else 'NO ✅'}")
+        print(f"Suspicious: {'YES ' if self.is_suspicious else 'NO'}")
 
         if self.alerts:
             print(f"\nAlerts ({len(self.alerts)}):")

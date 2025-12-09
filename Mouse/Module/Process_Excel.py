@@ -5,7 +5,7 @@ Tương tự XuLyDocGhiFile.py
 
 import pandas as pd
 from typing import List, Dict, Any
-from models.MouseResult import MouseResult
+from Mouse.Models.MouseResult import MouseResult
 import os
 
 

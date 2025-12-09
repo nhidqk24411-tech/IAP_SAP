@@ -5,14 +5,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="af2765fa-5722-4e4b-b348-4caae5d6a0eb" name="Changes" comment="start">
-      <change afterPath="$PROJECT_DIR$/Mouse/Models/MouseEvents.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Mouse/Models/MouseResult.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Mouse/Module/Process_Excel.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Mouse/Module/Process_mouse_data.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Saved_file/mouse_events.log" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Main.py" beforeDir="false" afterPath="$PROJECT_DIR$/Main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Mouse_module.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Module/Mouse_module.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mouse_events.log" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Saved_file/mouse_events.log" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mouse/Models/MouseEvents.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Models/MouseEvents.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mouse/Models/MouseResult.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Models/MouseResult.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mouse/Module/Mouse_module.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Module/mouse_tracker.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mouse/Module/Process_Excel.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Module/Process_Excel.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mouse/Module/Process_mouse_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Module/Process_mouse_data.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mouse/Saved_file/mouse_events.log" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -34,21 +35,21 @@
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "giangnntk24411-eng"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;giangnntk24411-eng&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/nhidqk24411-tech/IAP_SAP.git",
-    "accountId": "b5120250-ff43-4afc-a3e2-fa7fe7cf1465"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/nhidqk24411-tech/IAP_SAP.git&quot;,
+    &quot;accountId&quot;: &quot;b5120250-ff43-4afc-a3e2-fa7fe7cf1465&quot;
   }
-}]]></component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 7
-}]]></component>
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 7
+}</component>
   <component name="ProjectId" id="36aUzx3wQ8jPQ9R680Va17oomp2" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -59,20 +60,24 @@
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "Python.Main.executor": "Run",
     "Python.Mouse_module.executor": "Run",
+    "Python.Process_mouse_data.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "master"
+    "git-widget-placeholder": "master",
+    "settings.editor.selected.configurable": "preferences.lookFeel"
   }
 }]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\legal\PycharmProjects\PythonProject" />
+      <recent name="C:\Users\legal\PycharmProjects\PythonProject\Saved_file" />
       <recent name="C:\Users\legal\PycharmProjects\PythonProject\Mouse" />
       <recent name="C:\Users\legal\PycharmProjects\PythonProject\Mouse\Saved_file" />
       <recent name="C:\Users\legal\PycharmProjects\PythonProject\Mouse\Module" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.Mouse_module">
+  <component name="RunManager" selected="Python.Main">
     <configuration name="Main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PythonProject" />
       <option name="ENV_FILES" value="" />
@@ -95,7 +100,29 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="Mouse_module" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="Process_mouse_data" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="PythonProject" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Mouse/Module" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Mouse/Module/Process_mouse_data.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="mouse_tracker" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PythonProject" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -108,7 +135,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="C:\Users\legal\PycharmProjects\PythonProject\Mouse\Module\Mouse_module.py" />
+      <option name="SCRIPT_NAME" value="C:\Users\legal\PycharmProjects\PythonProject\Mouse\Module\mouse_tracker.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -119,8 +146,9 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.Mouse_module" />
         <item itemvalue="Python.Main" />
+        <item itemvalue="Python.Process_mouse_data" />
+        <item itemvalue="Python.mouse_tracker" />
       </list>
     </recent_temporary>
   </component>

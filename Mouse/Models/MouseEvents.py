@@ -33,10 +33,6 @@ class MouseEvent:
 
     @classmethod
     def from_log_line(cls, log_line: str):
-        """
-        Tạo MouseEvent từ dòng log
-        Format: "2024-12-15 14:30:25,123 - Move: (100, 200)"
-        """
         try:
             # Tách timestamp và message
             parts = log_line.split(" - ", 1)
@@ -48,13 +44,11 @@ class MouseEvent:
 
             # Parse message
             if "Move:" in message:
-                # "Move: (100, 200)"
                 coords = message.split("(")[1].split(")")[0]
                 x, y = map(int, coords.split(","))
                 return cls(timestamp, EventType.MOVE, x, y)
 
             elif "Pressed" in message or "Released" in message:
-                # "Pressed at (100, 200)" hoặc "Released at (100, 200)"
                 action = "Pressed" if "Pressed" in message else "Released"
                 coords = message.split("(")[1].split(")")[0]
                 x, y = map(int, coords.split(","))
@@ -62,7 +56,7 @@ class MouseEvent:
                 return cls(timestamp, event_type, x, y)
 
             elif "Scroll" in message:
-                # "Scroll at (100, 200) dx=0, dy=1"
+
                 import re
                 coords_match = re.search(r'\((\d+),\s*(\d+)\)', message)
                 dx_match = re.search(r'dx=(-?\d+)', message)
