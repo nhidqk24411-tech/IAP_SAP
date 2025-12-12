@@ -5,15 +5,18 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="af2765fa-5722-4e4b-b348-4caae5d6a0eb" name="Changes" comment="start">
-      <change afterPath="$PROJECT_DIR$/Saved_file/mouse_events.log" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Mouse/Module/real_time_processor.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Mouse/Module/real_time_tracker.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Face_module.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Module/xgboost_anomaly.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Main.py" beforeDir="false" afterPath="$PROJECT_DIR$/Main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Mouse/Models/MouseEvents.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Models/MouseEvents.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Mouse/Models/MouseResult.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Models/MouseResult.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Mouse/Module/Mouse_module.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Module/mouse_tracker.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Mouse/Module/Process_Excel.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Module/Process_Excel.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Mouse/Module/Process_mouse_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Module/Process_mouse_data.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Mouse/Saved_file/mouse_events.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mouse/Module/Process_mouse_data.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mouse/Module/mouse_tracker.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/mouse_events_20251209_163800.log" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/mouse_report_20251209_163800.xlsx" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -55,19 +58,19 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python.Main.executor": "Run",
-    "Python.Mouse_module.executor": "Run",
-    "Python.Process_mouse_data.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "master",
-    "settings.editor.selected.configurable": "preferences.lookFeel"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python.Main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.Mouse_module.executor&quot;: &quot;Run&quot;,
+    &quot;Python.Process_mouse_data.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.lookFeel&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\legal\PycharmProjects\PythonProject" />
@@ -100,7 +103,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="Process_mouse_data" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="real_time_processor" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PythonProject" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -113,7 +116,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Mouse/Module/Process_mouse_data.py" />
+      <option name="SCRIPT_NAME" value="C:\Users\legal\PycharmProjects\PythonProject\Mouse\Module\real_time_processor.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -122,7 +125,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="mouse_tracker" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="real_time_tracker" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PythonProject" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -135,7 +138,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="C:\Users\legal\PycharmProjects\PythonProject\Mouse\Module\mouse_tracker.py" />
+      <option name="SCRIPT_NAME" value="C:\Users\legal\PycharmProjects\PythonProject\Mouse\Module\real_time_tracker.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -147,8 +150,8 @@
     <recent_temporary>
       <list>
         <item itemvalue="Python.Main" />
-        <item itemvalue="Python.Process_mouse_data" />
-        <item itemvalue="Python.mouse_tracker" />
+        <item itemvalue="Python.real_time_processor" />
+        <item itemvalue="Python.real_time_tracker" />
       </list>
     </recent_temporary>
   </component>
