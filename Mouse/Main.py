@@ -9,7 +9,7 @@ import time
 import queue
 from Mouse.Module.real_time_tracker import RealTimeTracker
 from Mouse.Module.real_time_processor import RealTimeProcessor
-from Mouse.Module.xgboost_anomaly import XGBoostAnomalyDetector
+from ML_models.xgboost_anomaly import XGBoostAnomalyDetector
 from Mouse.Module.Process_Excel import MouseExcelHandler
 
 
