@@ -1,5 +1,5 @@
 # FILE: face_engine.py
-# (Trước đây là main.py - Đổi tên để làm module)
+# (Trước đây là main_face.py - Đổi tên để làm module)
 
 import numpy as np
 import json

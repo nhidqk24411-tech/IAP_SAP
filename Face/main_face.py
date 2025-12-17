@@ -1,4 +1,4 @@
-# FILE: main.py
+# FILE: main_face.py
 """
 Face Recognition System Entry Point
 - Tích hợp InsightFace (Detector)

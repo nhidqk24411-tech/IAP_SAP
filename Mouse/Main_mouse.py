@@ -1,7 +1,7 @@
 """
 Main module - Xử lý real-time CHỈ DI CHUYỂN với cảnh báo chặn
 """
-from datetime import datetime, timedelta
+from datetime import datetime
 import tkinter as tk
 from tkinter import messagebox
 import threading
@@ -15,8 +15,7 @@ from Mouse.Module.Process_Excel import MouseExcelHandler
 
 class MouseAnalysisSystem:
     # ========== CONFIG ==========
-    SESSION_DURATION = 5  # 30 giây mỗi phiên
-    TOTAL_DURATION_MINUTES = 1  # Tổng 5 phút
+    SESSION_DURATION = 60  # 30 giây mỗi phiên
     ANOMALY_THRESHOLD = 0.7
     MIN_EVENTS_THRESHOLD = 5  # Dưới 5 events = không hoạt động
     LOW_ACTIVITY_RATIO = 0.2  # Hoạt động <20% thời gian
@@ -102,42 +101,36 @@ class MouseAnalysisSystem:
             # Fallback: in ra console
             print(f"⚠️ [ALERT] {title}: {message}")
             return True
+
     def run_continuous_analysis(self):
         """
         Chạy phân tích liên tục - CẢNH BÁO SẼ CHẶN
+        Chạy cho đến khi is_running = False
         """
         print("=" * 70)
         print("HỆ THỐNG PHÂN TÍCH CHUỘT - REAL-TIME")
         print("=" * 70)
         print(f"📊 Mỗi phiên: {self.SESSION_DURATION} giây")
-        print(f"⏱️ Tổng thời gian: {self.TOTAL_DURATION_MINUTES} phút")
-        print(f"⚠️ Cảnh báo sẽ DỪNG hệ thống chờ xác nhận")
+        print("⚠️ Cảnh báo sẽ DỪNG hệ thống chờ xác nhận")
         print("=" * 70)
 
         # Thông báo bắt đầu
         self.show_blocking_alert(
             "Bắt đầu phân tích",
-            f"Hệ thống sẽ phân tích trong {self.TOTAL_DURATION_MINUTES} phút\n"
+            f"Hệ thống sẽ phân tích cho đến khi bạn dừng\n"
             f"Mỗi phiên: {self.SESSION_DURATION} giây\n\n"
             "⚠️ LƯU Ý: Nếu không di chuyển chuột, hệ thống sẽ dừng và yêu cầu bạn quay lại làm việc!",
             "info"
         )
 
-        start_total_time = datetime.now()
-        end_total_time = start_total_time + timedelta(minutes=self.TOTAL_DURATION_MINUTES)
-
         try:
-            while datetime.now() < end_total_time and self.is_running:
+            while self.is_running:  # Chạy cho đến khi được dừng
                 # Tạo session ID
                 session_id = f"session_{datetime.now().strftime('%H%M%S')}_{self.session_counter:03d}"
                 self.session_counter += 1
 
-                # Tính thời gian còn lại
-                remaining = (end_total_time - datetime.now()).total_seconds() / 60
-
                 print(f"\n{'=' * 40}")
                 print(f"PHIÊN #{self.session_counter}: {session_id}")
-                print(f"⏰ Còn lại: {remaining:.1f} phút")
                 print(f"{'=' * 40}")
 
                 # Chạy phân tích phiên
@@ -246,14 +239,6 @@ class MouseAnalysisSystem:
                 'message': f'Điểm bất thường: {anomaly_score:.3f}'
             })
 
-        # 4. Kiểm tra đường thẳng (bot)
-        if metrics.get('max_deviation_ui', 0) < 15 and metrics['distance_ui'] > 200:
-            alerts.append({
-                'level': 'HIGH',
-                'type': 'STRAIGHT_LINE',
-                'message': f'Đường đi quá thẳng (deviation: {metrics.get("max_deviation_ui", 0):.1f}px)'
-            })
-
         # Tạo MouseResult
         return MouseResult(
             session_id=session_id,
@@ -272,7 +257,6 @@ class MouseAnalysisSystem:
             acceleration_ui=metrics.get('acceleration_ui', 0),
             x_axis_acceleration_ui=metrics.get('x_axis_acceleration_ui', 0),
             y_axis_acceleration_ui=metrics.get('y_axis_acceleration_ui', 0),
-            max_deviation_ui=metrics.get('max_deviation_ui', 0),
             duration_seconds=metrics.get('duration_ui', self.SESSION_DURATION),
             movement_time_span=metrics.get('movement_time_span_ui', 0),
             init_time_avg=0,
@@ -330,9 +314,6 @@ class MouseAnalysisSystem:
             for alert in medium_alerts:
                 print(f"  • {alert['type']}: {alert['message']}")
             print(f"{'~' * 60}")
-
-            # Có thể hiển thị non-blocking alert
-            # self.show_non_blocking_alert("Thông báo", alert_text, "info")
 
     def _display_session_summary(self, result):
         """Hiển thị tóm tắt phiên"""
@@ -448,10 +429,11 @@ class MouseAnalysisSystem:
             import traceback
             traceback.print_exc()
             return None
+
     def stop_analysis(self):
         """Dừng hệ thống"""
         self.is_running = False
-        print("\n🛑 Đang dừng hệ thống...")
+        print("\n🛑 Đang dừng hệ thống phân tích chuột...")
 
 
 if __name__ == "__main__":
@@ -462,11 +444,6 @@ if __name__ == "__main__":
         system = MouseAnalysisSystem()
         print("✅ Đã tạo hệ thống")
 
-        # KHÔNG gọi init_gui() ở đây - sẽ dùng fallback alert
-        print("⏳ Bắt đầu phân tích trong 5 giây...")
-        time.sleep(5)
-
-        # Chạy phân tích
         print("🎬 Bắt đầu run_continuous_analysis...")
         results = system.run_continuous_analysis()
 

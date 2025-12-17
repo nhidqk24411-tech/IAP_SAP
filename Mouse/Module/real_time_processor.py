@@ -47,12 +47,12 @@ class RealTimeProcessor:
         duration_ui = self._calculate_total_duration(events)
 
         # 7. Công thức (11-12): Độ lệch tối đa so với đường đi lý tưởng
-        initial_pos = (move_events[0].x, move_events[0].y) if move_events else (0, 0)
-        max_deviation_ui = self._calculate_max_deviation(
-            move_events,
-            initial_pos,
-            next_button_position
-        )
+        # initial_pos = (move_events[0].x, move_events[0].y) if move_events else (0, 0)
+        # max_deviation_ui = self._calculate_max_deviation(
+        #     move_events,
+        #     initial_pos,
+        #     next_button_position
+        # )
 
         # 8. Công thức (18-23): Vận tốc và gia tốc
         velocity_metrics = self._calculate_velocity_acceleration(move_events)
@@ -74,7 +74,7 @@ class RealTimeProcessor:
             'duration_ui': duration_ui,
             'x_flips_ui': x_flips_ui,
             'y_flips_ui': y_flips_ui,
-            'max_deviation_ui': max_deviation_ui,
+            # 'max_deviation_ui': max_deviation_ui,
             'confidence': confidence,
             **velocity_metrics
         }
@@ -154,39 +154,39 @@ class RealTimeProcessor:
 
         return x_flips, y_flips
 
-    def _calculate_max_deviation(self, move_events: List[MouseEvent],
-                                 initial_pos: Tuple[int, int],
-                                 target_pos: Tuple[int, int]) -> float:
-        """Công thức (11-12): Độ lệch tối đa so với đường đi lý tưởng"""
-        if len(move_events) < 2:
-            return 0
-
-        x_initial, y_initial = initial_pos
-        x_target, y_target = target_pos
-
-        # Vector đường đi lý tưởng
-        ideal_vector = np.array([x_target - x_initial, y_target - y_initial])
-        ideal_length = np.linalg.norm(ideal_vector)
-
-        if ideal_length == 0:
-            return 0
-
-        max_deviation = 0
-
-        for event in move_events:
-            # Vector từ điểm đầu đến điểm hiện tại
-            current_vector = np.array([event.x - x_initial, event.y - y_initial])
-
-            # Tính khoảng cách vuông góc (công thức 11)
-            if ideal_length > 0:
-                # Tính diện tích hình bình hành / độ dài vector lý tưởng
-                cross_product = abs(
-                    ideal_vector[0] * current_vector[1] - ideal_vector[1] * current_vector[0]
-                )
-                deviation = cross_product / ideal_length
-                max_deviation = max(max_deviation, deviation)
-
-        return max_deviation
+    # def _calculate_max_deviation(self, move_events: List[MouseEvent],
+    #                              initial_pos: Tuple[int, int],
+    #                              target_pos: Tuple[int, int]) -> float:
+    #     """Công thức (11-12): Độ lệch tối đa so với đường đi lý tưởng"""
+    #     if len(move_events) < 2:
+    #         return 0
+    #
+    #     x_initial, y_initial = initial_pos
+    #     x_target, y_target = target_pos
+    #
+    #     # Vector đường đi lý tưởng
+    #     ideal_vector = np.array([x_target - x_initial, y_target - y_initial])
+    #     ideal_length = np.linalg.norm(ideal_vector)
+    #
+    #     if ideal_length == 0:
+    #         return 0
+    #
+    #     max_deviation = 0
+    #
+    #     for event in move_events:
+    #         # Vector từ điểm đầu đến điểm hiện tại
+    #         current_vector = np.array([event.x - x_initial, event.y - y_initial])
+    #
+    #         # Tính khoảng cách vuông góc (công thức 11)
+    #         if ideal_length > 0:
+    #             # Tính diện tích hình bình hành / độ dài vector lý tưởng
+    #             cross_product = abs(
+    #                 ideal_vector[0] * current_vector[1] - ideal_vector[1] * current_vector[0]
+    #             )
+    #             deviation = cross_product / ideal_length
+    #             max_deviation = max(max_deviation, deviation)
+    #
+    #     return max_deviation
 
     def _calculate_velocity_acceleration(self, move_events: List[MouseEvent]) -> dict:
         """Công thức (18-23): Vận tốc và gia tốc"""
