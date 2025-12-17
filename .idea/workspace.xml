@@ -5,17 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="af2765fa-5722-4e4b-b348-4caae5d6a0eb" name="Changes" comment="start">
-      <change afterPath="$PROJECT_DIR$/Face/face_engine.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Face/face_verification.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Face/main.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Face/retrieve.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/ML_models/mobilefacenet.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/PythonProject.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/PythonProject.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_12_9_2025_4_41_PM_[Changes]/shelved.patch" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_12_9_2025_4_41_PM__Changes_.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Main.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Main.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Mouse/Module/xgboost_anomaly.py" beforeDir="false" afterPath="$PROJECT_DIR$/ML_models/xgboost_anomaly.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mouse/credit.py" beforeDir="false" afterPath="$PROJECT_DIR$/OldCodeOfFace/credit.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mohinh.py" beforeDir="false" afterPath="$PROJECT_DIR$/OldCodeOfFace/mohinh.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
