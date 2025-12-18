@@ -1,12 +1,15 @@
 import sys
-from PyQt6.QtCore import QUrl, Qt, QTimer
+import time
+from datetime import datetime
+from PyQt6.QtCore import QUrl, Qt, QTimer, QPoint
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEngineProfile
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QVBoxLayout, QHBoxLayout,
-    QWidget, QTabWidget, QPushButton, QLabel, QMessageBox
+    QWidget, QTabWidget, QPushButton, QLabel, QMessageBox,
+    QMenu, QStatusBar, QGraphicsDropShadowEffect
 )
-from PyQt6.QtGui import QFont, QIcon
+from PyQt6.QtGui import QFont, QIcon, QColor, QPalette
 
 
 class SafeWebEngineView(QWebEngineView):
@@ -63,10 +66,12 @@ class SafeWebEngineView(QWebEngineView):
 class TimerWidget(QWidget):
     """Widget đồng hồ đếm thời gian với thiết kế hiện đại"""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, pause_event=None, command_queue=None):
         super().__init__(parent)
         self.elapsed_time = 0
         self.is_running = True
+        self.pause_event = pause_event
+        self.command_queue = command_queue
 
         # Layout
         layout = QHBoxLayout()
@@ -90,13 +95,13 @@ class TimerWidget(QWidget):
             }
         """)
 
-        # Nút Pause
-        self.pause_btn = QPushButton("Pause")
+        # Nút Pause với icon
+        self.pause_btn = QPushButton("⏸ Pause")
         self.pause_btn.setFixedWidth(100)
         self.pause_btn.setFont(QFont("Arial", 10))
         self.pause_btn.setStyleSheet("""
             QPushButton {
-                background-color: #5F6368;
+                background-color: #EA4335;
                 color: white;
                 border: none;
                 padding: 8px 12px;
@@ -104,10 +109,10 @@ class TimerWidget(QWidget):
                 font-weight: bold;
             }
             QPushButton:hover {
-                background-color: #4285F4;
+                background-color: #D23A2D;
             }
             QPushButton:pressed {
-                background-color: #3367D6;
+                background-color: #B3261E;
             }
         """)
         self.pause_btn.clicked.connect(self.toggle_timer)
@@ -122,21 +127,26 @@ class TimerWidget(QWidget):
         self.timer.timeout.connect(self.update_timer)
         self.timer.start(1000)
 
+        # Lưu thời gian bắt đầu
+        self.start_time = time.time()
+
     def update_timer(self):
         if self.is_running:
-            self.elapsed_time += 1
+            self.elapsed_time = int(time.time() - self.start_time)
             hours = self.elapsed_time // 3600
             minutes = (self.elapsed_time % 3600) // 60
             seconds = self.elapsed_time % 60
             self.time_label.setText(f"{hours:02d}:{minutes:02d}:{seconds:02d}")
 
     def toggle_timer(self):
-        self.is_running = not self.is_running
         if self.is_running:
-            self.pause_btn.setText("⏸ Pause")
+            # Pause timer
+            self.is_running = False
+            self.timer.stop()
+            self.pause_btn.setText("▶ Resume")
             self.pause_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #5F6368;
+                    background-color: #34A853;
                     color: white;
                     border: none;
                     padding: 8px 12px;
@@ -144,11 +154,104 @@ class TimerWidget(QWidget):
                     font-weight: bold;
                 }
                 QPushButton:hover {
-                    background-color: #4285F4;
+                    background-color: #2E8B47;
+                }
+                QPushButton:pressed {
+                    background-color: #1E7B37;
                 }
             """)
+
+            # Pause mouse tracking
+            if self.pause_event:
+                self.pause_event.set()
+            if self.command_queue:
+                self.command_queue.put("PAUSE")
+
+            print("⏸ Timer and mouse tracking PAUSED")
         else:
+            # Resume timer
+            self.start_time = time.time() - self.elapsed_time
+            self.is_running = True
+            self.timer.start(1000)
+            self.pause_btn.setText("⏸ Pause")
+            self.pause_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #EA4335;
+                    color: white;
+                    border: none;
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background-color: #D23A2D;
+                }
+                QPushButton:pressed {
+                    background-color: #B3261E;
+                }
+            """)
+
+            # Resume mouse tracking
+            if self.pause_event:
+                self.pause_event.clear()
+            if self.command_queue:
+                self.command_queue.put("RESUME")
+
+            print("▶ Timer and mouse tracking RESUMED")
+
+    def reset_timer(self):
+        self.start_time = time.time()
+        self.elapsed_time = 0
+        self.time_label.setText("00:00:00")
+        self.is_running = True
+        self.timer.start(1000)
+        self.pause_btn.setText("⏸ Pause")
+        self.pause_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #EA4335;
+                color: white;
+                border: none;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #D23A2D;
+            }
+            QPushButton:pressed {
+                background-color: #B3261E;
+            }
+        """)
+
+    def pause_timer(self):
+        """Pause timer từ bên ngoài (khi có alert)"""
+        if self.is_running:
+            self.is_running = False
+            self.timer.stop()
             self.pause_btn.setText("▶ Resume")
+            self.pause_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #FBBC04;
+                    color: #202124;
+                    border: none;
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    font-weight: bold;
+                }
+                QPushButton:hover {
+                    background-color: #F29900;
+                }
+            """)
+            return True
+        return False
+
+    def resume_timer(self):
+        """Resume timer từ bên ngoài (sau alert)"""
+        if not self.is_running:
+            self.start_time = time.time() - self.elapsed_time
+            self.is_running = True
+            self.timer.start(1000)
+            self.pause_btn.setText("⏸ Pause")
             self.pause_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #EA4335;
@@ -162,36 +265,25 @@ class TimerWidget(QWidget):
                     background-color: #D23A2D;
                 }
             """)
-
-    def reset_timer(self):
-        self.elapsed_time = 0
-        self.time_label.setText("00:00:00")
-        self.is_running = True
-        self.pause_btn.setText("⏸ Pause")
-        self.pause_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #5F6368;
-                color: white;
-                border: none;
-                padding: 8px 12px;
-                border-radius: 6px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #4285F4;
-            }
-        """)
+            return True
+        return False
 
 
 class ProfessionalWorkBrowser(QMainWindow):
     """Ứng dụng trình duyệt làm việc chuyên nghiệp với chức năng đóng tab"""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, pause_event=None, command_queue=None, alert_queue=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.setWindowTitle("Professional Workspace Browser")
 
-        # Biến theo dõi trạng thái fullscreen
+        # Lưu các queues và events
+        self.pause_event = pause_event
+        self.command_queue = command_queue
+        self.alert_queue = alert_queue
+
+        # Biến theo dõi trạng thái
         self.is_fullscreen = False
+        self.is_alert_showing = False
 
         # Domain được phép cho Google Workspace
         self.google_domains = [
@@ -345,8 +437,8 @@ class ProfessionalWorkBrowser(QMainWindow):
         control_layout.addWidget(status_container)
         control_layout.addStretch()
 
-        # Đồng hồ
-        self.timer_widget = TimerWidget()
+        # Đồng hồ (truyền pause_event và command_queue)
+        self.timer_widget = TimerWidget(pause_event=pause_event, command_queue=command_queue)
         control_layout.addWidget(self.timer_widget)
 
         control_layout.addSpacing(20)
@@ -434,8 +526,11 @@ class ProfessionalWorkBrowser(QMainWindow):
         self.statusBar().setFont(QFont("Arial", 9))
         self.statusBar().showMessage("✓ Ready - Default tabs cannot be closed | Press F11 for fullscreen")
 
-        # Mặc định fullscreen
-        QTimer.singleShot(500, self.enter_fullscreen)
+        # Timer kiểm tra alert
+        self.alert_check_timer = QTimer()
+        self.alert_check_timer.timeout.connect(self.check_alert_queue)
+        self.alert_check_timer.start(1000)  # Kiểm tra mỗi giây
+
         # Thêm biến lưu callback
         self.on_close_callback = None
 
@@ -463,42 +558,31 @@ class ProfessionalWorkBrowser(QMainWindow):
 
     def show_new_tab_menu(self):
         """Hiển thị menu chọn ứng dụng Google để mở tab mới"""
-        menu = QWidget(self, Qt.WindowType.Popup)
+        menu = QMenu(self)
         menu.setStyleSheet("""
-            QWidget {
+            QMenu {
                 background-color: #303134;
+                color: #E8EAED;
                 border: 1px solid #5F6368;
                 border-radius: 8px;
                 padding: 8px;
             }
+            QMenu::item {
+                padding: 8px 15px;
+                border-radius: 4px;
+            }
+            QMenu::item:selected {
+                background-color: #4285F4;
+                color: white;
+            }
         """)
 
-        layout = QVBoxLayout(menu)
-        layout.setSpacing(5)
-
         for app_name, app_url in self.google_apps.items():
-            btn = QPushButton(f"➕ {app_name}")
-            btn.setFont(QFont("Arial", 10))
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #4285F4;
-                    color: white;
-                    border: none;
-                    padding: 10px 15px;
-                    border-radius: 5px;
-                    text-align: left;
-                }
-                QPushButton:hover {
-                    background-color: #3367D6;
-                }
-            """)
-            btn.clicked.connect(lambda checked, url=app_url, name=app_name: self.add_new_tab(url, name))
-            layout.addWidget(btn)
+            action = menu.addAction(f"➕ {app_name}")
+            action.triggered.connect(lambda checked, url=app_url, name=app_name: self.add_new_tab(url, name))
 
         # Hiển thị menu dưới nút New Tab
-        pos = self.new_tab_btn.mapToGlobal(self.new_tab_btn.rect().bottomLeft())
-        menu.move(pos)
-        menu.show()
+        menu.exec(self.new_tab_btn.mapToGlobal(self.new_tab_btn.rect().bottomLeft()))
 
     def add_new_tab(self, url, title):
         """Thêm tab mới (có thể đóng được)"""
@@ -542,9 +626,11 @@ class ProfessionalWorkBrowser(QMainWindow):
         if self.on_close_callback:
             self.on_close_callback()
 
-        # Dừng timer nếu có
+        # Dừng tất cả timers
         if hasattr(self, 'timer_widget'):
             self.timer_widget.timer.stop()
+        if hasattr(self, 'alert_check_timer'):
+            self.alert_check_timer.stop()
 
     def go_back(self):
         """Quay lại trang trước"""
@@ -585,7 +671,7 @@ class ProfessionalWorkBrowser(QMainWindow):
             """)
         else:
             self.showFullScreen()
-            self.fullscreen_btn.setText("Full Windowed")
+            self.fullscreen_btn.setText("❒ Windowed")
             self.fullscreen_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #34A853;
@@ -601,25 +687,6 @@ class ProfessionalWorkBrowser(QMainWindow):
             """)
 
         self.is_fullscreen = not self.is_fullscreen
-
-    def enter_fullscreen(self):
-        """Vào chế độ fullscreen"""
-        self.showFullScreen()
-        self.is_fullscreen = True
-        self.fullscreen_btn.setText("❒ Windowed")
-        self.fullscreen_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #34A853;
-                color: white;
-                border: none;
-                padding: 8px 15px;
-                border-radius: 6px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #2E8B47;
-            }
-        """)
 
     def confirm_exit(self):
         """Xác nhận thoát ứng dụng - KHÔNG GHI LOG"""
@@ -670,6 +737,157 @@ class ProfessionalWorkBrowser(QMainWindow):
             self.close_tab(current_index)
         else:
             super().keyPressEvent(event)
+
+    def check_alert_queue(self):
+        """Kiểm tra alert queue và hiển thị popup nếu có"""
+        if self.is_alert_showing or not self.alert_queue:
+            return
+
+        try:
+            if not self.alert_queue.empty():
+                alert_data = self.alert_queue.get_nowait()
+                if alert_data:
+                    self.show_alert_popup(alert_data)
+        except Exception as e:
+            print(f"⚠️ Error checking alert queue: {e}")
+
+    def show_alert_popup(self, alert_data):
+        """Hiển thị popup cảnh báo"""
+        self.is_alert_showing = True
+
+        # Pause timer và mouse tracking
+        self.timer_widget.pause_timer()
+        if self.pause_event:
+            self.pause_event.set()
+
+        # Tạo message box cảnh báo
+        msg_box = QMessageBox()
+        msg_box.setWindowTitle("⚠️ SUSPICIOUS MOUSE BEHAVIOR DETECTED!")
+        msg_box.setIcon(QMessageBox.Icon.Warning)
+
+        # Nội dung cảnh báo
+        alert_text = (
+            "HIGH ANOMALY SCORE DETECTED!\n\n"
+            f"Anomaly Score: {alert_data.get('score', 0):.3f}\n"
+            f"Session ID: {alert_data.get('session_id', 'Unknown')}\n"
+            f"Time: {alert_data.get('timestamp', 'N/A')}\n\n"
+            "⚠️ Mouse tracking has been PAUSED.\n"
+            "This could indicate non-human behavior patterns.\n\n"
+            "Click OK to resume tracking."
+        )
+
+        msg_box.setText(alert_text)
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+
+        # Đặt style cho popup
+        msg_box.setStyleSheet("""
+            QMessageBox {
+                background-color: #202124;
+                color: #E8EAED;
+                font-family: Arial;
+                font-size: 12px;
+            }
+            QLabel {
+                color: #E8EAED;
+                font-size: 12px;
+                line-height: 1.5;
+            }
+            QPushButton {
+                background-color: #EA4335;
+                color: white;
+                border: none;
+                padding: 10px 25px;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 12px;
+                min-width: 100px;
+            }
+            QPushButton:hover {
+                background-color: #D23A2D;
+            }
+        """)
+
+        # Hiển thị popup và đợi người dùng OK
+        msg_box.exec()
+
+        # Resume timer và mouse tracking sau khi người dùng OK
+        self.timer_widget.resume_timer()
+        if self.pause_event:
+            self.pause_event.clear()
+        if self.command_queue:
+            self.command_queue.put("RESUME")
+
+        self.is_alert_showing = False
+        print("✅ User acknowledged alert, resuming tracking...")
+
+    def show_alert_popup(self, alert_data):
+        """Hiển thị popup cảnh báo"""
+        self.is_alert_showing = True
+
+        # Pause timer và mouse tracking
+        self.timer_widget.pause_timer()
+        if self.pause_event:
+            self.pause_event.set()
+
+        # Tạo message box cảnh báo
+        msg_box = QMessageBox()
+        msg_box.setWindowTitle("⚠️ SUSPICIOUS MOUSE BEHAVIOR DETECTED!")
+        msg_box.setIcon(QMessageBox.Icon.Warning)
+
+        # Nội dung cảnh báo
+        alert_text = (
+            "HIGH ANOMALY SCORE DETECTED!\n\n"
+            f"Anomaly Score: {alert_data.get('score', 0):.3f}\n"
+            f"Session ID: {alert_data.get('session_id', 'Unknown')}\n"
+            f"Time: {alert_data.get('timestamp', 'N/A')}\n\n"
+            "⚠️ Mouse tracking has been PAUSED.\n"
+            "This could indicate non-human behavior patterns.\n\n"
+            "Click OK to resume tracking."
+        )
+
+        msg_box.setText(alert_text)
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+
+        # Đặt style cho popup
+        msg_box.setStyleSheet("""
+            QMessageBox {
+                background-color: #202124;
+                color: #E8EAED;
+                font-family: Arial;
+                font-size: 12px;
+            }
+            QLabel {
+                color: #E8EAED;
+                font-size: 12px;
+                line-height: 1.5;
+            }
+            QPushButton {
+                background-color: #EA4335;
+                color: white;
+                border: none;
+                padding: 10px 25px;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 12px;
+                min-width: 100px;
+            }
+            QPushButton:hover {
+                background-color: #D23A2D;
+            }
+        """)
+
+        # Hiển thị popup và đợi người dùng OK
+        msg_box.exec()
+
+        # Resume timer và mouse tracking sau khi người dùng OK
+        self.timer_widget.resume_timer()
+        if self.pause_event:
+            self.pause_event.clear()
+        if self.command_queue:
+            self.command_queue.put("RESUME")
+
+        self.is_alert_showing = False
+        print("✅ User acknowledged alert, resuming tracking...")
 
 
 if __name__ == "__main__":

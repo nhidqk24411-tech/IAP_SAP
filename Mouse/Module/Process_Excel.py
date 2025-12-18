@@ -1,183 +1,96 @@
-"""
-Đọc/ghi file Excel với metrics mới - CHỈ DI CHUYỂN
-"""
 import pandas as pd
-from typing import List, Dict, Any
-from Mouse.Models.MouseResult import MouseResult
 import os
+import glob
+from typing import List, Optional
+from Mouse.Models.MouseResult import MouseResult
 
 
 class MouseExcelHandler:
-    """Xử lý Excel cho dữ liệu chuột - CHỈ DI CHUYỂN"""
+    """Xử lý Excel: Ghi báo cáo và Đọc dữ liệu huấn luyện"""
+
+    SAVE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Saved_file")
 
     @staticmethod
-    def export_multiple_sessions(sessions: List[MouseResult], filename_prefix: str = "mouse_analysis"):
+    def load_training_data() -> Optional[pd.DataFrame]:
         """
-        Xuất nhiều sessions vào một file Excel
-
-        Args:
-            sessions: Danh sách MouseResult
-            filename_prefix: Tiền tố tên file
-
-        Returns:
-            str: Đường dẫn file đã lưu, hoặc None nếu lỗi
+        Đọc TẤT CẢ file Excel trong thư mục Saved_file để làm dữ liệu huấn luyện.
+        Tìm sheet chứa dữ liệu training (All_Sessions, Metrics_Detail, hoặc sheet đầu tiên).
         """
+        if not os.path.exists(MouseExcelHandler.SAVE_DIR):
+            print(f"⚠️ Directory not found: {MouseExcelHandler.SAVE_DIR}")
+            print(f"📁 Creating directory: {MouseExcelHandler.SAVE_DIR}")
+            os.makedirs(MouseExcelHandler.SAVE_DIR, exist_ok=True)
+            return None
+
+        # Lấy tất cả file .xlsx
+        all_files = glob.glob(os.path.join(MouseExcelHandler.SAVE_DIR, "*.xlsx"))
+        if not all_files:
+            print("⚠️ No Excel files found for training.")
+            return None
+
+        print(f"📚 Found {len(all_files)} Excel files. Loading...")
+
+        df_list = []
+        ALL_FEATURES = [
+            'Velocity', 'Acceleration',
+            'XFlips', 'YFlips',
+            'TotalDistance', 'MovementTimeSpan',
+            'XVelocity', 'YVelocity',
+            'XAxisDistance', 'YAxisDistance'
+        ]
+
+        for file in all_files:
+            try:
+                # Đọc tất cả sheet trong file
+                xls = pd.ExcelFile(file)
+                for sheet_name in xls.sheet_names:
+                    try:
+                        df = pd.read_excel(file, sheet_name=sheet_name)
+                        # Kiểm tra xem có chứa ít nhất một cột trong ALL_FEATURES không
+                        if any(col in df.columns for col in ALL_FEATURES):
+                            print(f"   - Sheet '{sheet_name}' in file {os.path.basename(file)} contains training data.")
+                            df_list.append(df)
+                            break  # Chỉ lấy một sheet từ mỗi file
+                    except Exception as e:
+                        print(f"   - Error reading sheet '{sheet_name}' in {os.path.basename(file)}: {e}")
+            except Exception as e:
+                print(f" - Error reading file {os.path.basename(file)}: {e}")
+
+        if not df_list:
+            print("⚠️ No training data found in any sheet.")
+            return None
+
+        final_df = pd.concat(df_list, ignore_index=True)
+        print(f"✅ Loaded {len(final_df)} rows of historical data.")
+        print(f"📊 Columns in data: {final_df.columns.tolist()}")
+        return final_df
+
+    @staticmethod
+    def export_multiple_sessions(sessions: List[MouseResult], filename_prefix="mouse_analysis"):
+        # Tạo thư mục nếu chưa tồn tại
+        os.makedirs(MouseExcelHandler.SAVE_DIR, exist_ok=True)
+
+        timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+        filepath = os.path.join(MouseExcelHandler.SAVE_DIR, f"{filename_prefix}_{timestamp}.xlsx")
+
         try:
-            # Tạo thư mục nếu chưa có
-            saved_dir = "Saved_file"
-            os.makedirs(saved_dir, exist_ok=True)
-
-            # Tạo tên file với timestamp
-            import datetime
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{filename_prefix}_{timestamp}.xlsx"
-            filepath = os.path.join(saved_dir, filename)
-
             with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
-                # 1. Sheet tất cả sessions
-                all_data = []
-                for session in sessions:
-                    data = session.to_dict()
-                    data['AlertCount'] = len(session.alerts)
-                    data['HasCriticalAlert'] = any(a['level'] in ['CRITICAL', 'HIGH'] for a in session.alerts)
-                    all_data.append(data)
+                # Sheet 1: Data raw metrics
+                data = [s.to_dict() for s in sessions]
+                pd.DataFrame(data).to_excel(writer, sheet_name='All_Sessions', index=False)
 
-                df_all = pd.DataFrame(all_data)
-                df_all.to_excel(writer, sheet_name='All_Sessions', index=False)
+                # Sheet 2: Alerts (nếu có)
+                alerts = []
+                for s in sessions:
+                    for a in s.alerts:
+                        alerts.append({'Session': s.session_id, **a})
+                if alerts:
+                    pd.DataFrame(alerts).to_excel(writer, sheet_name='Alerts', index=False)
 
-                # 2. Sheet summary
-                MouseExcelHandler._write_summary_sheet(writer, sessions)
-
-                # 3. Sheet alerts (nếu có)
-                alert_sessions = [s for s in sessions if s.alerts]
-                if alert_sessions:
-                    MouseExcelHandler._write_alerts_sheet(writer, alert_sessions)
-
-                # 4. Sheet metrics mẫu (session đầu tiên)
-                if sessions:
-                    MouseExcelHandler._write_detailed_metrics(writer, sessions[0])
-
-            print(f"✅ Đã xuất {len(sessions)} sessions vào: {filepath}")
+            print(f"💾 File saved: {filepath}")
             return filepath
-
         except Exception as e:
-            print(f"❌ Lỗi xuất nhiều sessions: {e}")
+            print(f"❌ Error saving file: {e}")
             import traceback
             traceback.print_exc()
             return None
-
-    @staticmethod
-    def _write_summary_sheet(writer, sessions: List[MouseResult]):
-        """Viết sheet summary"""
-        try:
-            if not sessions:
-                return
-
-            total = len(sessions)
-            anomaly_sessions = sum(1 for r in sessions if r.anomaly_score > 0.7)  # Ngưỡng mặc định
-            alert_sessions = sum(1 for r in sessions if r.alerts)
-
-            summary_data = {
-                'Metric': [
-                    'Tổng số phiên',
-                    'Tổng thời gian (phút)',
-                    'Phiên bất thường',
-                    'Phiên có cảnh báo',
-                    'Tổng số events',
-                    'Tổng quãng đường (px)',
-                    'Vận tốc trung bình (px/s)',
-                    'Tỉ lệ bất thường'
-                ],
-                'Value': [
-                    total,
-                    sum(r.duration_seconds for r in sessions) / 60,
-                    anomaly_sessions,
-                    alert_sessions,
-                    sum(r.total_events for r in sessions),
-                    sum(r.total_distance for r in sessions),
-                    sum(r.velocity_ui for r in sessions) / max(total, 1),
-                    f"{anomaly_sessions / max(total, 1) * 100:.1f}%"
-                ]
-            }
-
-            df_summary = pd.DataFrame(summary_data)
-            df_summary.to_excel(writer, sheet_name='Summary', index=False)
-
-        except Exception as e:
-            print(f"⚠️ Lỗi viết summary sheet: {e}")
-
-    @staticmethod
-    def _write_alerts_sheet(writer, sessions: List[MouseResult]):
-        """Viết sheet alerts"""
-        try:
-            alert_rows = []
-            for session in sessions:
-                for alert in session.alerts:
-                    alert_rows.append({
-                        'Session_ID': session.session_id,
-                        'Alert_Level': alert.get('level', 'UNKNOWN'),
-                        'Alert_Type': alert.get('type', 'UNKNOWN'),
-                        'Message': alert.get('message', ''),
-                        'Anomaly_Score': session.anomaly_score,
-                        'Timestamp': session.start_time.strftime('%Y-%m-%d %H:%M:%S')
-                    })
-
-            if alert_rows:
-                df_alerts = pd.DataFrame(alert_rows)
-                df_alerts.to_excel(writer, sheet_name='Alerts', index=False)
-
-        except Exception as e:
-            print(f"⚠️ Lỗi viết alerts sheet: {e}")
-
-    @staticmethod
-    def _write_detailed_metrics(writer, session: MouseResult):
-        """Viết sheet metrics chi tiết (mẫu từ 1 session)"""
-        try:
-            metrics_data = {
-                'Metric': [
-                    'Total Distance', 'X Distance', 'Y Distance',
-                    'Movement Time Span', 'Total Duration',
-                    'X Flips', 'Y Flips', 'Max Deviation',
-                    'Average Velocity', 'Average Acceleration',
-                    'X Axis Velocity', 'Y Axis Velocity',
-                    'X Axis Acceleration', 'Y Axis Acceleration'
-                ],
-                'Value': [
-                    session.total_distance,
-                    session.x_axis_distance,
-                    session.y_axis_distance,
-                    session.movement_time_span,
-                    session.duration_seconds,
-                    session.x_flips,
-                    session.y_flips,
-                    #session.max_deviation_ui,
-                    session.velocity_ui,
-                    session.acceleration_ui,
-                    getattr(session, 'x_axis_velocity_ui', 0),
-                    getattr(session, 'y_axis_velocity_ui', 0),
-                    getattr(session, 'x_axis_acceleration_ui', 0),
-                    getattr(session, 'y_axis_acceleration_ui', 0)
-                ],
-                'Description': [
-                    'Tổng quãng đường di chuyển (px)',
-                    'Quãng đường trục X (px)',
-                    'Quãng đường trục Y (px)',
-                    'Thời gian di chuyển (s)',
-                    'Tổng thời gian session (s)',
-                    'Số lần đổi hướng trục X',
-                    'Số lần đổi hướng trục Y',
-                    #'Độ lệch tối đa so với đường thẳng (px)',
-                    'Vận tốc trung bình (px/s)',
-                    'Gia tốc trung bình (px/s²)',
-                    'Vận tốc trung bình trục X (px/s)',
-                    'Vận tốc trung bình trục Y (px/s)',
-                    'Gia tốc trung bình trục X (px/s²)',
-                    'Gia tốc trung bình trục Y (px/s²)'
-                ]
-            }
-
-            df_metrics = pd.DataFrame(metrics_data)
-            df_metrics.to_excel(writer, sheet_name='Metrics_Detail', index=False)
-
-        except Exception as e:
-            print(f"⚠️ Lỗi viết metrics sheet: {e}")
