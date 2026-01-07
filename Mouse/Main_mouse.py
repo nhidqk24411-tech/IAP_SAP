@@ -3,6 +3,7 @@ import signal
 import sys
 import pandas as pd
 from datetime import datetime
+import os
 
 from Mouse.Module.real_time_tracker import RealTimeTracker
 from Mouse.Module.real_time_processor import RealTimeProcessor
@@ -15,58 +16,72 @@ class MouseAnalysisSystem:
     SESSION_DURATION = 60
     ANOMALY_THRESHOLD = 0.75
 
-    def __init__(self):
+    def __init__(self, global_logger=None):  # THÊM THAM SỐ global_logger
         self.tracker = RealTimeTracker()
         self.processor = RealTimeProcessor()
-        self.excel_handler = MouseExcelHandler()
+        self.user_name = None
+        self.global_logger = global_logger  # LƯU global_logger
+        self.excel_handler = None
         self.ai_model = BehaviorModel()
 
         self.all_results = []
+        self.fraud_sessions = []
         self.session_count = 0
         self.auto_save = True
 
         signal.signal(signal.SIGTERM, self._handle_exit)
         signal.signal(signal.SIGINT, self._handle_exit)
 
-        # Khởi tạo model
+    def setup_user(self, user_name):
+        """Thiết lập user cho mouse system - DÙNG global_logger"""
+        self.user_name = user_name
+        # TRUYỀN global_logger vào MouseExcelHandler
+        self.excel_handler = MouseExcelHandler(user_name, self.global_logger)
+        print(f"🖱️ Mouse system setup for user: {user_name}")
+
+        # Khởi tạo model với user_name
         self._init_model()
 
     def _init_model(self):
-        """Khởi tạo và train model từ dữ liệu lịch sử"""
-        print("\n🔍 Initializing AI Model...")
+        """Chỉ load model từ .pkl, KHÔNG train lại nếu đã có model"""
+        print(f"\n🔍 Initializing AI Model for user: {self.user_name}")
 
-        # Kiểm tra nếu model đã được load
+        # Kiểm tra xem model đã được load từ .pkl chưa
         if self.ai_model.xgb_model is not None:
-            print(f"✅ Model already loaded with {len(self.ai_model.selected_features)} features")
-            return
+            print(f"✅ Model loaded from .pkl with {len(self.ai_model.selected_features)} features")
+            print(f"✅ Features: {self.ai_model.selected_features}")
+            return  # ĐÃ CÓ MODEL, KHÔNG CẦN TRAIN LẠI
 
-        # Tải dữ liệu training
-        print("📚 Loading training data from Excel files...")
-        df_history = self.excel_handler.load_training_data()
+        # Nếu không có model (file .pkl không tồn tại hoặc hỏng)
+        print("⚠️ No model found in .pkl, loading training data...")
 
-        if df_history is not None:
-            print(f"📊 Training data shape: {df_history.shape}")
+        # Chỉ load Excel để train khi KHÔNG có .pkl
+        df_history = self.excel_handler.load_training_data(self.user_name)
 
-            # Train model
-            print("🧠 Training AI model with historical data...")
+        if df_history is not None and len(df_history) >= self.ai_model.MIN_TRAIN_SAMPLES:
+            print(f"📊 Training with {len(df_history)} samples from Excel...")
             success = self.ai_model.train(df_history)
-
             if success:
-                print(f"✅ Model trained successfully!")
-                print(f"✅ Selected features: {self.ai_model.selected_features}")
-                print(f"✅ Training samples: {len(df_history)}")
-            else:
-                print("⚠️ Model training failed. Will use default model.")
+                print("✅ Model trained from Excel data")
         else:
-            print("⚠️ No historical data found. Model will learn from new sessions.")
+            print("⚠️ Insufficient Excel data. Model will learn from new sessions.")
 
-    # =========================
-    # MAIN LOOP
-    # =========================
-    def run_continuous_analysis(self, stop_event, pause_event, command_queue, alert_queue):
+    def run_continuous_analysis(self, stop_event, pause_event, command_queue, alert_queue, user_name=None,
+                                global_logger=None):
+        """Chạy phân tích liên tục với user_name - NHẬN global_logger"""
+
+        # Thiết lập global_logger nếu được truyền vào
+        if global_logger is not None:
+            self.global_logger = global_logger
+
+        # Thiết lập user nếu chưa được thiết lập
+        if user_name and not self.user_name:
+            self.setup_user(user_name)
+
         print("=" * 60)
-        print("🛡️  MOUSE ANALYSIS SYSTEM STARTED")
+        print(f"🛡️ MOUSE ANALYSIS SYSTEM STARTED for user: {self.user_name}")
         print(f"✅ Model status: {'TRAINED' if self.ai_model.xgb_model else 'NOT TRAINED'}")
+        print(f"✅ Global logger: {'ACTIVE' if self.global_logger else 'INACTIVE'}")
         print("=" * 60)
 
         try:
@@ -86,21 +101,38 @@ class MouseAnalysisSystem:
                 if result:
                     self.all_results.append(result)
 
-                    # Kiểm tra nếu là anomaly
+                    # LOG SESSION VÀO GLOBAL LOGGER NGAY LẬP TỨC
+                    if self.excel_handler:
+                        self.excel_handler.log_session_data(result)
+                        print(f"📝 Session {self.session_count} logged to global logger")
+
+                    # Thêm vào fraud_sessions nếu có gian lận
                     if result.is_suspicious:
+                        self.fraud_sessions.append(result)
                         print(f"🚨 ALERT: Anomaly detected (score: {result.anomaly_score:.3f})")
 
-                        # Gửi alert đến browser (sẽ pause cả timer và mouse tracking)
+                        # LOG CẢNH BÁO GIAN LẬN
+                        if self.global_logger:
+                            self.global_logger.log_alert(
+                                "Mouse",
+                                "ANOMALY_DETECTED",
+                                f"Mouse anomaly detected - Score: {result.anomaly_score:.3f}",
+                                "CRITICAL",
+                                is_fraud=True
+                            )
+
+                        # Gửi alert đến browser
                         try:
                             alert_data = {
                                 'session_id': result.session_id,
                                 'score': result.anomaly_score,
-                                'timestamp': datetime.now().strftime("%H:%M:%S")
+                                'timestamp': datetime.now().strftime("%H:%M:%S"),
+                                'user': self.user_name
                             }
                             alert_queue.put(alert_data)
                             print("📨 Alert sent to browser")
 
-                            # Đợi lệnh từ browser (người dùng ấn OK)
+                            # Đợi lệnh từ browser
                             print("⏳ Waiting for user confirmation...")
                             while pause_event.is_set() and not stop_event.is_set():
                                 time.sleep(0.5)
@@ -111,17 +143,16 @@ class MouseAnalysisSystem:
                         # Hiển thị thông tin bình thường
                         print(f"📊 Session {self.session_count}: Normal (score: {result.anomaly_score:.3f})")
 
-                    # Auto save mỗi 5 session
-                    if self.auto_save and len(self.all_results) >= 5:
-                        self.excel_handler.export_multiple_sessions(self.all_results)
-                        print(f"💾 Auto-saved {len(self.all_results)} sessions")
+                    # Auto save mỗi 3 session (giảm từ 5 xuống 3 để lưu thường xuyên hơn)
+                    if self.auto_save and len(self.all_results) >= 3:
+                        self._save_sessions()
                         self.all_results = []
+                        self.fraud_sessions = []
 
         finally:
             self._stop_and_save()
-
     # =========================
-    # SINGLE SESSION
+    # SINGLE SESSION (GIỮ NGUYÊN)
     # =========================
     def _run_single_session(self, stop_event, pause_event):
         events = self.tracker.collect_events(self.SESSION_DURATION, stop_event=stop_event, pause_event=pause_event)
@@ -142,17 +173,21 @@ class MouseAnalysisSystem:
         return self._create_result(metrics, score)
 
     # =========================
-    # RESULT BUILD
+    # RESULT BUILD (GIỮ NGUYÊN)
     # =========================
     def _create_result(self, metrics, score):
         alerts = []
 
         # CHỈ THÊM ALERT KHI CÓ ANOMALY
         if score > self.ANOMALY_THRESHOLD:
-            alerts.append({'level': 'HIGH', 'msg': f'Anomaly Behavior (score: {score:.2f})'})
+            alerts.append({
+                'type': 'ANOMALY',
+                'message': f'Anomaly Behavior (score: {score:.2f})',
+                'severity': 'HIGH'
+            })
 
         return MouseResult(
-            session_id=f"S_{datetime.now():%H%M%S}_{self.session_count}",
+            session_id=f"S_{datetime.now().strftime('%H%M%S')}_{self.session_count}",
             start_time=datetime.now(),
             end_time=datetime.now(),
             total_events=metrics.get('raw_count', 0),
@@ -175,8 +210,17 @@ class MouseAnalysisSystem:
             anomaly_score=score
         )
 
+    def _save_sessions(self):
+        """Lưu session data và fraud alerts"""
+        print(f"\n💾 Auto-saving mouse data for user: {self.user_name}")
+
+        # Lưu qua global logger
+        if self.global_logger:
+            self.global_logger.save_to_excel()
+            print(f"✅ Data saved to global logger")
+
     # =========================
-    # SAFE EXIT
+    # SAFE EXIT (ĐÃ SỬA)
     # =========================
     def _handle_exit(self, *args):
         print("⚠️ Forced exit detected.")
@@ -184,13 +228,27 @@ class MouseAnalysisSystem:
         sys.exit(0)
 
     def _stop_and_save(self):
-        if not self.all_results:
-            print("ℹ️ No data to save.")
-            return
+        """Lưu dữ liệu khi kết thúc - ƯU TIÊN GLOBAL LOGGER"""
+        try:
+            print(f"\n💾 Saving FINAL mouse data for user: {self.user_name}...")
 
-        print("\n💾 Saving mouse session data...")
-        path = self.excel_handler.export_multiple_sessions(self.all_results)
-        if path:
-            print(f"✅ Data saved to: {path}")
-        else:
-            print("❌ Failed to save data.")
+            # LƯU TẤT CẢ SESSION CUỐI CÙNG
+            if self.all_results and self.excel_handler:
+                self.excel_handler.log_session_data(self.all_results)
+                print(f"✅ Logged {len(self.all_results)} final sessions")
+
+            # LƯU DỮ LIỆU CUỐI CÙNG VÀO GLOBAL LOGGER
+            if self.global_logger:
+                self.global_logger.save_final_data()
+                print(f"✅ Final data saved to global logger")
+
+            # LƯU QUA EXCEL HANDLER (BACKUP)
+            if self.excel_handler:
+                self.excel_handler.save_final_data()
+
+            print(f"✅ All mouse data saved successfully for user: {self.user_name}")
+
+        except Exception as e:
+            print(f"❌ Error saving mouse data: {e}")
+            import traceback
+            traceback.print_exc()

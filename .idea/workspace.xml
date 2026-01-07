@@ -5,19 +5,54 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="af2765fa-5722-4e4b-b348-4caae5d6a0eb" name="Changes" comment="start">
-      <change afterPath="$PROJECT_DIR$/Interface/Session_launcher.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Workspace/SafeWorkingBrowser.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/test.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chatbot/SAP_Gen.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chatbot/chatbot_launcher.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chatbot/dashboard.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chatbot/data_processor.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Chatbot/tets.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Face/Save_file/embeddings.npy" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Face/Save_file/ids.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Face/Save_file/names.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MainApp/main_intergrated.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Face/face_engine.py" beforeDir="false" afterPath="$PROJECT_DIR$/Face/face_engine.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Face/face_verification.py" beforeDir="false" afterPath="$PROJECT_DIR$/Face/face_verification.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Face/main_face.py" beforeDir="false" afterPath="$PROJECT_DIR$/Face/main_face.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Face/retrieve.py" beforeDir="false" afterPath="$PROJECT_DIR$/Face/retrieve.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Interface/Session_launcher.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Interface/UI_HOME - emp - Dashboard.ui" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Interface/UI_HOME - emp.ui" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Interface/UI_HOME - ĐN - Copy.ui" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Interface/UI_HOME_emp.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Interface/UI_Home_empEX.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Interface/user_behavior_xgb_lasso.pkl" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ML_models/mobilefacenet.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/ML_models/xgboost_anomaly.py" beforeDir="false" afterPath="$PROJECT_DIR$/ML_models/xgboost_anomaly.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Mouse/Main_mouse.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Main_mouse.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Mouse/Models/MouseEvents.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Models/MouseEvents.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Mouse/Models/MouseResult.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Models/MouseResult.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Mouse/Module/Process_Excel.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Module/Process_Excel.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Mouse/Module/real_time_processor.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Module/real_time_processor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Mouse/Module/real_time_tracker.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Module/real_time_tracker.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SafeWorkingBrowser.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Saved_file/mouse_analysis_20251212_112117.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mouse/Saved_file/mouse_analysis_20251218_124821.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mouse/Saved_file/mouse_analysis_20251218_132746.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mouse/Saved_file/mouse_analysis_20251218_132839.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Mouse/Saved_file/training_data_mouse_binary_label.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/OldCodeOfFace/credit.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/OldCodeOfFace/mohinh.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/UI_LOGIN/UI_FACEID.ui" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/UI_FACEID.ui" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/UI_LOGIN/UI_LOGIN.ui" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/UI_LOGIN.ui" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/UI_LOGIN/images/1.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/images/1.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/UI_LOGIN/images/2.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/images/2.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/UI_LOGIN/images/3.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/images/3.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/UI_LOGIN/images/4.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/images/4.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/UI_LOGIN/images/5.png" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/images/5.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/UI_LOGIN/images/6.png" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/images/6.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/UI_LOGIN/images/avt.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/images/avt.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/UI_LOGIN/images/avt1.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/images/avt1.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/UI_LOGIN/images/background2.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/images/background2.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/UI_LOGIN/images/background5.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/images/background5.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/UI_LOGIN/main_faceid.py" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/main_faceid.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/UI_LOGIN/main_login.py" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/main_login.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Workspace/SafeWorkingBrowser.py" beforeDir="false" afterPath="$PROJECT_DIR$/Workspace/SafeWorkingBrowser.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test.py" beforeDir="false" afterPath="$PROJECT_DIR$/test.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -62,18 +97,33 @@
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
     "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python tests.Python tests in face_engine.py.executor": "Run",
+    "Python tests.Python tests in tets.py.executor": "Run",
     "Python.Launcher (1).executor": "Run",
     "Python.Main (1).executor": "Run",
     "Python.Main.executor": "Run",
     "Python.Main_mouse.executor": "Run",
     "Python.Mouse_module.executor": "Run",
     "Python.Process_mouse_data.executor": "Run",
+    "Python.SAP_Gen.executor": "Run",
+    "Python.SafeWorkingBrowser.executor": "Run",
     "Python.Session_launcher.executor": "Run",
     "Python.UI_Home_empEX.executor": "Run",
+    "Python.app.executor": "Run",
+    "Python.chatbot_launcher.executor": "Run",
+    "Python.config.executor": "Run",
+    "Python.dashboard.executor": "Run",
+    "Python.employee_chatbot.executor": "Run",
     "Python.main.executor": "Run",
     "Python.main_app.executor": "Run",
+    "Python.main_face.executor": "Run",
+    "Python.main_intergrated (1).executor": "Run",
+    "Python.main_intergrated (2).executor": "Run",
+    "Python.main_intergrated.executor": "Run",
+    "Python.retrieve.executor": "Run",
     "Python.temp_browser_launcher.executor": "Run",
     "Python.test.executor": "Run",
+    "Python.xgboost_anomaly.executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
@@ -84,15 +134,15 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
-      <recent name="C:\Users\legal\PycharmProjects\PythonProject\Mouse\Saved_file" />
-      <recent name="C:\Users\legal\PycharmProjects\PythonProject" />
-      <recent name="C:\Users\legal\PycharmProjects\PythonProject\Face\Wokrspace" />
-      <recent name="C:\Users\legal\PycharmProjects\PythonProject\Interface" />
-      <recent name="C:\Users\legal\PycharmProjects\PythonProject\OldCodeOfFace" />
+      <recent name="C:\Users\legal\PycharmProjects\PythonProject\Saved_file\Giang\2026_01" />
+      <recent name="C:\Users\legal\PycharmProjects\PythonProject\Saved_file\Giang\Mouse\2026_01" />
+      <recent name="C:\Users\legal\PycharmProjects\PythonProject\Saved_file\Giang\Mouse\2025_12" />
+      <recent name="C:\Users\legal\PycharmProjects\PythonProject\Saved_file" />
+      <recent name="C:\Users\legal\PycharmProjects\PythonProject\Interface\UI_LOGIN" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.UI_Home_empEX">
-    <configuration name="Main_mouse" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.chatbot_launcher">
+    <configuration name="SAP_Gen" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PythonProject" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -101,11 +151,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Mouse" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Chatbot" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Mouse/Main_mouse.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Chatbot/SAP_Gen.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -114,7 +164,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="Session_launcher" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="chatbot_launcher" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PythonProject" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -123,11 +173,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Interface" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Chatbot" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Interface/Session_launcher.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Chatbot/chatbot_launcher.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -136,7 +186,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="UI_Home_empEX" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="dashboard" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PythonProject" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -145,11 +195,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Interface" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Chatbot" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Interface/UI_Home_empEX.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Chatbot/dashboard.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -158,7 +208,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="temp_browser_launcher" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="main_intergrated (2)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PythonProject" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -167,11 +217,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Interface" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/MainApp" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Interface/temp_browser_launcher.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/MainApp/main_intergrated.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -180,35 +230,28 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="test" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="Python tests in tets.py" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
       <module name="PythonProject" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
       <option name="SDK_HOME" value="" />
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/test.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;$PROJECT_DIR$/Chatbot/tets.py&quot;" />
+      <option name="_new_targetType" value="&quot;PATH&quot;" />
       <method v="2" />
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.UI_Home_empEX" />
-        <item itemvalue="Python.test" />
-        <item itemvalue="Python.Session_launcher" />
-        <item itemvalue="Python.Main_mouse" />
-        <item itemvalue="Python.temp_browser_launcher" />
+        <item itemvalue="Python.chatbot_launcher" />
+        <item itemvalue="Python.dashboard" />
+        <item itemvalue="Python.main_intergrated (2)" />
+        <item itemvalue="Python tests.Python tests in tets.py" />
+        <item itemvalue="Python.SAP_Gen" />
       </list>
     </recent_temporary>
   </component>
@@ -259,7 +302,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765968162066</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="start">
+      <option name="closed" value="true" />
+      <created>1766039482840</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1766039482840</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">

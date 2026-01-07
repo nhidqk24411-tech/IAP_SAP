@@ -701,12 +701,19 @@ class ProfessionalWorkBrowser(QMainWindow):
         )
 
         if reply == QMessageBox.StandardButton.Yes:
-            QApplication.quit()
+            # Chỉ đóng browser, không đóng toàn bộ app
+            if self.on_close_callback:
+                self.on_close_callback()
+            self.close()
 
     def closeEvent(self, event):
-        """Xử lý khi đóng cửa sổ"""
-        event.ignore()
-        self.confirm_exit()
+        """Xử lý khi đóng cửa sổ - SỬA LỖI: XÓA BỎ PHƯƠNG THỨC TRÙNG LẶP"""
+        # Gọi callback nếu có
+        if hasattr(self, 'on_close_callback') and self.on_close_callback:
+            self.on_close_callback()
+
+        # Chấp nhận sự kiện đóng
+        event.accept()
 
     def keyPressEvent(self, event):
         """Xử lý phím tắt"""
@@ -752,76 +759,7 @@ class ProfessionalWorkBrowser(QMainWindow):
             print(f"⚠️ Error checking alert queue: {e}")
 
     def show_alert_popup(self, alert_data):
-        """Hiển thị popup cảnh báo"""
-        self.is_alert_showing = True
-
-        # Pause timer và mouse tracking
-        self.timer_widget.pause_timer()
-        if self.pause_event:
-            self.pause_event.set()
-
-        # Tạo message box cảnh báo
-        msg_box = QMessageBox()
-        msg_box.setWindowTitle("⚠️ SUSPICIOUS MOUSE BEHAVIOR DETECTED!")
-        msg_box.setIcon(QMessageBox.Icon.Warning)
-
-        # Nội dung cảnh báo
-        alert_text = (
-            "HIGH ANOMALY SCORE DETECTED!\n\n"
-            f"Anomaly Score: {alert_data.get('score', 0):.3f}\n"
-            f"Session ID: {alert_data.get('session_id', 'Unknown')}\n"
-            f"Time: {alert_data.get('timestamp', 'N/A')}\n\n"
-            "⚠️ Mouse tracking has been PAUSED.\n"
-            "This could indicate non-human behavior patterns.\n\n"
-            "Click OK to resume tracking."
-        )
-
-        msg_box.setText(alert_text)
-        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
-
-        # Đặt style cho popup
-        msg_box.setStyleSheet("""
-            QMessageBox {
-                background-color: #202124;
-                color: #E8EAED;
-                font-family: Arial;
-                font-size: 12px;
-            }
-            QLabel {
-                color: #E8EAED;
-                font-size: 12px;
-                line-height: 1.5;
-            }
-            QPushButton {
-                background-color: #EA4335;
-                color: white;
-                border: none;
-                padding: 10px 25px;
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 12px;
-                min-width: 100px;
-            }
-            QPushButton:hover {
-                background-color: #D23A2D;
-            }
-        """)
-
-        # Hiển thị popup và đợi người dùng OK
-        msg_box.exec()
-
-        # Resume timer và mouse tracking sau khi người dùng OK
-        self.timer_widget.resume_timer()
-        if self.pause_event:
-            self.pause_event.clear()
-        if self.command_queue:
-            self.command_queue.put("RESUME")
-
-        self.is_alert_showing = False
-        print("✅ User acknowledged alert, resuming tracking...")
-
-    def show_alert_popup(self, alert_data):
-        """Hiển thị popup cảnh báo"""
+        """Hiển thị popup cảnh báo - SỬA LỖI: XÓA BỎ PHƯƠNG THỨC TRÙNG LẶP"""
         self.is_alert_showing = True
 
         # Pause timer và mouse tracking
