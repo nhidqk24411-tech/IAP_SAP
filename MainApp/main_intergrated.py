@@ -127,10 +127,10 @@ from Workspace.SafeWorkingBrowser import ProfessionalWorkBrowser
 
 
 # ============================================
-# GLOBAL EXCEL LOGGER - CẬP NHẬT THÊM BROWSER TIME LOGGING
+# GLOBAL EXCEL LOGGER - ĐƠN GIẢN CHỈ GHI TỔNG THỜI GIAN
 # ============================================
 class GlobalExcelLogger:
-    """Logger toàn cục cho tất cả module - CHỈ LƯU GIAN LẬN + THÊM BROWSER TIME"""
+    """Logger toàn cục cho tất cả module"""
 
     def __init__(self, user_name):
         self.user_name = user_name
@@ -150,17 +150,15 @@ class GlobalExcelLogger:
         )
 
         # Data storage
-        self.fraud_events = []  # Sheet 1: CHỈ sự kiện gian lận (IsFraud = 1)
-        self.mouse_details = []  # Sheet 2: Chi tiết chuột (có cả bình thường và gian lận)
-        self.browser_time_logs = []  # Sheet 3: Thời gian làm việc trên browser MỚI
+        self.fraud_events = []  # Sheet 1: CHỈ sự kiện gian lận
+        self.mouse_details = []  # Sheet 2: Chi tiết chuột
+        self.browser_sessions = []  # Sheet 3: Tổng thời gian làm việc trên browser (ĐƠN GIẢN)
 
         self.last_save_time = time.time()
         self.save_interval = 60
 
         print(f"🌐 Global logger initialized: {self.excel_path}")
-        print(f"   Mode: Only fraud events saved to All_Events sheet")
-        print(f"   Added: Browser Time Logging sheet")
-
+        print(f"   Added: Browser Sessions (simple time tracking)")
     def log_alert(self, module, event_type, details="", severity="INFO", is_fraud=False):
         """Ghi log cảnh báo - CHỈ LƯU NẾU LÀ GIAN LẬN (is_fraud=True)"""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -228,42 +226,21 @@ class GlobalExcelLogger:
         else:
             print(f"ℹ️  [Browser] {event_type} - {details}")
 
-    def log_browser_time(self, event_type, url="", tab_name="", start_time=None, end_time=None, duration_seconds=0):
-        """Ghi log thời gian làm việc trên browser - MỚI"""
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        if start_time is None:
-            start_time = timestamp
-        if end_time is None:
-            end_time = timestamp
-
-        # Tính duration nếu chưa có
-        if duration_seconds == 0 and isinstance(start_time, str) and isinstance(end_time, str):
-            try:
-                start_dt = datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
-                end_dt = datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
-                duration_seconds = (end_dt - start_dt).total_seconds()
-            except:
-                duration_seconds = 0
-
-        browser_entry = {
-            "Timestamp": timestamp,
-            "Event_Type": event_type,
-            "URL": url[:200] if url else "",  # Giới hạn độ dài URL
-            "Tab_Name": tab_name[:100] if tab_name else "",
-            "Start_Time": start_time,
-            "End_Time": end_time,
-            "Duration_Seconds": duration_seconds,
-            "Duration_Formatted": self.format_duration(duration_seconds),
-            "User": self.user_name,
+    def log_browser_session(self, session_start, session_end, total_seconds):
+        """Ghi log phiên làm việc trên browser - CHỈ TỔNG THỜI GIAN"""
+        session_entry = {
             "Session_ID": self.session_id,
+            "User": self.user_name,
+            "Session_Start": session_start,
+            "Session_End": session_end,
+            "Total_Seconds": total_seconds,
+            "Total_Time": self.format_duration(total_seconds),
             "Date": datetime.now().strftime("%Y-%m-%d"),
-            "Time": datetime.now().strftime("%H:%M:%S"),
-            "Module": "Browser_Time"
+            "Module": "Browser_Session"
         }
 
-        self.browser_time_logs.append(browser_entry)
-        print(f"⏱️  [Browser Time] {event_type} - {tab_name} - {self.format_duration(duration_seconds)}")
+        self.browser_sessions.append(session_entry)
+        print(f"⏱️  Browser Session: {self.format_duration(total_seconds)}")
 
     def format_duration(self, seconds):
         """Format thời gian từ seconds sang HH:MM:SS"""
@@ -277,13 +254,13 @@ class GlobalExcelLogger:
     def save_to_excel(self):
         """Lưu vào file Excel với 3 sheets"""
         try:
-            # Sheet 1: CHỈ sự kiện gian lận
+            # Sheet 1: Sự kiện gian lận
             df_fraud = pd.DataFrame(self.fraud_events) if self.fraud_events else pd.DataFrame(columns=[
                 "Timestamp", "Event_Type", "Details", "User", "Session_ID",
                 "Severity", "IsFraud", "Date", "Time", "Module"
             ])
 
-            # Sheet 2: Chi tiết chuột (VẪN LƯU TẤT CẢ)
+            # Sheet 2: Chi tiết chuột
             df_mouse = pd.DataFrame(self.mouse_details) if self.mouse_details else pd.DataFrame(columns=[
                 "Timestamp", "Event_Type", "Details", "User", "Session_ID",
                 "Severity", "IsFraud", "Date", "Time", "Module",
@@ -293,54 +270,47 @@ class GlobalExcelLogger:
                 "XAcceleration", "YAcceleration", "DurationSeconds", "AnomalyScore"
             ])
 
-            # Sheet 3: Thời gian làm việc trên Browser - MỚI
-            df_browser_time = pd.DataFrame(self.browser_time_logs) if self.browser_time_logs else pd.DataFrame(columns=[
-                "Timestamp", "Event_Type", "URL", "Tab_Name", "Start_Time", "End_Time",
-                "Duration_Seconds", "Duration_Formatted", "User", "Session_ID",
-                "Date", "Time", "Module"
+            # Sheet 3: Phiên làm việc browser (ĐƠN GIẢN)
+            df_browser = pd.DataFrame(self.browser_sessions) if self.browser_sessions else pd.DataFrame(columns=[
+                "Session_ID", "User", "Session_Start", "Session_End",
+                "Total_Seconds", "Total_Time", "Date", "Module"
             ])
 
             # Kiểm tra nếu file đã tồn tại
             if os.path.exists(self.excel_path):
                 try:
-                    # Đọc dữ liệu cũ từ tất cả sheets
                     old_fraud = pd.read_excel(self.excel_path, sheet_name='Fraud_Events')
                     old_mouse = pd.read_excel(self.excel_path, sheet_name='Mouse_Details')
 
-                    # Kiểm tra nếu có sheet Browser_Time cũ
+                    # Kiểm tra sheet Browser_Sessions cũ
                     try:
-                        old_browser_time = pd.read_excel(self.excel_path, sheet_name='Browser_Time')
+                        old_browser = pd.read_excel(self.excel_path, sheet_name='Browser_Sessions')
                     except:
-                        old_browser_time = pd.DataFrame()
+                        old_browser = pd.DataFrame()
 
                     # Kết hợp dữ liệu
                     df_fraud = pd.concat([old_fraud, df_fraud], ignore_index=True)
                     df_mouse = pd.concat([old_mouse, df_mouse], ignore_index=True)
-                    df_browser_time = pd.concat([old_browser_time, df_browser_time], ignore_index=True)
+                    df_browser = pd.concat([old_browser, df_browser], ignore_index=True)
 
                     # Xóa trùng lặp
                     df_fraud = df_fraud.drop_duplicates(subset=['Timestamp', 'Event_Type', 'Session_ID'])
                     df_mouse = df_mouse.drop_duplicates(subset=['Timestamp', 'Event_Type', 'Session_ID'])
-                    df_browser_time = df_browser_time.drop_duplicates(subset=['Timestamp', 'Event_Type', 'Session_ID'])
+                    df_browser = df_browser.drop_duplicates(subset=['Session_ID', 'Session_Start'])
 
                 except Exception as e:
                     print(f"⚠️ Error reading existing file: {e}")
 
             # Lưu vào Excel với 3 sheets
             with pd.ExcelWriter(self.excel_path, engine='openpyxl') as writer:
-                # Sheet 1: CHỈ sự kiện gian lận
                 df_fraud.to_excel(writer, sheet_name='Fraud_Events', index=False)
-
-                # Sheet 2: Chi tiết chuột
                 df_mouse.to_excel(writer, sheet_name='Mouse_Details', index=False)
-
-                # Sheet 3: Thời gian browser - MỚI
-                df_browser_time.to_excel(writer, sheet_name='Browser_Time', index=False)
+                df_browser.to_excel(writer, sheet_name='Browser_Sessions', index=False)
 
             print(f"💾 Global log saved: {self.excel_path}")
             print(f"   Fraud events: {len(df_fraud)}")
             print(f"   Mouse entries: {len(df_mouse)}")
-            print(f"   Browser time entries: {len(df_browser_time)}")
+            print(f"   Browser sessions: {len(df_browser)}")
             return True
 
         except Exception as e:
@@ -348,7 +318,6 @@ class GlobalExcelLogger:
             import traceback
             traceback.print_exc()
             return False
-
     def save_final_data(self):
         """Lưu dữ liệu cuối cùng"""
         self.save_to_excel()
@@ -547,8 +516,15 @@ class FaceIDWindow(QMainWindow):
             # Get dimensions
             h, w, ch = frame_rgb.shape
 
-            # Tạo QImage với strides đúng
-            qimg = QImage(frame.data, w, h, w * 3, QImage.Format.Format_RGB888)
+            # Tạo QImage với strides đúng222
+            qimg = QImage(
+                frame.data,
+                w,
+                h,
+                w * 3,
+                QImage.Format.Format_BGR888
+            )
+
             # Tạo QPixmap với transparency
             pixmap = QPixmap(label_w, label_h)
             pixmap.fill(Qt.GlobalColor.transparent)
@@ -670,46 +646,21 @@ class FaceIDWindow(QMainWindow):
         self.cleanup_camera()
         event.accept()
 
-
-# ============================================
-# ENHANCED SAFE BROWSER - CẬP NHẬT THÊM TIME TRACKING
-# ============================================
+    # ============================================
+    # ENHANCED SAFE BROWSER - ĐƠN GIẢN HÓA TIME TRACKING
+    # ============================================
 class EnhancedSafeBrowser(ProfessionalWorkBrowser):
-    """Safe Browser dùng global logger - THÊM TIME TRACKING"""
+    """Safe Browser dùng global logger - TIME TRACKING ĐƠN GIẢN"""
 
     def __init__(self, user_name, global_logger, parent_window=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.user_name = user_name
         self.global_logger = global_logger
         self.parent_window = parent_window
-        self.current_tab_start_time = None
-        self.current_tab_name = None
-        self.current_tab_url = None
+
+        # Chỉ cần lưu thời gian bắt đầu
         self.browser_start_time = datetime.now()
-        self.tab_timers = {}
-        self.fraud_alert_shown = False
         self.is_closing = False
-        self.tab_history = []  # Lưu lịch sử các tab
-
-        # Timer tự động save mỗi phút
-        self.auto_save_timer = QTimer()
-        self.auto_save_timer.timeout.connect(self.auto_save_tab_time)
-        self.auto_save_timer.start(60000)  # 1 phút
-
-        # Thiết lập random face check
-        self.setup_random_check()
-
-        # Khởi tạo face system
-        try:
-            from Face.main_face import FaceSingleCheck
-            self.face_system = FaceSingleCheck(user_name=self.user_name, global_logger=self.global_logger)
-            print(f"✅ Face system loaded for random check (user: {user_name})")
-        except Exception as e:
-            print(f"❌ Failed to load face system: {e}")
-            self.face_system = None
-
-        # Kết nối sự kiện tab changed
-        self.tab_widget.currentChanged.connect(self.on_tab_changed)
 
         # Ghi log mở browser
         self.global_logger.log_browser_alert(
@@ -718,77 +669,6 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
             severity="INFO",
             is_fraud=False
         )
-
-        # Ghi log thời gian bắt đầu browser
-        self.global_logger.log_browser_time(
-            event_type="BROWSER_START",
-            url="",
-            tab_name="Browser Session",
-            start_time=self.browser_start_time.strftime("%Y-%m-%d %H:%M:%S"),
-            end_time=self.browser_start_time.strftime("%Y-%m-%d %H:%M:%S"),
-            duration_seconds=0
-        )
-
-    def on_tab_changed(self, index):
-        """Xử lý khi chuyển tab - THÊM TIME TRACKING"""
-        # Lưu thời gian tab cũ
-        if self.current_tab_start_time and self.current_tab_name:
-            end_time = datetime.now()
-            duration = (end_time - self.current_tab_start_time).total_seconds()
-
-            if duration > 1:  # Chỉ lưu nếu thời gian > 1 giây
-                self.global_logger.log_browser_time(
-                    event_type="TAB_CLOSE",
-                    url=self.current_tab_url,
-                    tab_name=self.current_tab_name,
-                    start_time=self.current_tab_start_time.strftime("%Y-%m-%d %H:%M:%S"),
-                    end_time=end_time.strftime("%Y-%m-%d %H:%M:%S"),
-                    duration_seconds=duration
-                )
-
-                # Thêm vào lịch sử
-                self.tab_history.append({
-                    'tab_name': self.current_tab_name,
-                    'url': self.current_tab_url,
-                    'duration': duration,
-                    'start': self.current_tab_start_time,
-                    'end': end_time
-                })
-
-        # Bắt đầu tracking tab mới
-        self.current_tab_name = self.tab_widget.tabText(index).strip()
-        self.current_tab_url = self.tab_widget.currentWidget().url().toString() if hasattr(
-            self.tab_widget.currentWidget(), 'url') else ""
-        self.current_tab_start_time = datetime.now()
-
-        # Ghi log mở tab mới
-        self.global_logger.log_browser_time(
-            event_type="TAB_OPEN",
-            url=self.current_tab_url,
-            tab_name=self.current_tab_name,
-            start_time=self.current_tab_start_time.strftime("%Y-%m-%d %H:%M:%S"),
-            end_time=self.current_tab_start_time.strftime("%Y-%m-%d %H:%M:%S"),
-            duration_seconds=0
-        )
-
-        print(f"📁 Tab changed to: {self.current_tab_name}")
-
-    def auto_save_tab_time(self):
-        """Tự động save thời gian hiện tại mỗi phút"""
-        if self.current_tab_start_time and self.current_tab_name:
-            current_time = datetime.now()
-            duration = (current_time - self.current_tab_start_time).total_seconds()
-
-            # Chỉ save nếu có thời gian đáng kể
-            if duration >= 60:  # Ít nhất 1 phút
-                self.global_logger.log_browser_time(
-                    event_type="TAB_ACTIVE",
-                    url=self.current_tab_url,
-                    tab_name=self.current_tab_name,
-                    start_time=self.current_tab_start_time.strftime("%Y-%m-%d %H:%M:%S"),
-                    end_time=current_time.strftime("%Y-%m-%d %H:%M:%S"),
-                    duration_seconds=duration
-                )
 
     def setup_random_check(self):
         """Thiết lập random check - FIXED"""
@@ -1006,29 +886,6 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
         except Exception as e:
             print(f"⚠️ Error resuming session: {e}")
 
-    def get_browser_summary(self):
-        """Lấy tổng kết thời gian làm việc"""
-        total_seconds = sum(item['duration'] for item in self.tab_history)
-
-        # Thêm thời gian tab hiện tại
-        if self.current_tab_start_time:
-            current_duration = (datetime.now() - self.current_tab_start_time).total_seconds()
-            total_seconds += current_duration
-
-        return {
-            'total_time': total_seconds,
-            'total_formatted': self.format_time(total_seconds),
-            'tab_count': len(self.tab_history) + (1 if self.current_tab_start_time else 0),
-            'browser_start': self.browser_start_time,
-            'tab_history': self.tab_history
-        }
-
-    def format_time(self, seconds):
-        """Format seconds to HH:MM:SS"""
-        hours = int(seconds // 3600)
-        minutes = int((seconds % 3600) // 60)
-        secs = int(seconds % 60)
-        return f"{hours:02d}h {minutes:02d}m {secs:02d}s"
 
     def setup_timer_with_logging(self):
         """Thiết lập timer với logging"""
@@ -1163,13 +1020,54 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
         msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
         msg_box.exec()
 
+    def closeEvent(self, event):
+        """Xử lý khi đóng browser - CHỈ GHI TỔNG THỜI GIAN"""
+        if self.is_closing:
+            print("🛑 Closing browser...")
+
+            # Tính tổng thời gian
+            browser_end_time = datetime.now()
+            browser_duration = (browser_end_time - self.browser_start_time).total_seconds()
+
+            # Ghi phiên làm việc vào sheet Browser_Sessions
+            self.global_logger.log_browser_session(
+                session_start=self.browser_start_time.strftime("%Y-%m-%d %H:%M:%S"),
+                session_end=browser_end_time.strftime("%Y-%m-%d %H:%M:%S"),
+                total_seconds=browser_duration
+            )
+
+            # Ghi log kết thúc
+            self.global_logger.log_browser_alert(
+                event_type="BROWSER_CLOSED",
+                details=f"Browser closed. Total time: {self.format_time(browser_duration)}",
+                severity="INFO",
+                is_fraud=False
+            )
+
+            # Thông báo cho parent_window
+            if self.parent_window and hasattr(self.parent_window, 'on_browser_closed'):
+                self.parent_window.on_browser_closed(browser_duration)
+
+            event.accept()
+        else:
+            self.confirm_exit()
+            event.ignore()
+
+    def format_time(self, seconds):
+        """Format seconds to HH:MM:SS"""
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        return f"{hours:02d}h {minutes:02d}m {secs:02d}s"
+
     def confirm_exit(self):
         """Xác nhận thoát"""
+        current_duration = (datetime.now() - self.browser_start_time).total_seconds()
+
         reply = QMessageBox.question(
             self, "Exit Workspace Browser",
-            "Are you sure you want to exit the Professional Workspace Browser?\n\n"
-            f"Total working time: {self.timer_widget.elapsed_time // 3600}h "
-            f"{(self.timer_widget.elapsed_time % 3600) // 60}m\n"
+            f"Are you sure you want to exit?\n\n"
+            f"Total working time: {self.format_time(current_duration)}\n"
             "All unsaved work might be lost.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
@@ -1178,63 +1076,6 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
         if reply == QMessageBox.StandardButton.Yes:
             self.is_closing = True
             self.close()
-
-    def closeEvent(self, event):
-        """Xử lý khi đóng browser - THÊM LƯU THỜI GIAN CUỐI"""
-        if self.is_closing:
-            print("🛑 Closing browser...")
-
-            # Lưu thời gian tab cuối cùng
-            if self.current_tab_start_time and self.current_tab_name:
-                end_time = datetime.now()
-                duration = (end_time - self.current_tab_start_time).total_seconds()
-
-                if duration > 1:
-                    self.global_logger.log_browser_time(
-                        event_type="TAB_CLOSE",
-                        url=self.current_tab_url,
-                        tab_name=self.current_tab_name,
-                        start_time=self.current_tab_start_time.strftime("%Y-%m-%d %H:%M:%S"),
-                        end_time=end_time.strftime("%Y-%m-%d %H:%M:%S"),
-                        duration_seconds=duration
-                    )
-
-            # Lưu thời gian kết thúc browser
-            browser_end_time = datetime.now()
-            browser_duration = (browser_end_time - self.browser_start_time).total_seconds()
-
-            self.global_logger.log_browser_time(
-                event_type="BROWSER_END",
-                url="",
-                tab_name="Browser Session",
-                start_time=self.browser_start_time.strftime("%Y-%m-%d %H:%M:%S"),
-                end_time=browser_end_time.strftime("%Y-%m-%d %H:%M:%S"),
-                duration_seconds=browser_duration
-            )
-
-            # Lấy summary
-            summary = self.get_browser_summary()
-
-            # Ghi log kết thúc
-            self.global_logger.log_browser_alert(
-                event_type="BROWSER_CLOSED",
-                details=f"Professional Workspace Browser closed. Total time: {summary['total_formatted']}",
-                severity="INFO",
-                is_fraud=False
-            )
-
-            # Dừng timer auto save
-            if hasattr(self, 'auto_save_timer'):
-                self.auto_save_timer.stop()
-
-            # Thông báo cho parent_window
-            if self.parent_window and hasattr(self.parent_window, 'on_browser_closed'):
-                self.parent_window.on_browser_closed(summary)
-
-            event.accept()
-        else:
-            self.confirm_exit()
-            event.ignore()
 
 
 # ============================================
@@ -1567,23 +1408,20 @@ class HomeWindow(QMainWindow):
         if msg.clickedButton() == open_btn:
             self.global_logger.open_log_file()
 
-    def on_browser_closed(self, browser_summary=None):
-        """Xử lý khi browser đóng - THÊM HIỂN THỊ SUMMARY"""
+    def on_browser_closed(self, browser_duration=None):
+        """Xử lý khi browser đóng - HIỂN THỊ TỔNG THỜI GIAN"""
         print("\n🛑 Browser closed by user")
 
-        # Hiển thị summary nếu có
-        if browser_summary:
-            print(f"\n📊 Browser Session Summary:")
-            print(f"   Total Working Time: {browser_summary['total_formatted']}")
-            print(f"   Total Tabs Opened: {browser_summary['tab_count']}")
+        # Hiển thị tổng thời gian nếu có
+        if browser_duration:
+            formatted_time = self.format_duration(browser_duration)
+            print(f"📊 Total working time: {formatted_time}")
 
-            # Có thể hiển thị dialog summary
             QMessageBox.information(
                 self,
-                "Session Summary",
-                f"📊 Work Session Completed\n\n"
-                f"Total Working Time: {browser_summary['total_formatted']}\n"
-                f"Total Tabs Opened: {browser_summary['tab_count']}\n\n"
+                "Work Session Completed",
+                f"✅ Work session completed!\n\n"
+                f"Total working time: {formatted_time}\n\n"
                 f"Detailed log saved to Excel file."
             )
 
@@ -1631,6 +1469,12 @@ class HomeWindow(QMainWindow):
         self.showNormal()
         self.activateWindow()
 
+    def format_duration(self, seconds):
+        """Format seconds to HH:MM:SS"""
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        return f"{hours:02d}h {minutes:02d}m {secs:02d}s"
     def reset_ui(self):
         """Reset UI về trạng thái ban đầu"""
         self.is_working = False

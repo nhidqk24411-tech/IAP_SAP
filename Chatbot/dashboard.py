@@ -1,24 +1,138 @@
 #!/usr/bin/env python3
 """
-Dashboard Hiệu Suất - Dùng dữ liệu Excel thực tế
+Dashboard Hiệu Suất - Phiên bản cải tiến với đa dạng biểu đồ và tooltip hover
 """
 
 import sys
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
-from datetime import datetime
+from datetime import datetime, timedelta
 import numpy as np
+from pathlib import Path
+import copy
+from matplotlib.patches import Wedge
 
 # Sửa import cho matplotlib tương thích với PyQt6
 import matplotlib
-matplotlib.use('QtAgg')  # Sử dụng backend QtAgg
+
+matplotlib.use('QtAgg')
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+from matplotlib.patches import Patch
 
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
+
+
+class ChartDialog(QDialog):
+    """Dialog để hiển thị biểu đồ phóng to"""
+
+    def __init__(self, figure, title, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"📊 {title}")
+        self.setWindowFlags(
+            Qt.WindowType.Window | Qt.WindowType.WindowCloseButtonHint | Qt.WindowType.WindowMaximizeButtonHint)
+
+        # Style cho dialog
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #1e293b;
+            }
+            QPushButton {
+                background-color: #3b82f6;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #2563eb;
+            }
+        """)
+
+        # Main layout
+        layout = QVBoxLayout()
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(10)
+
+        # Header với tiêu đề và nút đóng
+        header_widget = QWidget()
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+
+        title_label = QLabel(f"📊 {title}")
+        title_label.setStyleSheet("""
+            font-size: 18px;
+            font-weight: 600;
+            color: #ffffff;
+            padding: 8px 0;
+        """)
+
+        close_btn = QPushButton("✕ Đóng")
+        close_btn.setFixedSize(80, 35)
+        close_btn.clicked.connect(self.close)
+
+        header_layout.addWidget(title_label)
+        header_layout.addStretch()
+        header_layout.addWidget(close_btn)
+
+        layout.addWidget(header_widget)
+
+        # Canvas cho biểu đồ
+        self.canvas = FigureCanvas(figure)
+        self.canvas.setMinimumSize(800, 500)
+        layout.addWidget(self.canvas)
+
+        # Footer với các nút điều khiển
+        footer_widget = QWidget()
+        footer_layout = QHBoxLayout(footer_widget)
+        footer_layout.setContentsMargins(0, 0, 0, 0)
+
+        save_btn = QPushButton("💾 Lưu Ảnh")
+        save_btn.setFixedSize(100, 35)
+        save_btn.clicked.connect(self.save_image)
+
+        refresh_btn = QPushButton("🔄 Làm Mới")
+        refresh_btn.setFixedSize(100, 35)
+        refresh_btn.clicked.connect(self.refresh_chart)
+
+        footer_layout.addStretch()
+        footer_layout.addWidget(save_btn)
+        footer_layout.addWidget(refresh_btn)
+
+        layout.addWidget(footer_widget)
+
+        self.setLayout(layout)
+        self.resize(900, 600)
+
+        # Lưu figure gốc để làm mới
+        self.original_figure = figure
+
+    def save_image(self):
+        """Lưu biểu đồ thành file ảnh"""
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Lưu Biểu Đồ",
+            f"biểu_đồ_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
+            "PNG Files (*.png);;JPEG Files (*.jpg);;All Files (*)"
+        )
+
+        if file_path:
+            try:
+                self.original_figure.savefig(file_path, dpi=300, bbox_inches='tight', facecolor='#1e293b')
+                QMessageBox.information(self, "Thành công", f"Đã lưu biểu đồ vào:\n{file_path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Lỗi", f"Không thể lưu file:\n{str(e)}")
+
+    def refresh_chart(self):
+        """Làm mới biểu đồ"""
+        self.canvas.draw()
+
+    def closeEvent(self, event):
+        """Xử lý khi đóng dialog"""
+        event.accept()
 
 
 class DataAnalyzer:
@@ -29,6 +143,10 @@ class DataAnalyzer:
         """Đọc dữ liệu từ file SAP Excel"""
         try:
             print(f"📂 Đang đọc dữ liệu từ: {file_path}")
+
+            if not os.path.exists(file_path):
+                print(f"❌ File không tồn tại: {file_path}")
+                return None
 
             # Đọc sheet Orders
             orders_df = pd.read_excel(file_path, sheet_name='Orders')
@@ -52,33 +170,29 @@ class DataAnalyzer:
         try:
             print(f"📂 Đang đọc dữ liệu từ: {file_path}")
 
+            if not os.path.exists(file_path):
+                print(f"❌ File không tồn tại: {file_path}")
+                return None
+
             data_dict = {
                 'fraud_events': None,
                 'mouse_details': None,
-                'browser_time': None
+                'browser_time': None,
+                'browser_session': None
             }
 
             # Thử đọc từng sheet
-            try:
-                fraud_df = pd.read_excel(file_path, sheet_name='Fraud_Events')
-                print(f"   Đọc được {len(fraud_df)} dòng từ sheet Fraud_Events")
-                data_dict['fraud_events'] = fraud_df
-            except Exception as e:
-                print(f"   ⚠️ Không đọc được sheet Fraud_Events: {e}")
+            excel_file = pd.ExcelFile(file_path)
+            sheet_names = excel_file.sheet_names
 
-            try:
-                mouse_df = pd.read_excel(file_path, sheet_name='Mouse_Details')
-                print(f"   Đọc được {len(mouse_df)} dòng từ sheet Mouse_Details")
-                data_dict['mouse_details'] = mouse_df
-            except Exception as e:
-                print(f"   ⚠️ Không đọc được sheet Mouse_Details: {e}")
-
-            try:
-                browser_df = pd.read_excel(file_path, sheet_name='Browser_Time')
-                print(f"   Đọc được {len(browser_df)} dòng từ sheet Browser_Time")
-                data_dict['browser_time'] = browser_df
-            except Exception as e:
-                print(f"   ⚠️ Không đọc được sheet Browser_Time: {e}")
+            for sheet in sheet_names:
+                try:
+                    df = pd.read_excel(file_path, sheet_name=sheet)
+                    key = sheet.lower().replace(' ', '_')
+                    data_dict[key] = df
+                    print(f"   Đọc được {len(df)} dòng từ sheet {sheet}")
+                except Exception as e:
+                    print(f"   ⚠️ Không đọc được sheet {sheet}: {e}")
 
             return data_dict
         except Exception as e:
@@ -86,322 +200,514 @@ class DataAnalyzer:
             return None
 
 
+class HoverTooltip:
+    """Class để xử lý tooltip khi hover trên biểu đồ"""
+
+    @staticmethod
+    def add_bar_tooltip(ax, bars, values, formatter=None):
+        """Thêm tooltip cho biểu đồ cột"""
+
+        def format_value(val):
+            if formatter:
+                return formatter(val)
+            return str(val)
+
+        def hover(event):
+            if event.inaxes == ax:
+                for bar, val in zip(bars, values):
+                    if bar.contains(event)[0]:
+                        # Xóa tooltip cũ
+                        for txt in ax.texts:
+                            if txt.get_text().startswith('Tooltip:'):
+                                txt.remove()
+
+                        # Thêm tooltip mới
+                        x = bar.get_x() + bar.get_width() / 2
+                        y = bar.get_height()
+                        ax.text(x, y + 0.5, f'Tooltip: {format_value(val)}',
+                                ha='center', va='bottom', fontsize=10,
+                                bbox=dict(boxstyle='round,pad=0.5', facecolor='yellow', alpha=0.8))
+                        ax.figure.canvas.draw_idle()
+                        return
+
+        return hover
+
+    @staticmethod
+    def add_line_tooltip(ax, lines, x_data, y_data, formatter=None):
+        """Thêm tooltip cho biểu đồ đường"""
+
+        def format_value(val):
+            if formatter:
+                return formatter(val)
+            return str(val)
+
+        def hover(event):
+            if event.inaxes == ax:
+                for line, x_vals, y_vals in zip(lines, x_data, y_data):
+                    cont, ind = line.contains(event)
+                    if cont:
+                        # Xóa tooltip cũ
+                        for txt in ax.texts:
+                            if txt.get_text().startswith('Tooltip:'):
+                                txt.remove()
+
+                        # Thêm tooltip mới
+                        idx = ind['ind'][0]
+                        x = x_vals[idx]
+                        y = y_vals[idx]
+                        ax.text(x, y, f'Tooltip: {format_value(y)}',
+                                ha='center', va='bottom', fontsize=10,
+                                bbox=dict(boxstyle='round,pad=0.5', facecolor='yellow', alpha=0.8))
+                        ax.figure.canvas.draw_idle()
+                        return
+
+        return hover
+
+
 class PerformanceDashboard(QWidget):
-    """Dashboard hiển thị hiệu suất nhân viên"""
+    """Dashboard hiển thị hiệu suất nhân viên - Phiên bản cải tiến"""
 
     def __init__(self, user_name):
         super().__init__()
         self.user_name = user_name
         self.metrics = {}
+        self.tooltip_annotations = []
+
+        try:
+            from config import Config
+            self.config = Config
+            print(f"✅ Đã tải config cho {user_name}")
+        except ImportError as e:
+            print(f"❌ Không thể import config: {e}")
+            QMessageBox.critical(None, "Lỗi", "Không thể tải cấu hình từ config.py")
+            self.config = None
 
         self.init_ui()
         self.load_data()
 
     def init_ui(self):
-        """Khởi tạo giao diện"""
-        self.setWindowTitle(f"📊 Dashboard Hiệu Suất - {self.user_name}")
+        """Khởi tạo giao diện với thanh cuộn"""
+        self.setWindowTitle(f"📊 DASHBOARD HIỆU SUẤT - {self.user_name}")
+
+        # Áp dụng style sheet
         self.setStyleSheet("""
             QWidget {
-                background-color: #f5f7fa;
-                font-family: 'Segoe UI', Arial, sans-serif;
+                background-color: #0f172a;
+                font-family: 'Segoe UI', 'Inter', Arial, sans-serif;
             }
             QLabel {
-                color: #2c3e50;
+                color: #e2e8f0;
             }
             QGroupBox {
-                font-weight: bold;
+                font-weight: 600;
                 font-size: 14px;
-                border: 2px solid #dce1e6;
-                border-radius: 10px;
-                margin-top: 10px;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                margin-top: 15px;
                 padding-top: 15px;
-                background-color: white;
+                background-color: #1e293b;
+                color: #cbd5e1;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 left: 15px;
                 padding: 0 10px 0 10px;
-                color: #3498db;
+                color: #60a5fa;
+                font-size: 14px;
+                font-weight: 600;
             }
             QPushButton {
-                background-color: #3498db;
+                background-color: #3b82f6;
                 color: white;
                 border: none;
-                padding: 8px 15px;
-                border-radius: 5px;
-                font-weight: bold;
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-weight: 500;
+                font-size: 13px;
             }
             QPushButton:hover {
-                background-color: #2980b9;
+                background-color: #2563eb;
+            }
+            QTextEdit {
+                background-color: #1e293b;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                padding: 15px;
+                font-size: 13px;
+                line-height: 1.5;
+                color: #cbd5e1;
+            }
+            QFrame {
+                background-color: #1e293b;
+                border-radius: 8px;
+                border: 1px solid #334155;
+            }
+            QScrollArea {
+                border: none;
+                background-color: transparent;
             }
         """)
 
-        # Main layout
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(15)
+        # Main scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
-        # Header với nút tải lại
+        # Content widget
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(20, 20, 20, 20)
+        content_layout.setSpacing(15)
+
+        # Header
         header_widget = QWidget()
-        header_layout = QHBoxLayout()
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(0, 0, 0, 0)
 
-        title_label = QLabel(f"📊 Tổng Quan Hiệu Suất Nhân Viên - {self.user_name}")
+        title_label = QLabel(f"Tổng Quan Hiệu Suất Nhân Viên - {self.user_name}")
         title_label.setStyleSheet("""
-            font-size: 22px;
-            font-weight: bold;
-            color: #2c3e50;
+            font-size: 24px;
+            font-weight: 700;
+            color: #ffffff;
+            padding: 10px 0;
         """)
 
-        self.refresh_btn = QPushButton("🔄 Tải Lại Dữ Liệu")
+        self.refresh_btn = QPushButton("🔄 Tải Lại")
         self.refresh_btn.clicked.connect(self.load_data)
-        self.refresh_btn.setFixedWidth(150)
+        self.refresh_btn.setFixedSize(100, 35)
 
         header_layout.addWidget(title_label)
         header_layout.addStretch()
         header_layout.addWidget(self.refresh_btn)
-        header_widget.setLayout(header_layout)
-        main_layout.addWidget(header_widget)
+        content_layout.addWidget(header_widget)
 
-        # Metrics grid
+        # Metrics grid - 4 metric cards hàng trên
         metrics_grid = self.create_metrics_grid()
-        main_layout.addWidget(metrics_grid)
+        content_layout.addWidget(metrics_grid)
 
-        # Charts container
+        # Charts section - 2 biểu đồ trên cùng
         charts_container = QWidget()
-        charts_layout = QHBoxLayout()
+        charts_layout = QHBoxLayout(charts_container)
         charts_layout.setSpacing(20)
+        charts_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Left chart (Fraud by week)
-        left_chart_widget = self.create_fraud_chart_widget()
-        charts_layout.addWidget(left_chart_widget)
+        # Biểu đồ 1: Fraud by week (cột)
+        fraud_chart = self.create_fraud_chart_widget()
+        charts_layout.addWidget(fraud_chart)
 
-        # Right chart (Revenue & Profit)
-        right_chart_widget = self.create_revenue_chart_widget()
-        charts_layout.addWidget(right_chart_widget)
+        # Biểu đồ 2: Revenue & Profit (đường)
+        revenue_chart = self.create_revenue_chart_widget()
+        charts_layout.addWidget(revenue_chart)
 
-        charts_container.setLayout(charts_layout)
-        main_layout.addWidget(charts_container)
+        content_layout.addWidget(charts_container)
+
+        # Two more charts section - 2 biểu đồ dưới
+        charts_container2 = QWidget()
+        charts_layout2 = QHBoxLayout(charts_container2)
+        charts_layout2.setSpacing(20)
+        charts_layout2.setContentsMargins(0, 0, 0, 0)
+
+        # Biểu đồ 3: Completion Rate (tròn)
+        completion_chart = self.create_completion_chart_widget()
+        charts_layout2.addWidget(completion_chart)
+
+        # Biểu đồ 4: Working Hours (cột)
+        working_hours_chart = self.create_working_hours_chart_widget()
+        charts_layout2.addWidget(working_hours_chart)
+
+        content_layout.addWidget(charts_container2)
 
         # Analysis section
         analysis_widget = self.create_analysis_widget()
-        main_layout.addWidget(analysis_widget)
+        content_layout.addWidget(analysis_widget)
 
         # Footer
-        footer_label = QLabel(f"📅 Dữ liệu cập nhật: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+        footer_label = QLabel(
+            f"Dữ liệu từ hệ thống SAP và nhật ký công việc. Ngày cập nhật: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
         footer_label.setStyleSheet("""
-            font-size: 12px;
-            color: #7f8c8d;
+            font-size: 11px;
+            color: #94a3b8;
             font-style: italic;
-            padding: 10px;
-            background-color: white;
+            padding: 8px;
+            background-color: #1e293b;
             border-radius: 5px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid #334155;
         """)
         footer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        main_layout.addWidget(footer_label)
+        content_layout.addWidget(footer_label)
 
-        self.setLayout(main_layout)
-        self.resize(1400, 900)
+        # Thêm stretch để đẩy footer xuống dưới
+        content_layout.addStretch(1)
+
+        # Đặt content widget vào scroll area
+        scroll_area.setWidget(content_widget)
+
+        # Main layout cho widget chính
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        main_layout.addWidget(scroll_area)
+
+        self.setMinimumSize(1200, 700)
 
     def create_metrics_grid(self):
-        """Tạo grid hiển thị các chỉ số chính"""
-        grid = QGroupBox("📈 CHỈ SỐ HIỆU SUẤT")
+        """Tạo grid hiển thị 4 chỉ số chính"""
+        grid = QGroupBox("CHỈ SỐ HIỆU SUẤT")
         grid_layout = QGridLayout()
-        grid_layout.setSpacing(20)
-        grid_layout.setContentsMargins(20, 30, 20, 20)
+        grid_layout.setSpacing(15)
+        grid_layout.setContentsMargins(15, 25, 15, 15)
 
-        # Tổng đơn hàng
-        orders_card = self.create_metric_card(
-            "📦 TỔNG ĐƠN HÀNG",
-            "0",
-            "Trung bình: 0 đơn/ngày",
-            "#3498db",
-            "linear-gradient(135deg, #3498db 0%, #2980b9 100%)"
-        )
-        grid_layout.addWidget(orders_card, 0, 0)
+        # Tạo 4 metric cards
+        cards = []
+        metrics_info = [
+            ("📦 TỔNG ĐƠN HÀNG", "0", "Trung bình 0 đơn/ngày", "#3b82f6"),
+            ("⏰ TỔNG THỜI GIAN", "0 giờ", "Trung bình 0 giờ/ngày", "#10b981"),
+            ("⚠️ SỰ KIỆN GIAN LẬN", "0", "Mức cảnh báo", "#ef4444"),
+            ("✅ TỶ LỆ HOÀN THÀNH", "0%", "Mục tiêu 95%", "#8b5cf6")
+        ]
 
-        # Doanh thu
-        revenue_card = self.create_metric_card(
-            "💰 DOANH THU",
-            "$0",
-            "Tổng doanh thu",
-            "#2ecc71",
-            "linear-gradient(135deg, #2ecc71 0%, #27ae60 100%)"
-        )
-        grid_layout.addWidget(revenue_card, 0, 1)
+        for i, (title, value, desc, color) in enumerate(metrics_info):
+            card = self.create_metric_card(title, value, desc, color)
+            cards.append(card)
+            grid_layout.addWidget(card, 0, i)
 
-        # Sự kiện gian lận
-        fraud_card = self.create_metric_card(
-            "⚠️ SỰ KIỆN GIAN LẬN",
-            "0",
-            "Cần theo dõi",
-            "#e74c3c",
-            "linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)"
-        )
-        grid_layout.addWidget(fraud_card, 0, 2)
+        # Lưu reference đến các label
+        self.metric_labels = [card.findChild(QLabel, "value") for card in cards]
 
-        # Tỷ lệ hoàn thành
-        completion_card = self.create_metric_card(
-            "✅ TỶ LỆ HOÀN THÀNH",
-            "0%",
-            "Mục tiêu: 95%",
-            "#9b59b6",
-            "linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%)"
-        )
-        grid_layout.addWidget(completion_card, 0, 3)
-
-        self.orders_label = orders_card.findChild(QLabel, "value")
-        self.revenue_label = revenue_card.findChild(QLabel, "value")
-        self.fraud_label = fraud_card.findChild(QLabel, "value")
-        self.completion_label = completion_card.findChild(QLabel, "value")
+        # Thiết lập tỷ lệ co giãn cho các cột
+        for i in range(4):
+            grid_layout.setColumnStretch(i, 1)
 
         grid.setLayout(grid_layout)
         return grid
 
-    def create_metric_card(self, title, value, description, color, gradient):
-        """Tạo card hiển thị metric"""
+    def create_metric_card(self, title, value, description, color):
+        """Tạo card hiển thị metric với thiết kế đẹp hơn"""
         card = QFrame()
-        card.setStyleSheet(f"""
-            QFrame {{
-                background: {gradient};
-                border-radius: 12px;
-                padding: 20px;
-            }}
-        """)
+        card.setCursor(Qt.CursorShape.PointingHandCursor)
+        card.setMinimumHeight(140)
+        card.setMaximumHeight(160)
 
-        layout = QVBoxLayout()
-        layout.setSpacing(8)
+        card_layout = QVBoxLayout(card)
+        card_layout.setSpacing(8)
+        card_layout.setContentsMargins(20, 15, 20, 15)
 
-        # Title
-        title_label = QLabel(title)
-        title_label.setStyleSheet("""
-            font-size: 14px;
-            font-weight: bold;
-            color: rgba(255, 255, 255, 0.9);
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        # Icon và Title
+        header_widget = QWidget()
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(10)
+
+        # Icon (sử dụng emoji trong QLabel)
+        icon_label = QLabel(title.split()[0])  # Lấy emoji từ title
+        icon_label.setStyleSheet(f"""
+            font-size: 20px;
+            color: {color};
         """)
-        layout.addWidget(title_label)
+        icon_label.setFixedSize(30, 30)
+
+        title_text = " ".join(title.split()[1:])  # Bỏ emoji
+        title_label = QLabel(title_text)
+        title_label.setStyleSheet(f"""
+            font-size: 13px;
+            font-weight: 600;
+            color: #cbd5e1;
+        """)
+        title_label.setWordWrap(True)
+
+        header_layout.addWidget(icon_label)
+        header_layout.addWidget(title_label)
+        header_layout.addStretch()
+
+        card_layout.addWidget(header_widget)
 
         # Value
         value_label = QLabel(value)
         value_label.setObjectName("value")
-        value_label.setStyleSheet("""
+        value_label.setStyleSheet(f"""
             font-size: 32px;
-            font-weight: bold;
-            color: white;
-            padding: 5px 0;
+            font-weight: 700;
+            color: {color};
+            margin: 10px 0;
+            padding: 5px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         """)
         value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(value_label)
+        value_label.setMinimumHeight(50)
+        card_layout.addWidget(value_label)
 
         # Description
         desc_label = QLabel(description)
         desc_label.setStyleSheet("""
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.8);
+            font-size: 12px;
+            color: #94a3b8;
             font-style: italic;
         """)
         desc_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(desc_label)
+        card_layout.addWidget(desc_label)
 
-        card.setLayout(layout)
-        card.setMinimumHeight(120)
+        # Thiết lập style cho card
+        card.setStyleSheet(f"""
+            QFrame {{
+                background-color: #1e293b;
+                border: 2px solid #334155;
+                border-radius: 12px;
+            }}
+            QFrame:hover {{
+                background-color: rgba(255, 255, 255, 0.05);
+                border: 2px solid {color};
+                transform: translateY(-2px);
+            }}
+        """)
+
         return card
 
     def create_fraud_chart_widget(self):
-        """Tạo widget biểu đồ sự kiện gian lận theo tuần"""
-        widget = QGroupBox("📊 SỰ KIỆN GIAN LẬN THEO TUẦN")
+        """Tạo widget biểu đồ cột sự kiện gian lận theo tuần"""
+        widget = QGroupBox("SỰ KIỆN GIAN LẬN THEO TUẦN")
         layout = QVBoxLayout()
-        layout.setContentsMargins(15, 25, 15, 15)
+        layout.setContentsMargins(10, 20, 10, 10)
 
-        # Tạo matplotlib figure
-        self.fraud_figure = Figure(figsize=(7, 4), dpi=100)
-        self.fraud_figure.patch.set_facecolor('#ffffff')
+        self.fraud_figure = Figure(figsize=(7, 5), dpi=100, facecolor='#1e293b')
         self.fraud_canvas = FigureCanvas(self.fraud_figure)
+        self.fraud_canvas.setStyleSheet("background-color: transparent;")
+        self.fraud_canvas.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.fraud_canvas.mousePressEvent = lambda event: self.open_chart_dialog(self.fraud_figure,
+                                                                                 "Sự Kiện Gian Lận Theo Tuần")
         layout.addWidget(self.fraud_canvas)
 
+        layout.setStretchFactor(self.fraud_canvas, 1)
         widget.setLayout(layout)
+        widget.setMinimumHeight(350)
         return widget
 
     def create_revenue_chart_widget(self):
-        """Tạo widget biểu đồ doanh thu và lợi nhuận"""
-        widget = QGroupBox("💰 DOANH THU VÀ LỢI NHUẬN")
+        """Tạo widget biểu đồ đường doanh thu và lợi nhuận"""
+        widget = QGroupBox("DOANH THU VÀ LỢI NHUẬN (ĐƯỜNG)")
         layout = QVBoxLayout()
-        layout.setContentsMargins(15, 25, 15, 15)
+        layout.setContentsMargins(10, 20, 10, 10)
 
-        # Tạo matplotlib figure
-        self.revenue_figure = Figure(figsize=(7, 4), dpi=100)
-        self.revenue_figure.patch.set_facecolor('#ffffff')
+        self.revenue_figure = Figure(figsize=(7, 5), dpi=100, facecolor='#1e293b')
         self.revenue_canvas = FigureCanvas(self.revenue_figure)
+        self.revenue_canvas.setStyleSheet("background-color: transparent;")
+        self.revenue_canvas.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.revenue_canvas.mousePressEvent = lambda event: self.open_chart_dialog(self.revenue_figure,
+                                                                                   "Doanh Thu và Lợi Nhuận")
         layout.addWidget(self.revenue_canvas)
 
+        layout.setStretchFactor(self.revenue_canvas, 1)
         widget.setLayout(layout)
+        widget.setMinimumHeight(350)
+        return widget
+
+    def create_completion_chart_widget(self):
+        """Tạo widget biểu đồ tròn tỷ lệ hoàn thành"""
+        widget = QGroupBox("PHÂN BỔ MỨC ĐỘ HOÀN THÀNH (TRÒN)")
+        layout = QVBoxLayout()
+        layout.setContentsMargins(10, 20, 10, 10)
+
+        self.completion_figure = Figure(figsize=(7, 5), dpi=100, facecolor='#1e293b')
+        self.completion_canvas = FigureCanvas(self.completion_figure)
+        self.completion_canvas.setStyleSheet("background-color: transparent;")
+        self.completion_canvas.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.completion_canvas.mousePressEvent = lambda event: self.open_chart_dialog(self.completion_figure,
+                                                                                      "Phân Bổ Mức Độ Hoàn Thành")
+        layout.addWidget(self.completion_canvas)
+
+        layout.setStretchFactor(self.completion_canvas, 1)
+        widget.setLayout(layout)
+        widget.setMinimumHeight(350)
+        return widget
+
+    def create_working_hours_chart_widget(self):
+        """Tạo widget biểu đồ cột thời gian làm việc"""
+        widget = QGroupBox("THỜI GIAN LÀM VIỆC THEO NGÀY (CỘT)")
+        layout = QVBoxLayout()
+        layout.setContentsMargins(10, 20, 10, 10)
+
+        self.working_hours_figure = Figure(figsize=(7, 5), dpi=100, facecolor='#1e293b')
+        self.working_hours_canvas = FigureCanvas(self.working_hours_figure)
+        self.working_hours_canvas.setStyleSheet("background-color: transparent;")
+        self.working_hours_canvas.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.working_hours_canvas.mousePressEvent = lambda event: self.open_chart_dialog(self.working_hours_figure,
+                                                                                         "Thời Gian Làm Việc Theo Ngày")
+        layout.addWidget(self.working_hours_canvas)
+
+        layout.setStretchFactor(self.working_hours_canvas, 1)
+        widget.setLayout(layout)
+        widget.setMinimumHeight(350)
         return widget
 
     def create_analysis_widget(self):
         """Tạo widget phân tích chi tiết"""
-        widget = QGroupBox("📋 PHÂN TÍCH CHI TIẾT")
+        widget = QGroupBox("PHÂN TÍCH CHI TIẾT")
         layout = QVBoxLayout()
-        layout.setContentsMargins(20, 25, 20, 20)
+        layout.setContentsMargins(15, 20, 15, 15)
 
         self.analysis_text = QTextEdit()
         self.analysis_text.setReadOnly(True)
-        self.analysis_text.setStyleSheet("""
-            QTextEdit {
-                background-color: white;
-                border: 2px solid #e0e0e0;
-                border-radius: 8px;
-                padding: 15px;
-                font-size: 14px;
-                line-height: 1.6;
-                color: #34495e;
-            }
-        """)
-        self.analysis_text.setHtml("""
-            <div style='text-align: center; color: #7f8c8d;'>
-                <h3>Đang tải dữ liệu phân tích...</h3>
-                <p>Vui lòng chờ trong giây lát</p>
-            </div>
-        """)
-
+        self.analysis_text.setMinimumHeight(150)
         layout.addWidget(self.analysis_text)
+
         widget.setLayout(layout)
         return widget
+
+    def open_chart_dialog(self, figure, title):
+        """Mở dialog phóng to biểu đồ"""
+        try:
+            # Tạo bản sao của figure để tránh thay đổi figure gốc
+            fig_copy = copy.deepcopy(figure)
+            dialog = ChartDialog(fig_copy, title, self)
+            dialog.exec()
+        except Exception as e:
+            print(f"❌ Lỗi mở dialog biểu đồ: {e}")
 
     def load_data(self):
         """Tải dữ liệu từ file Excel"""
         try:
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 70}")
             print(f"📊 ĐANG TẢI DỮ LIỆU CHO {self.user_name}")
-            print(f"{'='*60}")
+            print(f"{'=' * 70}")
 
-            # Tìm file trong thư mục hiện tại
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            sap_file = os.path.join(current_dir, "sap_data.xlsx")
-            work_logs_file = os.path.join(current_dir, f"work_logs_{self.user_name}_2026_01.xlsx")
-
-            # Kiểm tra file tồn tại
-            if not os.path.exists(sap_file):
-                print(f"❌ Không tìm thấy file: {sap_file}")
-                QMessageBox.warning(self, "Cảnh báo",
-                                    f"Không tìm thấy file SAP data!\nĐường dẫn: {sap_file}")
+            if not self.config:
+                print("❌ Không có config để tải dữ liệu")
+                QMessageBox.warning(self, "Lỗi", "Không thể tải cấu hình hệ thống")
                 return
 
-            if not os.path.exists(work_logs_file):
-                print(f"⚠️ Không tìm thấy file work logs, sử dụng dữ liệu mẫu")
-                work_logs_file = None
+            # Lấy đường dẫn từ config
+            data_files = self.config.get_all_data_files(self.user_name)
+            sap_path = data_files['sap_data']
+            work_log_path = data_files['work_log']
+
+            print(f"📁 SAP data path: {sap_path}")
+            print(f"📁 Work log path: {work_log_path}")
+
+            # Kiểm tra file tồn tại
+            if not sap_path.exists():
+                print(f"❌ File SAP không tồn tại: {sap_path}")
+                QMessageBox.warning(self, "Cảnh báo",
+                                    f"Không tìm thấy file SAP data:\n{sap_path}")
+                return
+
+            if not work_log_path.exists():
+                print(f"⚠️ File work logs không tồn tại: {work_log_path}")
+                QMessageBox.warning(self, "Cảnh báo",
+                                    f"Không tìm thấy file work logs:\n{work_log_path}")
+                return
 
             # Load SAP data
-            sap_data = DataAnalyzer.load_sap_data(sap_file)
+            sap_data = DataAnalyzer.load_sap_data(str(sap_path))
             if not sap_data:
                 print("❌ Không thể đọc dữ liệu SAP")
                 return
 
-            # Load work logs nếu có
-            work_logs = None
-            if work_logs_file:
-                work_logs = DataAnalyzer.load_work_logs(work_logs_file)
+            # Load work logs
+            work_logs = DataAnalyzer.load_work_logs(str(work_log_path))
+            if not work_logs:
+                print("⚠️ Không thể đọc work logs, sử dụng dữ liệu thực tế")
 
             # Tính toán metrics
             self.calculate_metrics(sap_data, work_logs)
@@ -416,152 +722,438 @@ class PerformanceDashboard(QWidget):
             import traceback
             traceback.print_exc()
 
-            # Hiển thị thông báo lỗi
-            QMessageBox.critical(self, "Lỗi",
-                                 f"Không thể tải dữ liệu:\n{str(e)}")
+            QMessageBox.critical(self, "Lỗi", f"Không thể tải dữ liệu:\n{str(e)}")
 
     def calculate_metrics(self, sap_data, work_logs):
-        """Tính toán các chỉ số hiệu suất"""
+        """Tính toán các chỉ số hiệu suất từ dữ liệu thực tế"""
         try:
             orders_df = sap_data['orders']
             daily_df = sap_data['daily_performance']
 
-            # 1. Tổng đơn hàng
+            # 1. Tổng đơn hàng và trung bình/ngày
             total_orders = len(orders_df)
-            avg_daily_orders = total_orders / len(daily_df) if len(daily_df) > 0 else 0
+            working_days = max(len(daily_df), 1)
+            avg_daily_orders = total_orders / working_days
 
             self.metrics['total_orders'] = f"{total_orders:,}"
             self.metrics['avg_daily_orders'] = f"{avg_daily_orders:.1f}"
 
-            # 2. Doanh thu
-            total_revenue = orders_df['Revenue'].sum() if 'Revenue' in orders_df.columns else 0
-            total_profit = orders_df['Profit'].sum() if 'Profit' in orders_df.columns else 0
+            # 2. Tổng thời gian làm việc từ browser session
+            total_work_hours = 0
+            if work_logs:
+                # Ưu tiên browser_session trước
+                if work_logs.get('browser_session') is not None:
+                    browser_df = work_logs['browser_session']
+                    if 'Total_Seconds' in browser_df.columns:
+                        total_work_hours = browser_df['Total_Seconds'].sum() / 3600
+                        print(f"   Tính tổng thời gian từ browser_session: {total_work_hours:.2f} giờ")
 
-            self.metrics['total_revenue'] = f"${total_revenue:,.0f}"
-            self.metrics['total_profit'] = f"${total_profit:,.0f}"
+                # Nếu không có, thử browser_time
+                elif work_logs.get('browser_time') is not None:
+                    browser_df = work_logs['browser_time']
+                    if 'Duration_Seconds' in browser_df.columns:
+                        total_work_hours = browser_df['Duration_Seconds'].sum() / 3600
+                        print(f"   Tính tổng thời gian từ browser_time: {total_work_hours:.2f} giờ")
 
-            # 3. Sự kiện gian lận
-            if work_logs and work_logs['fraud_events'] is not None:
-                total_fraud = len(work_logs['fraud_events'])
-            else:
-                # Ước tính từ dữ liệu mẫu
-                total_fraud = max(0, (total_orders // 100) * 3)  # Ước tính 3% đơn hàng có vấn đề
+            # Nếu không có dữ liệu, tính từ số ngày làm việc thực tế
+            if total_work_hours == 0:
+                # Sử dụng dữ liệu thực tế từ daily_df nếu có
+                if 'Working_Hours' in daily_df.columns:
+                    total_work_hours = daily_df['Working_Hours'].sum()
+                else:
+                    total_work_hours = working_days * 8  # Ước tính 8 giờ/ngày
+                print(f"   Ước tính thời gian làm việc: {total_work_hours:.0f} giờ")
+
+            avg_daily_hours = total_work_hours / max(working_days, 1)
+
+            self.metrics['total_work_hours'] = f"{total_work_hours:.0f}"
+            self.metrics['avg_daily_hours'] = f"{avg_daily_hours:.1f}"
+
+            # 3. Sự kiện gian lận - chỉ sử dụng dữ liệu thực
+            total_fraud = 0
+            if work_logs and work_logs.get('fraud_events') is not None:
+                fraud_df = work_logs['fraud_events']
+                total_fraud = len(fraud_df) if not fraud_df.empty else 0
+            # Không sử dụng dữ liệu mẫu
 
             self.metrics['total_fraud'] = str(total_fraud)
 
-            # 4. Tỷ lệ hoàn thành
+            # 4. Tỷ lệ hoàn thành - chỉ sử dụng dữ liệu thực
+            completion_rate = 0
             if 'Status' in orders_df.columns:
                 completed_orders = len(orders_df[orders_df['Status'] == 'Completed'])
                 completion_rate = (completed_orders / total_orders * 100) if total_orders > 0 else 0
-            else:
-                completion_rate = 95.0  # Giá trị mặc định
+            elif 'Completion_Rate' in daily_df.columns:
+                completion_rate = daily_df['Completion_Rate'].mean() if not daily_df.empty else 0
+            elif 'Efficiency_Score' in daily_df.columns:
+                completion_rate = daily_df['Efficiency_Score'].mean() if not daily_df.empty else 0
 
             self.metrics['completion_rate'] = f"{completion_rate:.1f}%"
 
-            # 5. Doanh thu theo tháng (từ dữ liệu daily)
-            if 'Total_Revenue' in daily_df.columns:
-                monthly_revenue = daily_df['Total_Revenue'].sum()
-            else:
-                monthly_revenue = total_revenue
+            # 5. Doanh thu và lợi nhuận - chỉ sử dụng dữ liệu thực
+            total_revenue = 0
+            total_profit = 0
 
-            self.metrics['monthly_revenue'] = monthly_revenue
-            self.metrics['monthly_profit'] = total_profit
+            if 'Revenue' in orders_df.columns:
+                total_revenue = orders_df['Revenue'].sum()
+            elif 'Total_Revenue' in daily_df.columns:
+                total_revenue = daily_df['Total_Revenue'].sum()
 
-            # 6. Sự kiện gian lận theo tuần (giả định từ dữ liệu)
-            fraud_by_week = []
-            for week in range(1, 5):
-                # Ước tính phân bổ đều
-                week_fraud = total_fraud // 4
-                if week <= total_fraud % 4:
-                    week_fraud += 1
-                fraud_by_week.append(week_fraud)
+            if 'Profit' in orders_df.columns:
+                total_profit = orders_df['Profit'].sum()
+            elif 'Total_Profit' in daily_df.columns:
+                total_profit = daily_df['Total_Profit'].sum()
 
+            self.metrics['total_revenue'] = total_revenue
+            self.metrics['total_profit'] = total_profit
+
+            # 6. Sự kiện gian lận theo tuần - chỉ sử dụng dữ liệu thực
+            fraud_by_week = self._calculate_fraud_by_week(work_logs)
             self.metrics['fraud_by_week'] = fraud_by_week
 
-            print(f"📊 Đã tính toán xong metrics:")
-            print(f"   - Tổng đơn hàng: {self.metrics['total_orders']}")
-            print(f"   - Doanh thu: {self.metrics['total_revenue']}")
-            print(f"   - Sự kiện gian lận: {self.metrics['total_fraud']}")
-            print(f"   - Tỷ lệ hoàn thành: {self.metrics['completion_rate']}")
+            # 7. Dữ liệu doanh thu theo tháng - chỉ sử dụng dữ liệu thực
+            monthly_data = self._calculate_monthly_data(orders_df, daily_df)
+            self.metrics['monthly_data'] = monthly_data
+
+            # 8. Dữ liệu cho biểu đồ tròn - chỉ sử dụng dữ liệu thực
+            completion_distribution = self._calculate_completion_distribution(orders_df)
+            self.metrics['completion_distribution'] = completion_distribution
+
+            # 9. Dữ liệu cho biểu đồ thời gian làm việc - chỉ sử dụng dữ liệu thực
+            working_hours_data = self._calculate_working_hours_data(daily_df, work_logs)
+            self.metrics['working_hours_data'] = working_hours_data
+
+            print(f"📊 Đã tính toán xong metrics từ dữ liệu thực")
 
         except Exception as e:
             print(f"❌ Lỗi tính toán metrics: {e}")
-            # Dữ liệu mẫu nếu có lỗi
+            import traceback
+            traceback.print_exc()
+
+            # Không sử dụng dữ liệu mẫu, để giá trị 0
             self.metrics = {
-                'total_orders': "100",
-                'avg_daily_orders': "3.3",
-                'total_revenue': "$37,456,789",
-                'total_profit': "$8,123,456",
-                'total_fraud': "12",
-                'completion_rate': "96.5%",
-                'monthly_revenue': 37456789,
-                'monthly_profit': 8123456,
-                'fraud_by_week': [2, 3, 5, 2]
+                'total_orders': "0",
+                'avg_daily_orders': "0.0",
+                'total_work_hours': "0",
+                'avg_daily_hours': "0.0",
+                'total_fraud': "0",
+                'completion_rate': "0%",
+                'total_revenue': 0,
+                'total_profit': 0,
+                'fraud_by_week': [0, 0, 0, 0],
+                'monthly_data': {
+                    'months': ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    'revenues': [0, 0, 0, 0, 0, 0],
+                    'profits': [0, 0, 0, 0, 0, 0]
+                },
+                'completion_distribution': {
+                    'labels': ['Hoàn thành', 'Đang xử lý', 'Chưa bắt đầu'],
+                    'sizes': [0, 0, 0],
+                    'colors': ['#10b981', '#f59e0b', '#ef4444']
+                },
+                'working_hours_data': {
+                    'days': ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'],
+                    'hours': [0, 0, 0, 0, 0, 0, 0]
+                }
             }
+
+    def _calculate_fraud_by_week(self, work_logs):
+        """Tính toán sự kiện gian lận theo tuần từ dữ liệu thực"""
+        fraud_by_week = [0, 0, 0, 0]  # Mặc định 4 tuần với giá trị 0
+
+        if work_logs and work_logs.get('fraud_events') is not None:
+            fraud_df = work_logs['fraud_events']
+            if 'Date' in fraud_df.columns and not fraud_df.empty:
+                try:
+                    fraud_df['Date'] = pd.to_datetime(fraud_df['Date'], errors='coerce')
+                    fraud_df = fraud_df.dropna(subset=['Date'])
+
+                    if not fraud_df.empty:
+                        fraud_df['Week'] = fraud_df['Date'].dt.isocalendar().week
+                        fraud_df['Week_Index'] = (fraud_df['Week'] - 1) % 4  # Chỉ lấy 4 tuần gần nhất
+
+                        fraud_by_week = fraud_df.groupby('Week_Index').size()
+
+                        # Điền đầy đủ 4 tuần
+                        result = [fraud_by_week.get(i, 0) for i in range(4)]
+                        return result
+                except Exception as e:
+                    print(f"⚠️ Lỗi tính fraud by week: {e}")
+
+        return fraud_by_week
+
+    def _calculate_monthly_data(self, orders_df, daily_df):
+        """Tính toán dữ liệu doanh thu theo tháng từ dữ liệu thực"""
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
+
+        try:
+            # Xác định cột chứa ngày
+            date_col = None
+            for col in ['Date', 'Order_Date', 'Created_Date']:
+                if col in orders_df.columns:
+                    date_col = col
+                    break
+
+            revenues = [0] * 6
+            profits = [0] * 6
+
+            if date_col and 'Revenue' in orders_df.columns:
+                orders_df[date_col] = pd.to_datetime(orders_df[date_col], errors='coerce')
+                orders_df = orders_df.dropna(subset=[date_col])
+
+                if not orders_df.empty:
+                    orders_df['Month'] = orders_df[date_col].dt.month
+
+                    for i in range(6):  # 6 tháng
+                        month_data = orders_df[orders_df['Month'] == i + 1]
+                        if not month_data.empty:
+                            revenues[i] = month_data['Revenue'].sum()
+                            if 'Profit' in orders_df.columns:
+                                profits[i] = month_data['Profit'].sum()
+
+            return {
+                'months': months,
+                'revenues': revenues,
+                'profits': profits
+            }
+
+        except Exception as e:
+            print(f"⚠️ Lỗi tính monthly data: {e}")
+            return {
+                'months': months,
+                'revenues': [0] * 6,
+                'profits': [0] * 6
+            }
+
+    def _calculate_completion_distribution(self, orders_df):
+        """Tính toán phân bổ mức độ hoàn thành từ dữ liệu thực"""
+        try:
+            if 'Status' in orders_df.columns:
+                status_counts = orders_df['Status'].value_counts()
+
+                # Phân loại trạng thái
+                completed = status_counts.get('Completed', 0) + status_counts.get('Hoàn thành', 0)
+                processing = status_counts.get('Processing', 0) + status_counts.get('Đang xử lý', 0) + \
+                             status_counts.get('In Progress', 0)
+                pending = status_counts.get('Pending', 0) + status_counts.get('Chưa bắt đầu', 0) + \
+                          status_counts.get('Not Started', 0)
+
+                # Tính các trạng thái khác
+                other = len(orders_df) - completed - processing - pending
+                if other > 0:
+                    pending += other  # Thêm vào pending
+
+                sizes = [completed, processing, pending]
+
+                return {
+                    'labels': ['Hoàn thành', 'Đang xử lý', 'Chưa bắt đầu'],
+                    'sizes': sizes,
+                    'colors': ['#10b981', '#f59e0b', '#ef4444']
+                }
+        except Exception as e:
+            print(f"⚠️ Lỗi tính completion distribution: {e}")
+
+        # Nếu không có dữ liệu, trả về giá trị 0
+        return {
+            'labels': ['Hoàn thành', 'Đang xử lý', 'Chưa bắt đầu'],
+            'sizes': [0, 0, 0],
+            'colors': ['#10b981', '#f59e0b', '#ef4444']
+        }
+
+    def _calculate_working_hours_data(self, daily_df, work_logs):
+        """Tính toán dữ liệu thời gian làm việc từ dữ liệu thực"""
+        days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
+        hours = [0] * 7
+
+        try:
+            # Ưu tiên dữ liệu từ browser session
+            if work_logs:
+                browser_df = None
+
+                # Tìm browser session data
+                for key in ['browser_session', 'browser_time']:
+                    if work_logs.get(key) is not None:
+                        browser_df = work_logs[key]
+                        break
+
+                if browser_df is not None and not browser_df.empty:
+                    # Tìm cột thời gian
+                    time_col = None
+                    for col in ['Total_Seconds', 'Duration_Seconds', 'Total_Time']:
+                        if col in browser_df.columns:
+                            time_col = col
+                            break
+
+                    if time_col and 'Date' in browser_df.columns:
+                        browser_df['Date'] = pd.to_datetime(browser_df['Date'], errors='coerce')
+                        browser_df = browser_df.dropna(subset=['Date'])
+
+                        if not browser_df.empty:
+                            # Chuyển đổi thời gian sang giờ
+                            if time_col == 'Total_Time':
+                                # Xử lý định dạng HH:MM:SS
+                                def time_to_hours(time_str):
+                                    try:
+                                        if pd.isna(time_str):
+                                            return 0
+                                        if isinstance(time_str, str):
+                                            h, m, s = map(int, time_str.split(':'))
+                                            return h + m / 60 + s / 3600
+                                        return float(time_str)
+                                    except:
+                                        return 0
+
+                                browser_df['Hours'] = browser_df[time_col].apply(time_to_hours)
+                            else:
+                                browser_df['Hours'] = browser_df[time_col] / 3600
+
+                            browser_df['DayOfWeek'] = browser_df['Date'].dt.dayofweek
+
+                            # Tính tổng thời gian theo ngày trong tuần
+                            daily_hours = browser_df.groupby('DayOfWeek')['Hours'].sum()
+
+                            # Điền đầy đủ 7 ngày
+                            for i in range(7):
+                                hours[i] = float(daily_hours.get(i, 0))
+
+                            return {'days': days, 'hours': hours}
+
+            # Nếu không có dữ liệu từ work logs, thử từ daily_df
+            if 'Working_Hours' in daily_df.columns and 'Date' in daily_df.columns:
+                daily_df['Date'] = pd.to_datetime(daily_df['Date'], errors='coerce')
+                daily_df = daily_df.dropna(subset=['Date'])
+
+                if not daily_df.empty:
+                    daily_df['DayOfWeek'] = daily_df['Date'].dt.dayofweek
+                    daily_hours = daily_df.groupby('DayOfWeek')['Working_Hours'].sum()
+
+                    for i in range(7):
+                        hours[i] = float(daily_hours.get(i, 0))
+
+        except Exception as e:
+            print(f"⚠️ Lỗi tính working hours: {e}")
+
+        return {'days': days, 'hours': hours}
 
     def update_ui(self):
         """Cập nhật giao diện với dữ liệu mới"""
         try:
-            # Update metrics
-            if self.orders_label:
-                self.orders_label.setText(self.metrics.get('total_orders', '0'))
+            # Update metrics cards
+            if self.metric_labels:
+                metric_values = [
+                    self.metrics.get('total_orders', '0'),
+                    f"{self.metrics.get('total_work_hours', '0')} giờ",
+                    self.metrics.get('total_fraud', '0'),
+                    self.metrics.get('completion_rate', '0%')
+                ]
 
-            if self.revenue_label:
-                self.revenue_label.setText(self.metrics.get('total_revenue', '$0'))
-
-            if self.fraud_label:
-                self.fraud_label.setText(self.metrics.get('total_fraud', '0'))
-
-            if self.completion_label:
-                self.completion_label.setText(self.metrics.get('completion_rate', '0%'))
+                for label, value in zip(self.metric_labels, metric_values):
+                    if label:
+                        label.setText(value)
 
             # Update charts
             self.update_fraud_chart()
             self.update_revenue_chart()
+            self.update_completion_chart()
+            self.update_working_hours_chart()
 
             # Update analysis text
             self.update_analysis_text()
 
-            # Update window title với thời gian
-            self.setWindowTitle(f"📊 Dashboard Hiệu Suất - {self.user_name} (Cập nhật: {datetime.now().strftime('%H:%M:%S')})")
+            # Update window title
+            current_time = datetime.now().strftime('%H:%M:%S')
+            self.setWindowTitle(f"📊 Dashboard Hiệu Suất - {self.user_name} | {current_time}")
 
             print("✅ Đã cập nhật giao diện")
 
         except Exception as e:
             print(f"❌ Lỗi cập nhật UI: {e}")
+            import traceback
+            traceback.print_exc()
 
     def update_fraud_chart(self):
-        """Cập nhật biểu đồ gian lận theo tuần"""
+        """Cập nhật biểu đồ cột gian lận theo tuần"""
         try:
             self.fraud_figure.clear()
+
+            # Tăng kích thước figure
+            self.fraud_figure.set_figwidth(7)
+            self.fraud_figure.set_figheight(5)
+
+            # Đặt màu nền cho figure và axes
+            self.fraud_figure.patch.set_facecolor('#1e293b')
             ax = self.fraud_figure.add_subplot(111)
+            ax.set_facecolor('#1e293b')
 
             weeks = ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4']
             fraud_counts = self.metrics.get('fraud_by_week', [0, 0, 0, 0])
 
-            colors = ['#3498db', '#2ecc71', '#e74c3c', '#f39c12']
-            bars = ax.bar(weeks, fraud_counts, color=colors, edgecolor='white', linewidth=2)
+            # Tạo biểu đồ cột
+            colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444']
+            bars = ax.bar(weeks, fraud_counts, color=colors, edgecolor='white',
+                          linewidth=1, width=0.6, alpha=0.8)
 
             # Thêm giá trị trên mỗi cột
             for bar, count in zip(bars, fraud_counts):
                 height = bar.get_height()
-                ax.text(bar.get_x() + bar.get_width()/2., height + 0.1,
-                        f'{count}', ha='center', va='bottom',
-                        fontsize=12, fontweight='bold')
+                if height > 0:
+                    ax.text(bar.get_x() + bar.get_width() / 2., height + 0.1,
+                            f'{count}', ha='center', va='bottom',
+                            fontsize=11, fontweight='bold', color='white')
 
             # Tùy chỉnh biểu đồ
-            ax.set_ylabel('Số Lần Gian Lận', fontsize=12, fontweight='bold')
-            ax.set_title('PHÂN BỐ SỰ KIỆN GIAN LẬN THEO TUẦN',
-                         fontsize=14, fontweight='bold', pad=20)
-            ax.grid(True, alpha=0.3, linestyle='--')
+            ax.set_ylabel('Số Lần Gian Lận', fontsize=12, fontweight=600, color='#cbd5e1')
+            ax.set_title('Sự Kiện Gian Lận Theo Tuần',
+                         fontsize=13, fontweight=600, pad=15, color='white')
+
+            # Đặt màu cho các trục và nhãn
+            ax.tick_params(axis='x', colors='#cbd5e1', labelsize=11)
+            ax.tick_params(axis='y', colors='#cbd5e1', labelsize=11)
+
+            # Grid nhạt
+            ax.grid(True, alpha=0.1, linestyle='--', color='#94a3b8', axis='y')
             ax.set_axisbelow(True)
 
-            # Đặt màu nền
-            ax.set_facecolor('#f8f9fa')
-            self.fraud_figure.patch.set_facecolor('#ffffff')
-
             # Tự động điều chỉnh layout
-            self.fraud_figure.tight_layout()
+            self.fraud_figure.tight_layout(pad=2.0)
+
+            # Ẩn các đường viền
+            for spine in ax.spines.values():
+                spine.set_edgecolor('#334155')
+
+            # Thêm tooltip hover
+            def hover(event):
+                if event.inaxes == ax:
+                    for bar, count in zip(bars, fraud_counts):
+                        if bar.contains(event)[0]:
+                            # Hiển thị tooltip
+                            x = bar.get_x() + bar.get_width() / 2
+                            y = bar.get_height()
+
+                            # Xóa annotation cũ
+                            if hasattr(self, 'fraud_annotation'):
+                                self.fraud_annotation.remove()
+
+                            # Tạo annotation mới
+                            self.fraud_annotation = ax.annotate(f'{count} sự kiện',
+                                                                xy=(x, y),
+                                                                xytext=(0, 10),
+                                                                textcoords='offset points',
+                                                                ha='center',
+                                                                fontsize=10,
+                                                                bbox=dict(boxstyle='round,pad=0.5',
+                                                                          facecolor='yellow',
+                                                                          alpha=0.8))
+                            self.fraud_canvas.draw_idle()
+                            return
+
+                    # Xóa annotation nếu không hover vào bar nào
+                    if hasattr(self, 'fraud_annotation'):
+                        self.fraud_annotation.remove()
+                        self.fraud_canvas.draw_idle()
+
+            # Kết nối sự kiện hover
+            self.fraud_canvas.mpl_connect('motion_notify_event', hover)
 
             self.fraud_canvas.draw()
 
@@ -569,134 +1161,336 @@ class PerformanceDashboard(QWidget):
             print(f"❌ Lỗi cập nhật biểu đồ gian lận: {e}")
 
     def update_revenue_chart(self):
-        """Cập nhật biểu đồ doanh thu và lợi nhuận"""
+        """Cập nhật biểu đồ đường doanh thu và lợi nhuận"""
         try:
             self.revenue_figure.clear()
+
+            # Tăng kích thước figure
+            self.revenue_figure.set_figwidth(7)
+            self.revenue_figure.set_figheight(5)
+
+            self.revenue_figure.patch.set_facecolor('#1e293b')
             ax = self.revenue_figure.add_subplot(111)
+            ax.set_facecolor('#1e293b')
 
-            # Dữ liệu cho 4 tuần
-            weeks = ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4']
+            # Lấy dữ liệu thực
+            monthly_data = self.metrics.get('monthly_data', {})
+            months = monthly_data.get('months', ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'])
+            revenues = monthly_data.get('revenues', [0, 0, 0, 0, 0, 0])
+            profits = monthly_data.get('profits', [0, 0, 0, 0, 0, 0])
 
-            # Lấy dữ liệu doanh thu và lợi nhuận
-            monthly_revenue = self.metrics.get('monthly_revenue', 0)
-            monthly_profit = self.metrics.get('monthly_profit', 0)
+            # Tạo biểu đồ đường
+            x = np.arange(len(months))
 
-            # Phân bổ đều cho 4 tuần
-            weekly_revenue = [monthly_revenue * 0.22, monthly_revenue * 0.25,
-                              monthly_revenue * 0.28, monthly_revenue * 0.25]
-            weekly_profit = [monthly_profit * 0.20, monthly_profit * 0.25,
-                             monthly_profit * 0.30, monthly_profit * 0.25]
+            # Vẽ đường doanh thu
+            line1 = ax.plot(x, revenues, marker='o', linewidth=2, markersize=8,
+                            label='Doanh thu', color='#3b82f6', alpha=0.8)[0]
 
-            x = np.arange(len(weeks))
-            width = 0.35
+            # Vẽ đường lợi nhuận
+            line2 = ax.plot(x, profits, marker='s', linewidth=2, markersize=8,
+                            label='Lợi nhuận', color='#10b981', alpha=0.8)[0]
 
-            bars1 = ax.bar(x - width/2, weekly_revenue, width,
-                           label='DOANH THU', color='#3498db', edgecolor='white', linewidth=2)
-            bars2 = ax.bar(x + width/2, weekly_profit, width,
-                           label='LỢI NHUẬN', color='#2ecc71', edgecolor='white', linewidth=2)
-
-            # Thêm giá trị trên các cột
-            for bars in [bars1, bars2]:
-                for bar in bars:
-                    height = bar.get_height()
-                    if height > 0:
-                        ax.text(bar.get_x() + bar.get_width()/2., height,
-                                f'${height:,.0f}', ha='center', va='bottom',
-                                fontsize=9, fontweight='bold')
-
-            ax.set_xlabel('TUẦN', fontsize=12, fontweight='bold')
-            ax.set_title('DOANH THU VÀ LỢI NHUẬN THEO TUẦN',
-                         fontsize=14, fontweight='bold', pad=20)
+            ax.set_xlabel('Tháng', fontsize=12, fontweight=600, color='#cbd5e1')
+            ax.set_title('Doanh thu và Lợi nhuận theo Tháng',
+                         fontsize=13, fontweight=600, pad=15, color='white')
             ax.set_xticks(x)
-            ax.set_xticklabels(weeks)
-            ax.legend(fontsize=11)
-            ax.grid(True, alpha=0.3, linestyle='--')
+            ax.set_xticklabels(months, fontsize=11, color='#cbd5e1')
+
+            # Legend với màu sắc tối
+            legend = ax.legend(fontsize=11, loc='upper left', facecolor='#1e293b',
+                               edgecolor='#334155', framealpha=0.9)
+            for text in legend.get_texts():
+                text.set_color('#cbd5e1')
+
+            # Grid và trục
+            ax.grid(True, alpha=0.1, linestyle='--', color='#94a3b8')
             ax.set_axisbelow(True)
+            ax.tick_params(axis='y', colors='#cbd5e1', labelsize=11)
 
             # Định dạng trục Y
-            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'${x:,.0f}'))
+            def format_money(x, pos):
+                if x >= 1e9:
+                    return f'${x / 1e9:.1f}B'
+                elif x >= 1e6:
+                    return f'${x / 1e6:.1f}M'
+                elif x >= 1e3:
+                    return f'${x / 1e3:.1f}K'
+                else:
+                    return f'${x:.0f}'
 
-            # Đặt màu nền
-            ax.set_facecolor('#f8f9fa')
-            self.revenue_figure.patch.set_facecolor('#ffffff')
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(format_money))
 
             # Tự động điều chỉnh layout
-            self.revenue_figure.tight_layout()
+            self.revenue_figure.tight_layout(pad=2.0)
+
+            # Ẩn các đường viền
+            for spine in ax.spines.values():
+                spine.set_edgecolor('#334155')
+
+            # Thêm tooltip hover
+            def hover(event):
+                if event.inaxes == ax:
+                    # Kiểm tra xem có hover vào line nào không
+                    for line, values, label, color in zip([line1, line2], [revenues, profits],
+                                                          ['Doanh thu', 'Lợi nhuận'], ['#3b82f6', '#10b981']):
+                        cont, ind = line.contains(event)
+                        if cont:
+                            idx = ind['ind'][0]
+                            x_val = x[idx]
+                            y_val = values[idx]
+
+                            # Xóa annotation cũ
+                            if hasattr(self, 'revenue_annotation'):
+                                self.revenue_annotation.remove()
+
+                            # Tạo annotation mới
+                            self.revenue_annotation = ax.annotate(f'{label}: ${y_val:,.0f}',
+                                                                  xy=(x_val, y_val),
+                                                                  xytext=(10, 10),
+                                                                  textcoords='offset points',
+                                                                  ha='left',
+                                                                  fontsize=10,
+                                                                  bbox=dict(boxstyle='round,pad=0.5',
+                                                                            facecolor=color,
+                                                                            alpha=0.8),
+                                                                  arrowprops=dict(arrowstyle='->',
+                                                                                  connectionstyle='arc3',
+                                                                                  color='white'))
+                            self.revenue_canvas.draw_idle()
+                            return
+
+                    # Xóa annotation nếu không hover vào line nào
+                    if hasattr(self, 'revenue_annotation'):
+                        self.revenue_annotation.remove()
+                        self.revenue_canvas.draw_idle()
+
+            # Kết nối sự kiện hover
+            self.revenue_canvas.mpl_connect('motion_notify_event', hover)
 
             self.revenue_canvas.draw()
 
         except Exception as e:
             print(f"❌ Lỗi cập nhật biểu đồ doanh thu: {e}")
 
+    def update_completion_chart(self):
+        """Cập nhật biểu đồ tròn phân bổ mức độ hoàn thành"""
+        try:
+            self.completion_figure.clear()
+
+            # Tăng kích thước figure
+            self.completion_figure.set_figwidth(7)
+            self.completion_figure.set_figheight(5)
+
+            self.completion_figure.patch.set_facecolor('#1e293b')
+            ax = self.completion_figure.add_subplot(111)
+            ax.set_facecolor('#1e293b')
+
+            # Lấy dữ liệu thực
+            completion_data = self.metrics.get('completion_distribution', {})
+            labels = completion_data.get('labels', ['Hoàn thành', 'Đang xử lý', 'Chưa bắt đầu'])
+            sizes = completion_data.get('sizes', [0, 0, 0])
+            colors = completion_data.get('colors', ['#10b981', '#f59e0b', '#ef4444'])
+
+            # Chỉ vẽ biểu đồ nếu có dữ liệu
+            if sum(sizes) > 0:
+                # Tạo biểu đồ tròn với khoảng cách giữa các phần
+                wedges, texts, autotexts = ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%',
+                                                  startangle=90, pctdistance=0.85,
+                                                  wedgeprops=dict(width=0.3, edgecolor='w', linewidth=2),
+                                                  textprops=dict(color='white', fontsize=11))
+
+                # Tạo hiệu ứng donut chart
+                centre_circle = plt.Circle((0, 0), 0.70, fc='#1e293b')
+                ax.add_artist(centre_circle)
+
+                # Cải thiện hiển thị phần trăm
+                for autotext in autotexts:
+                    autotext.set_color('white')
+                    autotext.set_fontweight('bold')
+
+                # Cải thiện nhãn
+                for text in texts:
+                    text.set_fontsize(12)
+                    text.set_color('#cbd5e1')
+            else:
+                # Hiển thị thông báo không có dữ liệu
+                ax.text(0.5, 0.5, 'Không có dữ liệu', ha='center', va='center',
+                        fontsize=14, color='#94a3b8', transform=ax.transAxes)
+
+            ax.set_title('Phân Bổ Mức Độ Hoàn Thành', fontsize=13, fontweight=600, pad=15, color='white')
+            ax.axis('equal')  # Đảm bảo biểu đồ tròn
+
+            # Thêm tooltip hover
+            def hover(event):
+                if event.inaxes == ax and sum(sizes) > 0:
+                    for i, wedge in enumerate(wedges):
+                        if wedge.contains_point((event.x, event.y)):
+                            # Xóa annotation cũ
+                            if hasattr(self, 'completion_annotation'):
+                                self.completion_annotation.remove()
+
+                            # Tính phần trăm
+                            total = sum(sizes)
+                            percentage = (sizes[i] / total * 100) if total > 0 else 0
+
+                            # Tạo annotation mới
+                            self.completion_annotation = ax.annotate(f'{labels[i]}\n{sizes[i]} đơn ({percentage:.1f}%)',
+                                                                     xy=(0, 0),
+                                                                     xytext=(20, 20),
+                                                                     textcoords='offset points',
+                                                                     ha='left',
+                                                                     fontsize=10,
+                                                                     bbox=dict(boxstyle='round,pad=0.5',
+                                                                               facecolor=colors[i],
+                                                                               alpha=0.8))
+                            self.completion_canvas.draw_idle()
+                            return
+
+                    # Xóa annotation nếu không hover vào wedge nào
+                    if hasattr(self, 'completion_annotation'):
+                        self.completion_annotation.remove()
+                        self.completion_canvas.draw_idle()
+
+            # Kết nối sự kiện hover
+            self.completion_canvas.mpl_connect('motion_notify_event', hover)
+
+            self.completion_canvas.draw()
+
+        except Exception as e:
+            print(f"❌ Lỗi cập nhật biểu đồ tròn: {e}")
+
+    def update_working_hours_chart(self):
+        """Cập nhật biểu đồ cột thời gian làm việc"""
+        try:
+            self.working_hours_figure.clear()
+
+            # Tăng kích thước figure
+            self.working_hours_figure.set_figwidth(7)
+            self.working_hours_figure.set_figheight(5)
+
+            self.working_hours_figure.patch.set_facecolor('#1e293b')
+            ax = self.working_hours_figure.add_subplot(111)
+            ax.set_facecolor('#1e293b')
+
+            # Lấy dữ liệu thực
+            working_data = self.metrics.get('working_hours_data', {})
+            days = working_data.get('days', ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'])
+            hours = working_data.get('hours', [0, 0, 0, 0, 0, 0, 0])
+
+            # Tạo biểu đồ cột gradient
+            color_map = ['#3b82f6', '#2563eb', '#1d4ed8', '#1e40af', '#1e3a8a', '#1c366b', '#1e293b']
+            bars = ax.bar(days, hours, color=color_map, edgecolor='white',
+                          linewidth=1, alpha=0.9, width=0.6)
+
+            # Thêm giá trị trên mỗi cột
+            for bar, hour in zip(bars, hours):
+                height = bar.get_height()
+                if height > 0:
+                    ax.text(bar.get_x() + bar.get_width() / 2., height + 0.1,
+                            f'{hour:.1f}h', ha='center', va='bottom',
+                            fontsize=11, fontweight='bold', color='white')
+
+            # Đường trung bình
+            avg_hours = np.mean(hours) if len(hours) > 0 else 0
+            ax.axhline(y=avg_hours, color='#ef4444', linestyle='--', linewidth=1.5, alpha=0.7,
+                       label=f'Trung bình: {avg_hours:.1f}h/ngày')
+
+            ax.set_ylabel('Giờ làm việc', fontsize=12, fontweight=600, color='#cbd5e1')
+            ax.set_title('Thời gian làm việc theo ngày trong tuần',
+                         fontsize=13, fontweight=600, pad=15, color='white')
+
+            # Legend
+            legend = ax.legend(fontsize=11, loc='upper right', facecolor='#1e293b', edgecolor='#334155')
+            for text in legend.get_texts():
+                text.set_color('#cbd5e1')
+
+            # Grid và trục
+            ax.grid(True, alpha=0.1, linestyle='--', color='#94a3b8', axis='y')
+            ax.set_axisbelow(True)
+            ax.tick_params(axis='x', colors='#cbd5e1', labelsize=11)
+            ax.tick_params(axis='y', colors='#cbd5e1', labelsize=11)
+
+            # Tự động điều chỉnh layout
+            self.working_hours_figure.tight_layout(pad=2.0)
+
+            # Ẩn các đường viền
+            for spine in ax.spines.values():
+                spine.set_edgecolor('#334155')
+
+            # Thêm tooltip hover
+            def hover(event):
+                if event.inaxes == ax:
+                    for bar, hour, day in zip(bars, hours, days):
+                        if bar.contains(event)[0]:
+                            # Hiển thị tooltip
+                            x = bar.get_x() + bar.get_width() / 2
+                            y = bar.get_height()
+
+                            # Xóa annotation cũ
+                            if hasattr(self, 'hours_annotation'):
+                                self.hours_annotation.remove()
+
+                            # Tạo annotation mới
+                            self.hours_annotation = ax.annotate(f'{day}: {hour:.1f} giờ',
+                                                                xy=(x, y),
+                                                                xytext=(0, 10),
+                                                                textcoords='offset points',
+                                                                ha='center',
+                                                                fontsize=10,
+                                                                bbox=dict(boxstyle='round,pad=0.5',
+                                                                          facecolor='yellow',
+                                                                          alpha=0.8))
+                            self.working_hours_canvas.draw_idle()
+                            return
+
+                    # Xóa annotation nếu không hover vào bar nào
+                    if hasattr(self, 'hours_annotation'):
+                        self.hours_annotation.remove()
+                        self.working_hours_canvas.draw_idle()
+
+            # Kết nối sự kiện hover
+            self.working_hours_canvas.mpl_connect('motion_notify_event', hover)
+
+            self.working_hours_canvas.draw()
+
+        except Exception as e:
+            print(f"❌ Lỗi cập nhật biểu đồ thời gian làm việc: {e}")
+
     def update_analysis_text(self):
         """Cập nhật text phân tích"""
         try:
             total_orders = self.metrics.get('total_orders', '0')
-            total_revenue = self.metrics.get('total_revenue', '$0')
+            work_hours = self.metrics.get('total_work_hours', '0')
             total_fraud = self.metrics.get('total_fraud', '0')
             completion_rate = self.metrics.get('completion_rate', '0%')
             avg_daily = self.metrics.get('avg_daily_orders', '0')
+            avg_daily_hours = self.metrics.get('avg_daily_hours', '0')
 
-            # Đánh giá hiệu suất
-            fraud_count = int(total_fraud)
-            if fraud_count == 0:
-                fraud_evaluation = "🎯 <span style='color:#27ae60;'>RẤT TỐT - Không có sự kiện gian lận</span>"
-            elif fraud_count <= 5:
-                fraud_evaluation = "✅ <span style='color:#2ecc71;'>TỐT - Số lượng thấp, trong tầm kiểm soát</span>"
-            elif fraud_count <= 10:
-                fraud_evaluation = "⚠️ <span style='color:#f39c12;'>TRUNG BÌNH - Cần theo dõi thêm</span>"
-            else:
-                fraud_evaluation = "❌ <span style='color:#e74c3c;'>CẢNH BÁO - Số lượng cao, cần điều tra ngay</span>"
-
+            # Đánh giá hiệu suất dựa trên dữ liệu thực
+            fraud_count = int(''.join(filter(str.isdigit, total_fraud)) or 0)
             completion_value = float(completion_rate.replace('%', ''))
-            if completion_value >= 97:
-                completion_evaluation = "🎯 <span style='color:#27ae60;'>XUẤT SẮC - Vượt mục tiêu</span>"
-            elif completion_value >= 95:
-                completion_evaluation = "✅ <span style='color:#2ecc71;'>ĐẠT - Đạt mục tiêu đề ra</span>"
-            else:
-                completion_evaluation = "⚠️ <span style='color:#e74c3c;'>CHƯA ĐẠT - Cần cải thiện</span>"
 
             analysis_html = f"""
-            <div style="font-family: 'Segoe UI', Arial, sans-serif;">
-                <h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">
-                    📋 PHÂN TÍCH HIỆU SUẤT CHI TIẾT
-                </h2>
+            <div style="color: #cbd5e1; font-family: 'Segoe UI', Arial, sans-serif;">
+                <h3 style="color: #ffffff; margin-bottom: 15px;">Phân Tích Chi Tiết</h3>
 
-                <div style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
-                          padding: 20px; border-radius: 10px; margin: 15px 0;">
-                    <h3 style="color: #3498db;">🎯 TỔNG QUAN</h3>
-                    <ul style="font-size: 14px; line-height: 1.8;">
-                        <li><strong>Tổng đơn hàng xử lý:</strong> <span style="color: #2c3e50; font-weight: bold;">{total_orders}</span> đơn hàng</li>
-                        <li><strong>Hiệu suất trung bình:</strong> <span style="color: #2c3e50; font-weight: bold;">{avg_daily}</span> đơn/ngày</li>
-                        <li><strong>Tổng doanh thu:</strong> <span style="color: #27ae60; font-weight: bold;">{total_revenue}</span></li>
-                    </ul>
-                </div>
+                <ul style="line-height: 1.6; margin-bottom: 15px;">
+                    <li><strong>Hiệu suất đơn hàng:</strong> {total_orders} đơn hàng được xử lý, đạt trung bình {avg_daily} đơn/ngày.</li>
+                    <li><strong>Thời gian làm việc:</strong> Tổng {work_hours} giờ, trung bình {avg_daily_hours} giờ/ngày.</li>
+                    <li><strong>Sự kiện gian lận:</strong> {total_fraud} sự kiện được ghi nhận. 
+                        {'Cần điều tra nguyên nhân và có biện pháp xử lý.' if fraud_count > 5 else 'Ở mức chấp nhận được, cần tiếp tục theo dõi.'}</li>
+                    <li><strong>Tỷ lệ hoàn thành:</strong> {completion_rate}, {'vượt' if completion_value >= 95 else 'chưa đạt'} mục tiêu 95%.</li>
+                </ul>
 
-                <div style="background: linear-gradient(135deg, #fff5f5 0%, #ffeaea 100%); 
-                          padding: 20px; border-radius: 10px; margin: 15px 0;">
-                    <h3 style="color: #e74c3c;">⚠️ KIỂM SOÁT GIAN LẬN</h3>
-                    <ul style="font-size: 14px; line-height: 1.8;">
-                        <li><strong>Số sự kiện gian lận:</strong> <span style="color: #e74c3c; font-weight: bold;">{total_fraud}</span> sự kiện</li>
-                        <li><strong>Đánh giá:</strong> {fraud_evaluation}</li>
-                        <li><strong>Khuyến nghị:</strong> {f'Giảm {fraud_count//2} sự kiện vào tuần tới' if fraud_count > 5 else 'Duy trì mức độ hiện tại'}</li>
-                    </ul>
-                </div>
+                <p style="font-style: italic; color: #94a3b8; border-left: 3px solid #3b82f6; padding-left: 10px; margin-top: 15px;">
+                    <strong>Khuyến nghị:</strong> {'Tập trung vào cải thiện tỷ lệ hoàn thành' if completion_value < 95 else 'Duy trì hiệu suất hiện tại'}.
+                    {' Giám sát chặt chẽ sự kiện gian lận.' if fraud_count > 5 else ''}
+                </p>
 
-                <div style="background: linear-gradient(135deg, #f0fff4 0%, #e6ffe6 100%); 
-                          padding: 20px; border-radius: 10px; margin: 15px 0;">
-                    <h3 style="color: #27ae60;">✅ CHẤT LƯỢNG CÔNG VIỆC</h3>
-                    <ul style="font-size: 14px; line-height: 1.8;">
-                        <li><strong>Tỷ lệ hoàn thành:</strong> <span style="color: #27ae60; font-weight: bold;">{completion_rate}</span></li>
-                        <li><strong>Đánh giá:</strong> {completion_evaluation}</li>
-                        <li><strong>Mục tiêu:</strong> 95% (đã {'đạt' if completion_value >= 95 else 'chưa đạt'})</li>
-                    </ul>
-                </div>
-
-                <div style="margin-top: 20px; padding: 15px; background-color: #e3f2fd; border-radius: 8px;">
-                    <h4 style="color: #1565c0;">📌 KẾT LUẬN VÀ KHUYẾN NGHỊ</h4>
-                    <p style="font-size: 14px; line-height: 1.6;">
-                        Nhân viên <strong>{self.user_name}</strong> đang thể hiện hiệu suất{' tốt' if completion_value >= 95 else ' cần cải thiện'}. 
-                        {'Cần tập trung vào việc giảm sự kiện gian lận và duy trì chất lượng công việc.' if fraud_count > 5 else 'Tiếp tục phát huy và duy trì hiệu suất hiện tại.'}
+                <div style="margin-top: 20px; padding: 10px; background-color: #334155; border-radius: 5px;">
+                    <p style="margin: 0; color: #cbd5e1; font-size: 12px;">
+                        <strong>Ghi chú:</strong> Dữ liệu được phân tích từ hệ thống SAP và nhật ký công việc thực tế.<br>
+                        Ngày cập nhật: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
                     </p>
                 </div>
             </div>
@@ -706,7 +1500,11 @@ class PerformanceDashboard(QWidget):
 
         except Exception as e:
             print(f"❌ Lỗi cập nhật phân tích: {e}")
-            self.analysis_text.setHtml(f"<p style='color: red;'>Lỗi cập nhật phân tích: {str(e)}</p>")
+            self.analysis_text.setHtml(f"""
+                <div style='color: #ef4444; padding: 20px;'>
+                    <p>Lỗi khi cập nhật phân tích: {str(e)}</p>
+                </div>
+            """)
 
 
 def main():
@@ -725,8 +1523,8 @@ def main():
                              f"Chi tiết lỗi: {str(e)}")
         sys.exit(1)
 
-    print("🚀 KHỞI ĐỘNG DASHBOARD HIỆU SUẤT")
-    print("=" * 50)
+    print("🚀 KHỞI ĐỘNG DASHBOARD HIỆU SUẤT - PHIÊN BẢN CẢI TIẾN")
+    print("=" * 70)
 
     # Tạo và hiển thị dashboard
     dashboard = PerformanceDashboard("Giang")
@@ -735,9 +1533,9 @@ def main():
     screen = app.primaryScreen()
     screen_geometry = screen.geometry()
 
-    # Đặt kích thước cửa sổ (80% màn hình)
-    width = int(screen_geometry.width() * 0.85)
-    height = int(screen_geometry.height() * 0.85)
+    # Đặt kích thước cửa sổ
+    width = min(1400, int(screen_geometry.width() * 0.95))
+    height = min(900, int(screen_geometry.height() * 0.95))
 
     dashboard.resize(width, height)
     dashboard.move(
@@ -748,7 +1546,7 @@ def main():
     dashboard.show()
 
     print(f"✅ Dashboard đã hiển thị: {width}x{height}")
-    print("=" * 50)
+    print("=" * 70)
 
     sys.exit(app.exec())
 

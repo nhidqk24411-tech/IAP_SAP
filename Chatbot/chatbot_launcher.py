@@ -44,12 +44,14 @@ class ChatbotLauncher:
                 print(f"❌ config.py: {e}")
                 return None
 
-            # 2. Test employee_chatbot
+            # 2. Test employee_chatbot - ĐÃ SỬA IMPORT
             try:
                 from employee_chatbot import EmployeeChatbotGUI
                 print("✅ employee_chatbot.py: OK")
             except Exception as e:
                 print(f"❌ employee_chatbot.py: {e}")
+                import traceback
+                traceback.print_exc()
                 return None
 
             # 3. Test other modules
@@ -66,7 +68,7 @@ class ChatbotLauncher:
                 print(f"⚠️ data_processor.py: {e}")
 
             try:
-                from dashboard import PowerSightDashboard
+                from dashboard import PerformanceDashboard  # ĐÃ SỬA
                 print("✅ dashboard.py: OK")
             except Exception as e:
                 print(f"⚠️ dashboard.py: {e}")
