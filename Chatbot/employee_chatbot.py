@@ -2,6 +2,7 @@
 """
 Employee Chatbot - PowerSight Employee Assistant
 Phiên bản tối ưu giao diện giống dashboard - FIX UI Quick Actions
+Cập nhật để sử dụng DataProcessor
 """
 
 import random
@@ -533,15 +534,15 @@ class EmployeeChatbotGUI(QMainWindow):
 • Data Processor: {data_status}
 
 **🤖 TÔI CÓ THỂ GIÚP BẠN:**
-• Phân tích hiệu suất làm việc
-• Đề xuất cải thiện và phát triển
+• Phân tích hiệu suất làm việc cả năm
+• Đề xuất cải thiện và phát triển theo tháng
 • Cảnh báo vấn đề cần khắc phục
 • Tư vấn chiến lược tăng doanh thu
 • Đề xuất khóa học phù hợp
 
 **🚀 QUICK ACTIONS:**
 - Sử dụng nút bên trái để hỏi nhanh
-- **Nhấn "Mở Dashboard"** để xem biểu đồ chi tiết
+- **Nhấn "Mở Dashboard"** để xem biểu đồ chi tiết cả năm
 - Chat tự nhiên bằng tiếng Việt
 
 **⏳ Đang tải dữ liệu từ hệ thống...**"""
@@ -549,7 +550,7 @@ class EmployeeChatbotGUI(QMainWindow):
         self.append_to_chat("Trợ lý AI", welcome)
 
     def load_initial_data(self):
-        """Tải dữ liệu ban đầu"""
+        """Tải dữ liệu ban đầu - Bổ sung hiển thị dữ liệu cả năm"""
         self.status_indicator.setText("🔄 Đang tải dữ liệu...")
         self.data_status_label.setText("📂 Đang đọc dữ liệu từ hệ thống...")
         self.send_btn.setEnabled(False)
@@ -560,20 +561,6 @@ class EmployeeChatbotGUI(QMainWindow):
                 self.status_indicator.setText("⚠️ Không có DataProcessor")
                 self.data_status_label.setText("❌ Module DataProcessor không khả dụng")
                 self.send_btn.setEnabled(True)
-
-                warning_msg = """**⚠️ CẢNH BÁO: MODULE KHÔNG KHẢ DỤNG**
-
-Không thể tải DataProcessor module. Có thể do:
-1. File data_processor.py bị lỗi
-2. Thiếu thư viện dependencies
-3. Import error
-
-**Hành động:**
-• Vẫn có thể chat với AI (DEMO mode)
-• Dashboard có thể không hiển thị đầy đủ dữ liệu
-• Liên hệ IT support để khắc phục"""
-
-                self.append_to_chat("Hệ thống", warning_msg)
                 return
 
             # Tải dữ liệu qua DataProcessor
@@ -594,10 +581,25 @@ Không thể tải DataProcessor module. Có thể do:
                 sap_orders = sap_data.get('total_orders', 0)
                 pending_orders = sap_data.get('pending_orders', 0)
 
-                self.data_status_label.setText(
-                    f"📊 WL: {fraud_count} gian lận, {warning_count} cảnh báo | "
-                    f"🛒 SAP: {sap_orders} đơn ({pending_orders} chờ)"
-                )
+                # Lấy dữ liệu tổng hợp cả năm
+                year_summary = self.data_processor.get_year_summary()
+                if year_summary:
+                    total_orders_year = year_summary.get('total_orders', 0)
+                    total_revenue_year = year_summary.get('total_revenue', 0)
+                    total_profit_year = year_summary.get('total_profit', 0)
+                    total_fraud_year = year_summary.get('total_fraud', 0)
+                    months_with_data = year_summary.get('months_with_data', 0)
+
+                    self.data_status_label.setText(
+                        f"📅 {year_summary.get('year', datetime.now().year)}: {months_with_data} tháng | "
+                        f"📊 WL: {fraud_count} gian lận | "
+                        f"🛒 SAP: {sap_orders} đơn ({pending_orders} chờ)"
+                    )
+                else:
+                    self.data_status_label.setText(
+                        f"📊 WL: {fraud_count} gian lận, {warning_count} cảnh báo | "
+                        f"🛒 SAP: {sap_orders} đơn ({pending_orders} chờ)"
+                    )
 
                 if self.gemini and hasattr(self.gemini, 'active_model'):
                     model_name = self.gemini.active_model or 'DEMO'
@@ -607,42 +609,18 @@ Không thể tải DataProcessor module. Có thể do:
 
                 self.send_btn.setEnabled(True)
 
-                # Hiển thị tóm tắt chi tiết
+                # Lấy dữ liệu cả năm
+                year_data = self.data_processor.get_dashboard_data()
+
+                # Hiển thị tóm tắt chi tiết với dữ liệu thực tế
                 completion_rate = sap_data.get('completion_rate', 0)
                 revenue = sap_data.get('total_revenue', 0)
                 profit = sap_data.get('total_profit', 0)
 
-                summary_msg = f"""**✅ ĐÃ TẢI DỮ LIỆU THÀNH CÔNG**
-
-**📅 Thời gian:** {datetime.now().strftime('%d/%m/%Y %H:%M')}
-
-**🔍 WORK LOG PHÂN TÍCH:**
-• Sự kiện gian lận: {fraud_count}
-• Cảnh báo nghiêm trọng: {work_log_data.get('critical_count', 0)}
-• Cảnh báo nhẹ: {warning_count}
-• Session chuột: {mouse_sessions}
-• Thời gian làm việc: {work_log_data.get('total_work_hours', 0)}h
-
-**📈 SAP DATA TỔNG QUAN:**
-• Tổng đơn hàng: {sap_orders:,}
-• Đã hoàn thành: {sap_data.get('completed_orders', 0):,}
-• Chờ xử lý: {pending_orders:,}
-• Tỷ lệ hoàn thành: {completion_rate:.1f}%
-• Doanh thu: {revenue:,.0f} VND
-• Lợi nhuận: {profit:,.0f} VND
-
-**🎯 ĐIỂM ĐÁNH GIÁ HIỆU SUẤT:**
-• **Hiệu quả:** {metrics.get('efficiency', 0):.1f}/100
-• **Chất lượng:** {metrics.get('quality', 0):.1f}/100
-• **Tuân thủ:** {metrics.get('compliance', 0):.1f}/100
-• **Năng suất:** {metrics.get('productivity', 0):.1f}/100
-• **🏆 TỔNG THỂ:** {metrics.get('overall', 0):.1f}/100
-
-**💡 GỢI Ý HÀNH ĐỘNG:**
-1. **Nhấn "Mở Dashboard"** - Xem biểu đồ chi tiết và xu hướng
-2. **Hỏi "Đơn hàng nào chưa xử lý xong?"** - Kiểm tra trạng thái đơn hàng
-3. **Hỏi "Làm sao cải thiện hiệu suất?"** - Được tư vấn chiến lược
-4. **Hỏi "Doanh thu vùng nào cao nhất?"** - Phân tích dữ liệu kinh doanh"""
+                # Tạo summary message với dữ liệu cả năm
+                summary_msg = self._create_summary_message(
+                    work_log_data, sap_data, metrics, year_summary
+                )
 
                 self.append_to_chat("Hệ thống", summary_msg)
             else:
@@ -658,6 +636,88 @@ Không thể tải DataProcessor module. Có thể do:
             self.status_indicator.setText("❌ Lỗi dữ liệu")
             self.data_status_label.setText(f"Lỗi: {str(e)[:50]}")
             self.send_btn.setEnabled(True)
+
+    def _create_summary_message(self, work_log_data, sap_data, metrics, year_summary):
+        """Tạo message tóm tắt với dữ liệu cả năm"""
+        current_year = datetime.now().year
+
+        # Thông tin tháng hiện tại
+        fraud_count = work_log_data.get('fraud_count', 0)
+        warning_count = work_log_data.get('warning_count', 0)
+        sap_orders = sap_data.get('total_orders', 0)
+        pending_orders = sap_data.get('pending_orders', 0)
+        completion_rate = sap_data.get('completion_rate', 0)
+        revenue = sap_data.get('total_revenue', 0)
+        profit = sap_data.get('total_profit', 0)
+        profit_margin = sap_data.get('profit_margin', 0)
+
+        message = f"""**✅ ĐÃ TẢI DỮ LIỆU THÀNH CÔNG**
+
+**📅 Thời gian:** {datetime.now().strftime('%d/%m/%Y %H:%M')}
+
+"""
+
+        # Thêm phần dữ liệu cả năm nếu có
+        if year_summary:
+            total_orders_year = year_summary.get('total_orders', 0)
+            total_revenue_year = year_summary.get('total_revenue', 0)
+            total_profit_year = year_summary.get('total_profit', 0)
+            total_fraud_year = year_summary.get('total_fraud', 0)
+            months_with_data = year_summary.get('months_with_data', 0)
+            year_completion_rate = year_summary.get('completion_rate', 0)
+            best_month = year_summary.get('best_month', 0)
+            best_month_revenue = year_summary.get('best_month_revenue', 0)
+
+            message += f"""**📊 TỔNG QUAN CẢ NĂM {current_year}:**
+• **Phạm vi dữ liệu:** {months_with_data}/12 tháng
+• **Tổng đơn hàng cả năm:** {total_orders_year:,}
+• **Tổng doanh thu cả năm:** {total_revenue_year:,.0f} VND
+• **Tổng lợi nhuận cả năm:** {total_profit_year:,.0f} VND
+• **Tổng gian lận cả năm:** {total_fraud_year}
+• **Tỷ lệ hoàn thành cả năm:** {year_completion_rate:.1f}%
+• **Tháng hiệu quả nhất:** Tháng {best_month} ({best_month_revenue:,.0f} VND)
+
+"""
+
+        message += f"""**🔍 WORK LOG PHÂN TÍCH (THÁNG HIỆN TẠI):**
+• Sự kiện gian lận: {fraud_count}
+• Cảnh báo nghiêm trọng: {work_log_data.get('critical_count', 0)}
+• Cảnh báo nhẹ: {warning_count}
+• Thời gian làm việc: {work_log_data.get('total_work_hours', 0)}h
+
+**📈 SAP DATA TỔNG QUAN (THÁNG HIỆN TẠI):**
+• Tổng đơn hàng: {sap_orders:,}
+• Đã hoàn thành: {sap_data.get('completed_orders', 0):,} ({completion_rate:.1f}%)
+• Chờ xử lý: {pending_orders:,}
+• Doanh thu: {revenue:,.0f} VND
+• Lợi nhuận: {profit:,.0f} VND
+• Tỷ suất lợi nhuận: {profit_margin:.1f}%
+
+**📊 CHỈ SỐ THỰC TẾ:**
+• **Hiệu suất làm việc:** {metrics.get('efficiency', 0):.1f}/100 (dựa trên số đơn/giờ)
+• **Chất lượng công việc:** {metrics.get('quality', 0):.1f}/100 (dựa trên tỷ lệ hoàn thành & lợi nhuận)
+• **Tuân thủ quy định:** {metrics.get('compliance', 0):.1f}/100 (dựa trên việc tuân thủ quy định)
+• **Năng suất kinh doanh:** {metrics.get('productivity', 0):.1f}/100 (dựa trên doanh thu & lợi nhuận)
+• **Tỷ lệ lỗi:** {metrics.get('error_rate', 0):.1f}%
+• **Hiệu suất thời gian:** {metrics.get('time_efficiency', 0):.1f}%
+
+"""
+
+        # Thêm gợi ý hành động khác nhau dựa trên có dữ liệu cả năm hay không
+        if year_summary:
+            message += """**💡 GỢI Ý HÀNH ĐỘNG (DỰA TRÊN DỮ LIỆU CẢ NĂM):**
+1. **Nhấn "Mở Dashboard"** - Xem biểu đồ chi tiết và xu hướng cả năm
+2. **Hỏi "Phân tích hiệu suất theo tháng"** - So sánh giữa các tháng
+3. **Hỏi "Tháng nào có doanh thu cao nhất?"** - Tìm điểm mạnh theo mùa
+4. **Hỏi "Làm sao duy trì hiệu suất cao?"** - Được tư vấn chiến lược dài hạn"""
+        else:
+            message += """**💡 GỢI Ý HÀNH ĐỘNG:**
+1. **Nhấn "Mở Dashboard"** - Xem biểu đồ chi tiết
+2. **Hỏi "Đơn hàng nào chưa xử lý xong?"** - Kiểm tra trạng thái đơn hàng
+3. **Hỏi "Làm sao cải thiện hiệu suất?"** - Được tư vấn chiến lược
+4. **Hỏi "Doanh thu theo tháng nào cao nhất?"** - Phân tích dữ liệu theo tháng"""
+
+            return message
     def show_dashboard(self):
         """Hiển thị dashboard"""
         try:
@@ -711,7 +771,7 @@ Không thể tải DataProcessor module. Có thể do:
         self.send_btn.setEnabled(False)
         self.status_indicator.setText("🤔 AI đang phân tích...")
 
-        # Lấy dữ liệu context nâng cao
+        # Lấy dữ liệu context nâng cao từ DataProcessor
         context_data = {}
         if self.data_processor:
             try:
@@ -721,6 +781,11 @@ Không thể tải DataProcessor module. Có thể do:
                 print(f"📋 Context data keys: {list(context_data.keys())}")
                 print(f"📊 SAP data: {len(context_data.get('sap_data', {}).get('all_orders', []))} orders")
                 print(f"📈 Work log: {len(context_data.get('work_log', {}).get('fraud_events', []))} fraud events")
+
+                # Thêm thông tin dữ liệu cả năm
+                if 'year_data' in context_data and context_data['year_data']:
+                    print(
+                        f"📅 Year data available: {len(context_data['year_data'].get('sap_data', {}).get('sheets', {}).get('Orders', []))} orders")
 
             except Exception as e:
                 print(f"⚠️ Không thể lấy context data: {e}")
@@ -732,6 +797,7 @@ Không thể tải DataProcessor module. Có thể do:
         self.chat_thread.response_ready.connect(self.on_ai_response)
         self.chat_thread.error_occurred.connect(self.on_ai_error)
         self.chat_thread.start()
+
     def ask_question(self, question):
         """Hỏi câu hỏi tự động"""
         self.message_input.setText(question)
@@ -842,7 +908,7 @@ class ChatThread(QThread):
                 import random
                 demo_responses = [
                     f"**Câu hỏi:** {self.question}\n\n**Phân tích (DEMO):** Hiệu suất của bạn hiện ở mức ổn định. Tập trung vào hoàn thành đơn hàng đúng hạn để cải thiện tỷ lệ hoàn thành.",
-                    f"**Câu hỏi:** {self.question}\n\n**Phân tích (DEMO):** Dữ liệu cho thấy bạn cần giảm số lượng cảnh báo trong quy trình làm việc. Kiểm tra kỹ các bước trước khi submit.",
+                    f"**Câu hỏi:** {self.question}\n\n**Phân tích (DEMO):** Dữ liệu cả năm cho thấy bạn cần giảm số lượng cảnh báo trong quy trình làm việc. Kiểm tra kỹ các bước trước khi submit.",
                 ]
                 response = random.choice(demo_responses)
                 self.response_ready.emit(response)

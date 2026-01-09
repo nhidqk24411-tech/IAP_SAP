@@ -282,7 +282,6 @@ class ProfessionalWorkBrowser(QMainWindow):
         self.alert_queue = alert_queue
 
         # Biến theo dõi trạng thái
-        self.is_fullscreen = False
         self.is_alert_showing = False
 
         # Domain được phép cho Google Workspace
@@ -418,6 +417,21 @@ class ProfessionalWorkBrowser(QMainWindow):
         self.new_tab_btn.clicked.connect(self.show_new_tab_menu)
         control_layout.addWidget(self.new_tab_btn)
 
+        # Hiển thị ngày giờ hiện tại
+        self.datetime_label = QLabel()
+        self.datetime_label.setFont(QFont("Arial", 10))
+        self.datetime_label.setStyleSheet(
+            "color: #E8EAED; background-color: #303134; padding: 8px 15px; border-radius: 6px;")
+        control_layout.addWidget(self.datetime_label)
+
+        # Timer cập nhật ngày giờ mỗi giây
+        self.datetime_timer = QTimer()
+        self.datetime_timer.timeout.connect(self.update_datetime)
+        self.datetime_timer.start(1000)
+        self.update_datetime()  # Cập nhật ngay lần đầu
+
+        control_layout.addStretch()
+
         # Thông tin trạng thái
         status_container = QWidget()
         status_layout = QVBoxLayout(status_container)
@@ -435,33 +449,10 @@ class ProfessionalWorkBrowser(QMainWindow):
         status_layout.addWidget(connection_status)
 
         control_layout.addWidget(status_container)
-        control_layout.addStretch()
 
         # Đồng hồ (truyền pause_event và command_queue)
         self.timer_widget = TimerWidget(pause_event=pause_event, command_queue=command_queue)
         control_layout.addWidget(self.timer_widget)
-
-        control_layout.addSpacing(20)
-
-        # Nút Fullscreen
-        self.fullscreen_btn = QPushButton("⛶ Fullscreen")
-        self.fullscreen_btn.setFixedWidth(120)
-        self.fullscreen_btn.setFont(QFont("Arial", 10))
-        self.fullscreen_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #8AB4F8;
-                color: #202124;
-                border: none;
-                padding: 8px 15px;
-                border-radius: 6px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #AECBFA;
-            }
-        """)
-        self.fullscreen_btn.clicked.connect(self.toggle_fullscreen)
-        control_layout.addWidget(self.fullscreen_btn)
 
         # Nút Exit
         exit_btn = QPushButton("Exit")
@@ -524,7 +515,7 @@ class ProfessionalWorkBrowser(QMainWindow):
 
         # Thanh trạng thái
         self.statusBar().setFont(QFont("Arial", 9))
-        self.statusBar().showMessage("✓ Ready - Default tabs cannot be closed | Press F11 for fullscreen")
+        self.statusBar().showMessage("✓ Ready - Default tabs cannot be closed")
 
         # Timer kiểm tra alert
         self.alert_check_timer = QTimer()
@@ -536,6 +527,11 @@ class ProfessionalWorkBrowser(QMainWindow):
 
         # Kết nối sự kiện đóng cửa sổ
         self.destroyed.connect(self.on_window_destroyed)
+
+    def update_datetime(self):
+        """Cập nhật ngày giờ hiện tại"""
+        current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.datetime_label.setText(f"📅 {current_datetime}")
 
     def setup_fonts(self):
         """Thiết lập font chữ cho ứng dụng"""
@@ -631,6 +627,8 @@ class ProfessionalWorkBrowser(QMainWindow):
             self.timer_widget.timer.stop()
         if hasattr(self, 'alert_check_timer'):
             self.alert_check_timer.stop()
+        if hasattr(self, 'datetime_timer'):
+            self.datetime_timer.stop()
 
     def go_back(self):
         """Quay lại trang trước"""
@@ -651,43 +649,6 @@ class ProfessionalWorkBrowser(QMainWindow):
             current_widget.reload()
             self.statusBar().showMessage("🔄 Refreshing current page...", 2000)
 
-    def toggle_fullscreen(self):
-        """Chuyển đổi chế độ fullscreen"""
-        if self.is_fullscreen:
-            self.showNormal()
-            self.fullscreen_btn.setText("⛶ Fullscreen")
-            self.fullscreen_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #8AB4F8;
-                    color: #202124;
-                    border: none;
-                    padding: 8px 15px;
-                    border-radius: 6px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #AECBFA;
-                }
-            """)
-        else:
-            self.showFullScreen()
-            self.fullscreen_btn.setText("❒ Windowed")
-            self.fullscreen_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #34A853;
-                    color: white;
-                    border: none;
-                    padding: 8px 15px;
-                    border-radius: 6px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #2E8B47;
-                }
-            """)
-
-        self.is_fullscreen = not self.is_fullscreen
-
     def confirm_exit(self):
         """Xác nhận thoát ứng dụng - KHÔNG GHI LOG"""
         reply = QMessageBox.question(
@@ -701,6 +662,14 @@ class ProfessionalWorkBrowser(QMainWindow):
         )
 
         if reply == QMessageBox.StandardButton.Yes:
+            # Dừng tất cả timers
+            if hasattr(self, 'timer_widget'):
+                self.timer_widget.timer.stop()
+            if hasattr(self, 'alert_check_timer'):
+                self.alert_check_timer.stop()
+            if hasattr(self, 'datetime_timer'):
+                self.datetime_timer.stop()
+
             # Chỉ đóng browser, không đóng toàn bộ app
             if self.on_close_callback:
                 self.on_close_callback()
@@ -712,32 +681,21 @@ class ProfessionalWorkBrowser(QMainWindow):
         if hasattr(self, 'on_close_callback') and self.on_close_callback:
             self.on_close_callback()
 
+        # Dừng tất cả timers
+        if hasattr(self, 'timer_widget'):
+            self.timer_widget.timer.stop()
+        if hasattr(self, 'alert_check_timer'):
+            self.alert_check_timer.stop()
+        if hasattr(self, 'datetime_timer'):
+            self.datetime_timer.stop()
+
         # Chấp nhận sự kiện đóng
         event.accept()
 
     def keyPressEvent(self, event):
         """Xử lý phím tắt"""
-        if event.key() == Qt.Key.Key_F11:
-            self.toggle_fullscreen()
-        elif event.key() == Qt.Key.Key_F5:
+        if event.key() == Qt.Key.Key_F5:
             self.refresh_current()
-        elif event.key() == Qt.Key.Key_Escape and self.is_fullscreen:
-            self.showNormal()
-            self.is_fullscreen = False
-            self.fullscreen_btn.setText("⛶ Fullscreen")
-            self.fullscreen_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #8AB4F8;
-                    color: #202124;
-                    border: none;
-                    padding: 8px 15px;
-                    border-radius: 6px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #AECBFA;
-                }
-            """)
         elif event.key() == Qt.Key.Key_W and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             # Ctrl+W để đóng tab hiện tại (chỉ tab không phải mặc định)
             current_index = self.tab_widget.currentIndex()

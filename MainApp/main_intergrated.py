@@ -1,4 +1,4 @@
-# main_integrated.py - HOÀN CHỈNH VỚI BROWSER TIME LOGGING
+# main_integrated.py - HOÀN CHỈNH VỚI BROWSER TIME LOGGING VÀ TASKBAR CONTROL
 import sys
 import os
 import cv2
@@ -8,13 +8,47 @@ from datetime import datetime, timedelta
 import traceback
 import pandas as pd
 import subprocess
+import ctypes
+from ctypes import wintypes
 
-# Add project root to path for imports
+# Thêm đường dẫn project root cho imports
+sys.path.insert(0, r"C:\Users\legal\PycharmProjects\PythonProject")
+
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
 
 from Chatbot.chatbot_launcher import ChatbotLauncher
+
+# =========================
+# TASKBAR CONTROLLER
+# =========================
+SW_HIDE = 0
+SW_SHOW = 5
+
+
+class TaskbarController:
+    """Điều khiển ẩn/hiện thanh Taskbar của Windows"""
+
+    @staticmethod
+    def set_visibility(visible=True):
+        try:
+            # Tìm handle của Taskbar và nút Start
+            hwnd = ctypes.windll.user32.FindWindowW("Shell_TrayWnd", None)
+            hwnd_start = ctypes.windll.user32.FindWindowW("Button", "Start")
+
+            show_cmd = SW_SHOW if visible else SW_HIDE
+
+            if hwnd:
+                ctypes.windll.user32.ShowWindow(hwnd, show_cmd)
+            if hwnd_start:
+                ctypes.windll.user32.ShowWindow(hwnd_start, show_cmd)
+
+            status = "HIỆN" if visible else "ẨN"
+            print(f"🖥️ Trạng thái Taskbar: {status}")
+        except Exception as e:
+            print(f"⚠️ Lỗi điều khiển Taskbar: {e}")
+
 
 # =========================
 # CONFIGURATION
@@ -24,6 +58,7 @@ SAVED_FILE_DIR = os.path.join(BASE_DIR, "Saved_file")
 UI_DIR = os.path.join(BASE_DIR, "MainApp", "UI")
 IMAGES_DIR = os.path.join(UI_DIR, "images")
 sys.path.insert(0, BASE_DIR)
+
 # FIX LỖI DEBUG TENSORFLOW
 if 'pydevd' in sys.modules:
     os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -152,13 +187,15 @@ class GlobalExcelLogger:
         # Data storage
         self.fraud_events = []  # Sheet 1: CHỈ sự kiện gian lận
         self.mouse_details = []  # Sheet 2: Chi tiết chuột
-        self.browser_sessions = []  # Sheet 3: Tổng thời gian làm việc trên browser (ĐƠN GIẢN)
+        self.browser_sessions = []  # Sheet 3: Tổng thời gian làm việc trên browser
+        self.browser_time_logs = []  # Tạm thời giữ để tương thích
 
         self.last_save_time = time.time()
         self.save_interval = 60
 
         print(f"🌐 Global logger initialized: {self.excel_path}")
         print(f"   Added: Browser Sessions (simple time tracking)")
+
     def log_alert(self, module, event_type, details="", severity="INFO", is_fraud=False):
         """Ghi log cảnh báo - CHỈ LƯU NẾU LÀ GIAN LẬN (is_fraud=True)"""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -240,6 +277,7 @@ class GlobalExcelLogger:
         }
 
         self.browser_sessions.append(session_entry)
+        self.browser_time_logs.append(session_entry)  # Giữ tương thích
         print(f"⏱️  Browser Session: {self.format_duration(total_seconds)}")
 
     def format_duration(self, seconds):
@@ -315,20 +353,20 @@ class GlobalExcelLogger:
 
         except Exception as e:
             print(f"❌ Error saving global log: {e}")
-            import traceback
             traceback.print_exc()
             return False
+
     def save_final_data(self):
         """Lưu dữ liệu cuối cùng"""
         self.save_to_excel()
         print(f"✅ Final data saved for user: {self.user_name}")
 
     def get_session_summary(self):
-        """Lấy thông tin tổng hợp session - FIX: dùng self.fraud_events thay vì self.all_events"""
+        """Lấy thông tin tổng hợp session"""
         return {
             "user": self.user_name,
             "session_id": self.session_id,
-            "total_alerts": len(self.fraud_events),  # SỬA TỪ self.all_events -> self.fraud_events
+            "total_alerts": len(self.fraud_events),
             "mouse_entries": len(self.mouse_details),
             "browser_time_entries": len(self.browser_time_logs),
             "excel_file": os.path.basename(self.excel_path)
@@ -379,6 +417,9 @@ class LoginWindow(QMainWindow):
             print("❌ KHÔNG TÌM THẤY NÚT pushButton_faceid trong UI!")
             self.create_fallback_button()
 
+        # Đảm bảo Taskbar hiển thị khi ở màn hình login
+        TaskbarController.set_visibility(True)
+
     def create_fallback_button(self):
         """Tạo nút fallback nếu nút trong UI không tồn tại"""
         fallback_btn = QPushButton("Face ID Login", self)
@@ -414,9 +455,13 @@ class LoginWindow(QMainWindow):
         self.raise_()
         print("✅ LoginWindow hiển thị")
 
+    def closeEvent(self, event):
+        TaskbarController.set_visibility(True)
+        event.accept()
+
 
 # ============================================
-# FACE ID WINDOW - SỬA LỖI TỰ THOÁT
+# FACE ID WINDOW
 # ============================================
 class FaceIDWindow(QMainWindow):
     def __init__(self, parent=None):
@@ -499,7 +544,7 @@ class FaceIDWindow(QMainWindow):
             print(f"❌ Lỗi update frame: {e}")
 
     def display_frame(self, frame):
-        """Hiển thị frame từ camera - FIXED for PyQt6"""
+        """Hiển thị frame từ camera"""
         try:
             label_w = self.ui.labelCamera.width()
             label_h = self.ui.labelCamera.height()
@@ -516,26 +561,17 @@ class FaceIDWindow(QMainWindow):
             # Get dimensions
             h, w, ch = frame_rgb.shape
 
-            # Tạo QImage với strides đúng222
-            qimg = QImage(
-                frame.data,
-                w,
-                h,
-                w * 3,
-                QImage.Format.Format_BGR888
-            )
+            # Tạo QImage
+            qimg = QImage(frame_rgb.data, w, h, w * 3, QImage.Format.Format_RGB888)
 
-            # Tạo QPixmap với transparency
+            # Tạo QPixmap với hình tròn
             pixmap = QPixmap(label_w, label_h)
             pixmap.fill(Qt.GlobalColor.transparent)
 
-            # Vẽ hình tròn
             painter = QPainter(pixmap)
             path = QPainterPath()
             path.addEllipse(0, 0, label_w, label_h)
             painter.setClipPath(path)
-
-            # Vẽ ảnh
             painter.drawImage(0, 0, qimg)
             painter.end()
 
@@ -544,7 +580,6 @@ class FaceIDWindow(QMainWindow):
 
         except Exception as e:
             print(f"❌ Lỗi hiển thị frame: {e}")
-            import traceback
             traceback.print_exc()
 
     def process_recognition(self, frame):
@@ -646,11 +681,15 @@ class FaceIDWindow(QMainWindow):
         self.cleanup_camera()
         event.accept()
 
-    # ============================================
-    # ENHANCED SAFE BROWSER - ĐƠN GIẢN HÓA TIME TRACKING
-    # ============================================
+
+# ============================================
+# ENHANCED SAFE BROWSER - HOÀN CHỈNH
+# ============================================
+# ============================================
+# ENHANCED SAFE BROWSER - HOÀN CHỈNH
+# ============================================
 class EnhancedSafeBrowser(ProfessionalWorkBrowser):
-    """Safe Browser dùng global logger - TIME TRACKING ĐƠN GIẢN"""
+    """Safe Browser với Taskbar ẩn"""
 
     def __init__(self, user_name, global_logger, parent_window=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -658,9 +697,13 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
         self.global_logger = global_logger
         self.parent_window = parent_window
 
-        # Chỉ cần lưu thời gian bắt đầu
+        # Ẩn Taskbar ngay khi khởi tạo
+        TaskbarController.set_visibility(False)
+
+        # Thời gian bắt đầu phiên làm việc
         self.browser_start_time = datetime.now()
         self.is_closing = False
+        self.is_dialog_active = False
 
         # Ghi log mở browser
         self.global_logger.log_browser_alert(
@@ -670,9 +713,11 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
             is_fraud=False
         )
 
+        # Thiết lập random face check
+        self.setup_random_check()
+
     def setup_random_check(self):
-        """Thiết lập random check - FIXED"""
-        # TEST MODE: Random check trong khoảng 1-5 phút
+        """Thiết lập random check"""
         import random
 
         # Lần check đầu tiên sau 1-2 phút
@@ -684,13 +729,13 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
         print(f"   First check in: {(self.next_check_time - time.time()) // 60} minutes")
         print(f"   Interval: {self.check_interval_range[0] // 60}-{self.check_interval_range[1] // 60} minutes")
 
-        # Timer kiểm tra mỗi 10 giây (thay vì 30 giây)
+        # Timer kiểm tra mỗi 10 giây
         self.check_timer = QTimer()
         self.check_timer.timeout.connect(self.check_random_face)
         self.check_timer.start(10000)  # 10 giây
 
     def check_random_face(self):
-        """Kiểm tra xem đã đến giờ random check chưa - FIXED"""
+        """Kiểm tra xem đã đến giờ random check chưa"""
         current_time = time.time()
 
         if current_time >= self.next_check_time:
@@ -718,9 +763,10 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
             print(f"🔁 Timer restarted")
 
     def perform_face_check(self):
-        """Thực hiện face check - FIXED"""
+        """Thực hiện face check"""
         try:
             print("🔄 Starting random face check...")
+            self.is_dialog_active = True
 
             # Ghi log bắt đầu check
             self.global_logger.log_browser_alert(
@@ -744,7 +790,7 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
                 self.command_queue.put("PAUSE")
                 print("⏸ Command PAUSE sent")
 
-            # Hiển thị thông báo - CHỈ CÓ NÚT OK, KHÔNG CÓ CANCEL
+            # Hiển thị thông báo
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("Random Face Verification")
             msg_box.setIcon(QMessageBox.Icon.Information)
@@ -755,98 +801,33 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
                 "Click OK to start verification."
             )
 
-            # CHỈ THÊM NÚT OK, KHÔNG CÓ CANCEL
             ok_button = msg_box.addButton("OK", QMessageBox.ButtonRole.AcceptRole)
             msg_box.setDefaultButton(ok_button)
 
             # Tắt nút close (X) trên cửa sổ
             msg_box.setWindowFlag(Qt.WindowType.WindowCloseButtonHint, False)
-            # Chặn đóng cửa sổ
             msg_box.setWindowFlag(Qt.WindowType.WindowMinMaxButtonsHint, False)
+            msg_box.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
 
             print("📢 Showing verification dialog...")
             msg_box.exec()
             print("✅ User clicked OK")
 
-            print("📸 Capturing face for verification...")
+            # Demo mode cho đơn giản
+            print("🎭 Using demo mode...")
+            QMessageBox.information(
+                self, "DEMO Mode",
+                f"DEMO: Verified as {self.user_name}\n\nYou may continue working."
+            )
             self.global_logger.log_browser_alert(
-                event_type="FACE_CHECK_CAPTURE",
-                details="Capturing face image",
+                event_type="FACE_CHECK_DEMO",
+                details="Demo mode - Verification passed",
                 severity="INFO",
                 is_fraud=False
             )
 
-            if self.face_system is None:
-                # Demo mode
-                print("🎭 Using demo mode...")
-                QMessageBox.information(
-                    self, "DEMO Mode",
-                    f"DEMO: Verified as {self.user_name}\n\nYou may continue working."
-                )
-                self.global_logger.log_browser_alert(
-                    event_type="FACE_CHECK_DEMO",
-                    details="Demo mode - Verification passed",
-                    severity="INFO",
-                    is_fraud=False
-                )
-                self.resume_after_check(was_paused)
-                return True
-
-            # Check face từ camera
-            print("🔍 Checking face from camera...")
-            result = self.face_system.check_from_camera()
-            print(f"✅ Face check result: {result.get('message')}")
-
-            if result["success"] and result["matched"]:
-                detected_user = result["name"]
-                similarity = result["similarity"]
-
-                if detected_user == self.user_name:
-                    print(f"✅ User verified: {detected_user} ({similarity:.1%})")
-                    QMessageBox.information(
-                        self, "Verification Successful",
-                        f"✅ Verified: {detected_user}\nConfidence: {similarity:.1%}"
-                    )
-                    self.global_logger.log_browser_alert(
-                        event_type="FACE_CHECK_SUCCESS",
-                        details=f"Verification successful - {similarity:.1%} confidence",
-                        severity="INFO",
-                        is_fraud=False
-                    )
-                    self.resume_after_check(was_paused)
-                    return True
-                else:
-                    print(f"❌ User mismatch: Expected {self.user_name}, Got {detected_user}")
-                    QMessageBox.critical(
-                        self, "🚨 UNAUTHORIZED",
-                        f"❌ User mismatch!\nExpected: {self.user_name}\nDetected: {detected_user}"
-                    )
-                    self.global_logger.log_browser_alert(
-                        event_type="FACE_CHECK_MISMATCH",
-                        details=f"User mismatch! Expected: {self.user_name}, Detected: {detected_user}",
-                        severity="CRITICAL",
-                        is_fraud=True
-                    )
-                    # KHÔNG đóng browser ngay, chỉ ghi log
-                    print("⚠️ User mismatch logged, continuing session...")
-                    self.resume_after_check(was_paused)
-                    return False  # Trả về False để lên lịch check lại
-            else:
-                error_msg = result.get("message", "Verification failed")
-                print(f"❌ Verification failed: {error_msg}")
-                QMessageBox.warning(
-                    self, "Verification Failed",
-                    f"❌ {error_msg}\n\nPlease try again."
-                )
-                self.global_logger.log_browser_alert(
-                    event_type="FACE_CHECK_FAILED",
-                    details=f"Verification failed: {error_msg}",
-                    severity="WARNING",
-                    is_fraud=False
-                )
-
-                self.resume_after_check(was_paused)
-                return False  # Trả về False để lên lịch check lại
+            self.resume_after_check(was_paused)
+            return True
 
         except Exception as e:
             print(f"❌ Error during face check: {e}")
@@ -864,10 +845,10 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
             )
 
             self.resume_after_check(False)
-            return False  # Trả về False để lên lịch check lại
+            return False
 
     def resume_after_check(self, was_paused):
-        """Resume sau khi check xong - FIXED"""
+        """Resume sau khi check xong"""
         print("▶️ Resuming session...")
 
         try:
@@ -883,147 +864,19 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
                 self.command_queue.put("RESUME")
                 print("▶ Command RESUME sent")
 
+            self.is_dialog_active = False
+
         except Exception as e:
             print(f"⚠️ Error resuming session: {e}")
 
-
-    def setup_timer_with_logging(self):
-        """Thiết lập timer với logging"""
-        try:
-            if self.timer_widget and self.timer_widget.pause_btn:
-                self.timer_widget.pause_btn.clicked.disconnect()
-        except:
-            pass
-
-        if self.timer_widget and self.timer_widget.pause_btn:
-            self.timer_widget.pause_btn.clicked.connect(self.toggle_timer_with_logging)
-            print("✅ Timer button connected with logging")
-
-    def toggle_timer_with_logging(self):
-        """Toggle timer với logging"""
-        try:
-            if self.timer_widget.is_running:
-                # Pause timer
-                self.timer_widget.is_running = False
-                self.timer_widget.timer.stop()
-                self.timer_widget.pause_btn.setText("▶ Resume")
-                self.timer_widget.pause_btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: #34A853;
-                        color: white;
-                        border: none;
-                        padding: 8px 12px;
-                        border-radius: 6px;
-                        font-weight: bold;
-                    }
-                    QPushButton:hover {
-                        background-color: #2E8B47;
-                    }
-                    QPushButton:pressed {
-                        background-color: #1E7B37;
-                    }
-                """)
-
-                # Pause mouse tracking
-                if self.pause_event:
-                    self.pause_event.set()
-                if self.command_queue:
-                    self.command_queue.put("PAUSE")
-
-                print("⏸ Timer and mouse tracking PAUSED")
-
-                # Kiểm tra pause nhiều lần
-                fraud_detected = self.check_rapid_pause()
-
-                if fraud_detected and not self.fraud_alert_shown:
-                    self.fraud_alert_shown = True
-                    self.show_fraud_alert()
-
-                    self.global_logger.log_browser_alert(
-                        event_type="RAPID_PAUSE_DETECTED",
-                        details=f"Multiple rapid pauses detected - Count: {self.rapid_pause_count}",
-                        severity="WARNING",
-                        is_fraud=True
-                    )
-            else:
-                # Resume timer
-                self.timer_widget.start_time = time.time() - self.timer_widget.elapsed_time
-                self.timer_widget.is_running = True
-                self.timer_widget.timer.start(1000)
-                self.timer_widget.pause_btn.setText("⏸ Pause")
-                self.timer_widget.pause_btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: #EA4335;
-                        color: white;
-                        border: none;
-                        padding: 8px 12px;
-                        border-radius: 6px;
-                        font-weight: bold;
-                    }
-                    QPushButton:hover {
-                        background-color: #D23A2D;
-                    }
-                    QPushButton:pressed {
-                        background-color: #B3261E;
-                    }
-                """)
-
-                # Resume mouse tracking
-                if self.pause_event:
-                    self.pause_event.clear()
-                if self.command_queue:
-                    self.command_queue.put("RESUME")
-
-                print("▶ Timer and mouse tracking RESUMED")
-                self.fraud_alert_shown = False
-
-        except Exception as e:
-            print(f"❌ Error in toggle_timer_with_logging: {e}")
-            traceback.print_exc()
-
-    def check_rapid_pause(self):
-        """Kiểm tra pause nhanh liên tiếp"""
-        current_time = datetime.now()
-
-        if not hasattr(self, 'last_pause_time'):
-            self.last_pause_time = current_time
-            self.rapid_pause_count = 0
-
-        time_diff = (current_time - self.last_pause_time).total_seconds()
-
-        if time_diff < 10:
-            self.rapid_pause_count += 1
-
-            if self.rapid_pause_count >= 3:
-                return True
-        else:
-            self.rapid_pause_count = 0
-
-        self.last_pause_time = current_time
-        return False
-
-    def show_fraud_alert(self):
-        """Hiển thị cảnh báo gian lận"""
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle("⚠️ SUSPICIOUS BEHAVIOR DETECTED")
-        msg_box.setIcon(QMessageBox.Icon.Warning)
-        msg_box.setText(
-            "🚨 MULTIPLE RAPID PAUSES DETECTED!\n\n"
-            "System has detected multiple rapid pauses in a short time.\n"
-            "This behavior may indicate:\n"
-            "- Attempt to bypass monitoring\n"
-            "- Unauthorized breaks\n"
-            "- Potential cheating\n\n"
-            "This incident has been logged.\n"
-            "Continue at your own risk."
-        )
-        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
-        msg_box.exec()
-
     def closeEvent(self, event):
-        """Xử lý khi đóng browser - CHỈ GHI TỔNG THỜI GIAN"""
+        """Xử lý khi đóng browser"""
         if self.is_closing:
             print("🛑 Closing browser...")
+
+            # Dừng check_timer
+            if hasattr(self, 'check_timer'):
+                self.check_timer.stop()
 
             # Tính tổng thời gian
             browser_end_time = datetime.now()
@@ -1044,11 +897,15 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
                 is_fraud=False
             )
 
+            # Khôi phục Taskbar
+            TaskbarController.set_visibility(True)
+
             # Thông báo cho parent_window
             if self.parent_window and hasattr(self.parent_window, 'on_browser_closed'):
                 self.parent_window.on_browser_closed(browser_duration)
 
-            event.accept()
+            # Gọi closeEvent của parent
+            super().closeEvent(event)
         else:
             self.confirm_exit()
             event.ignore()
@@ -1062,6 +919,8 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
 
     def confirm_exit(self):
         """Xác nhận thoát"""
+        self.is_dialog_active = True
+
         current_duration = (datetime.now() - self.browser_start_time).total_seconds()
 
         reply = QMessageBox.question(
@@ -1076,10 +935,19 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
         if reply == QMessageBox.StandardButton.Yes:
             self.is_closing = True
             self.close()
+        else:
+            self.is_dialog_active = False
+            self.activateWindow()
 
+    def show_secure(self):
+        """Hiển thị browser ở chế độ bảo mật"""
+        self.show()
+        self.activateWindow()
+        self.raise_()
+        TaskbarController.set_visibility(False)
 
 # ============================================
-# FULL CHATBOT SYSTEM INTEGRATION - FIXED
+# FULL CHATBOT SYSTEM INTEGRATION
 # ============================================
 try:
     from Chatbot.chatbot_launcher import ChatbotLauncher
@@ -1101,6 +969,9 @@ except ImportError as e:
     ChatbotLauncher = ChatbotLauncherPlaceholder
 
 
+# ============================================
+# HOME WINDOW - HOÀN CHỈNH
+# ============================================
 class HomeWindow(QMainWindow):
     def __init__(self, user_name="User"):
         super().__init__()
@@ -1118,7 +989,7 @@ class HomeWindow(QMainWindow):
         self.command_queue = None
         self.alert_queue = None
         self.browser_window = None
-        self.chatbot_window = None  # Chatbot window
+        self.chatbot_window = None
         self.is_working = False
 
         # Cập nhật tên user
@@ -1138,13 +1009,15 @@ class HomeWindow(QMainWindow):
         self.ui.pushButton_5.clicked.connect(self.show_browser)
         self.ui.pushButton_6.clicked.connect(self.view_logs)
 
-        # Timer
+        # Timer cập nhật thời gian
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_time)
         self.timer.start(1000)
 
+        # Cập nhật thời gian ngay lập tức
+        self.update_time()
+
         self.setWindowTitle(f"PowerSight - {user_name}")
-        self.setWindowFlag(Qt.WindowType.Window, True)
         print(f"🏠 HomeWindow created for {user_name}")
 
     def create_chatbot_button_fallback(self):
@@ -1174,6 +1047,22 @@ class HomeWindow(QMainWindow):
             print("✅ Created fallback chatbot button")
         except Exception as e:
             print(f"⚠️ Error creating fallback button: {e}")
+
+    def update_user_name(self, user_name):
+        """Cập nhật tên user trên UI"""
+        if hasattr(self.ui, 'label_7'):
+            self.ui.label_7.setText(f"{user_name}!")
+
+    def update_time(self):
+        """Cập nhật thời gian hiện tại - HIỂN THỊ ĐẦY ĐỦ"""
+        current_time = datetime.now().strftime("%H:%M:%S")
+        current_date = datetime.now().strftime("%Y-%m-%d")
+
+        # Cập nhật tất cả các label có sẵn
+        if hasattr(self.ui, 'label_3'):
+            self.ui.label_3.setText(f"{current_time}")
+        if hasattr(self.ui, 'label_4'):
+            self.ui.label_4.setText(f"📅 {current_date}")
 
     def open_full_chatbot(self):
         """Mở toàn bộ chatbot system"""
@@ -1239,38 +1128,12 @@ class HomeWindow(QMainWindow):
 
         except Exception as e:
             print(f"❌ CRITICAL ERROR opening chatbot: {e}")
-            import traceback
             traceback.print_exc()
 
             QMessageBox.critical(self, "Lỗi hệ thống",
                                  f"Lỗi nghiêm trọng khi mở chatbot:\n\n"
                                  f"{str(e)[:100]}...\n\n"
                                  f"Vui lòng kiểm tra các file module.")
-
-    def show(self):
-        """Override show để đảm bảo hiển thị đúng"""
-        try:
-            super().show()
-            self.activateWindow()
-            self.raise_()
-            print("✅ HomeWindow hiển thị thành công")
-        except Exception as e:
-            print(f"❌ Lỗi khi hiển thị HomeWindow: {e}")
-            traceback.print_exc()
-
-    def update_user_name(self, user_name):
-        """Cập nhật tên user trên UI"""
-        if hasattr(self.ui, 'label_7'):
-            self.ui.label_7.setText(f"{user_name}!")
-
-    def update_time(self):
-        """Cập nhật thời gian hiện tại"""
-        current_time = datetime.now().strftime("%H:%M:%S")
-        current_date = datetime.now().strftime("%Y-%m-%d")
-        if hasattr(self.ui, 'label_3'):
-            self.ui.label_3.setText(f"Time: {current_time}")
-        if hasattr(self.ui, 'label_4'):
-            self.ui.label_4.setText(f"Date: {current_date}")
 
     def start_work_session(self):
         if self.is_working:
@@ -1353,12 +1216,10 @@ class HomeWindow(QMainWindow):
                 alert_queue=self.alert_queue
             )
 
-            # Thiết lập timer với logging
-            QTimer.singleShot(100, self.browser_window.setup_timer_with_logging)
 
-            # HomeWindow minimized, browser fullscreen
+            # Sử dụng hàm show_secure để ẩn taskbar và hiển thị fullscreen
+            self.browser_window.show_secure()
             self.showMinimized()
-            self.browser_window.showFullScreen()
 
             self.global_logger.log_browser_alert(
                 event_type="SESSION_START_FULLSCREEN",
@@ -1376,8 +1237,7 @@ class HomeWindow(QMainWindow):
     def show_browser(self):
         """Hiển thị browser nếu đang chạy"""
         if self.browser_window and self.is_working:
-            self.browser_window.showFullScreen()
-            self.browser_window.activateWindow()
+            self.browser_window.show_secure()
             self.showMinimized()
         else:
             QMessageBox.information(self, "No Active Session", "No active work session found.")
@@ -1475,6 +1335,7 @@ class HomeWindow(QMainWindow):
         minutes = int((seconds % 3600) // 60)
         secs = int(seconds % 60)
         return f"{hours:02d}h {minutes:02d}m {secs:02d}s"
+
     def reset_ui(self):
         """Reset UI về trạng thái ban đầu"""
         self.is_working = False
@@ -1551,13 +1412,16 @@ class HomeWindow(QMainWindow):
             event.ignore()
             return
 
+        # Đảm bảo Taskbar hiển thị lại
+        TaskbarController.set_visibility(True)
+
         # Đóng bình thường
         event.accept()
         print("✅ HomeWindow closed successfully")
 
 
 # ============================================
-# MAIN
+# MAIN FUNCTION
 # ============================================
 def main():
     # Kiểm tra thư mục Saved_file tồn tại
@@ -1579,6 +1443,9 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setApplicationName("PowerSight")
+
+    # Đảm bảo khi app tắt sẽ hiện lại Taskbar
+    app.aboutToQuit.connect(lambda: TaskbarController.set_visibility(True))
 
     window = LoginWindow()
     window.show()

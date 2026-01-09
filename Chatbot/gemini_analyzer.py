@@ -1,5 +1,6 @@
 # gemini_analyzer.py - Gemini API (google.genai) + quota-aware fallback
 # Optimized for flexible, mentor-style, XAI responses (no data repetition)
+# Cập nhật để lấy dữ liệu từ DataProcessor
 
 import sys
 import os
@@ -15,47 +16,31 @@ class GeminiAnalyzer:
 
     # ------------------------------------------------------------------
     # Danh sách model được ưu tiên (hiện đại nhất trước)
-    # Updated for 2025: Ưu tiên Gemini 3 và Gemini 2.5 series
     VALID_MODELS = [
-        # --- Gemini 3 Series (Thế hệ mới nhất - Frontier) ---
-        # Lưu ý: Dùng "gemini-3" thay vì "gemini-3.0"
-        "gemini-3-flash",  # Model nhanh, hiệu quả cao nhất hiện tại
-        "gemini-3-pro",  # Model thông minh nhất, xử lý tác vụ phức tạp
         "gemini-3-flash-preview",
         "gemini-3-pro-preview",  # Có thể dùng nếu muốn test tính năng mới nhất
 
-        # --- Gemini 2.5 Series (Stable & Production Ready) ---
-        # Phổ biến nhất cho môi trường Production hiện nay
+        # Gemini 2.5 Series (Stable & Production Ready)
         "gemini-2.5-flash",  # Cân bằng tốt nhất giữa tốc độ/giá/trí tuệ
-        "gemini-2.5-flash-lite",  # Tối ưu chi phí cực thấp, thay thế cho 1.5 Flash cũ
+        "gemini-2.5-flash-lite",  # Tối ưu chi phí cực thấp
         "gemini-2.5-pro",  # Bản ổn định cho các tác vụ suy luận logic
 
-        # --- Gemini 2.0 Series (Legacy / LTS) ---
-        # Sẽ ngừng hỗ trợ vào tháng 3/2026, chỉ nên dùng để duy trì dự án cũ
+        # Gemini 2.0 Series (Legacy / LTS)
         "gemini-2.0-flash",
         "gemini-2.0-flash-lite",
         "gemini-2.0-pro",
     ]
+
     # Độ ưu tiên model (cao nhất = 100)
     MODEL_PRIORITY = {
-        # --- Gemini 3 Series (Thế hệ mới nhất - Frontier) ---
-        # Lưu ý: Dùng "gemini-3" thay vì "gemini-3.0"
-        "gemini-3-flash": 100,  # Model nhanh, hiệu quả cao nhất hiện tại
-        "gemini-3-pro": 95,  # Model thông minh nhất, xử lý tác vụ phức tạp
-        "gemini-3-flash-preview": 90,
-        "gemini-3-pro-preview": 85,  # Có thể dùng nếu muốn test tính năng mới nhất
-
-        # --- Gemini 2.5 Series (Stable & Production Ready) ---
-        # Phổ biến nhất cho môi trường Production hiện nay
-        "gemini-2.5-flash": 80,  # Cân bằng tốt nhất giữa tốc độ/giá/trí tuệ
-        "gemini-2.5-flash-lite": 75,  # Tối ưu chi phí cực thấp, thay thế cho 1.5 Flash cũ
-        "gemini-2.5-pro": 70,  # Bản ổn định cho các tác vụ suy luận logic
-
-        # --- Gemini 2.0 Series (Legacy / LTS) ---
-        # Sẽ ngừng hỗ trợ vào tháng 3/2026, chỉ nên dùng để duy trì dự án cũ
-        "gemini-2.0-flash": 65,
-        "gemini-2.0-flash-lite": 60,
-        "gemini-2.0-pro": 55,
+        "gemini-3-flash-preview": 100,
+        "gemini-3-pro-preview": 95,
+        "gemini-2.5-flash": 90,
+        "gemini-2.5-flash-lite": 85,
+        "gemini-2.5-pro": 80,
+        "gemini-2.0-flash": 75,
+        "gemini-2.0-flash-lite": 70,
+        "gemini-2.0-pro": 65,
     }
 
     def __init__(self):
@@ -76,8 +61,7 @@ class GeminiAnalyzer:
             self.find_best_model()
 
             if not self.use_demo_mode:
-                print(
-                    f"✅ Dùng model: {self.active_model} (Priority: {self.MODEL_PRIORITY.get(self.active_model, 'N/A')})")
+                print(f"✅ Dùng model: {self.active_model}")
             else:
                 print("⚠️ Không có model phù hợp, DEMO")
 
@@ -97,7 +81,6 @@ class GeminiAnalyzer:
                 short = m.name.split("/")[-1]
                 if short in self.VALID_MODELS:
                     available.append(short)
-                    # Lưu thông tin model chi tiết
                     model_details[short] = {
                         "name": m.name,
                         "display_name": m.display_name if hasattr(m, 'display_name') else short,
@@ -117,12 +100,11 @@ class GeminiAnalyzer:
             self.api_type = "API"
 
             print("📊 Model khả dụng (theo độ ưu tiên):")
-            for i, m in enumerate(available[:5]):  # Chỉ hiển thị 5 model tốt nhất
+            for i, m in enumerate(available[:5]):
                 priority = self.MODEL_PRIORITY.get(m, 0)
                 status = "✅ ĐANG CHỌN" if i == 0 else ""
                 print(f"  {i + 1}. {m} (Priority: {priority}) {status}")
 
-                # Hiển thị thông tin chi tiết cho model đang chọn
                 if i == 0 and m in model_details:
                     details = model_details[m]
                     print(f"     📝 {details['display_name']}")
@@ -192,18 +174,18 @@ class GeminiAnalyzer:
     # XAI + Career Coach Prompt (Linh hoạt cho nhiều loại câu hỏi)
 
     def create_smart_prompt(self, question: str, context_data: Dict) -> str:
-        # Trích xuất insights cơ bản
+        # Trích xuất insights từ dữ liệu cả năm
         basic_insights = self.extract_basic_insights(context_data)
 
-        # Chuẩn bị dữ liệu chi tiết
-        detailed_data = self.prepare_detailed_data(context_data)
+        # Trích xuất thêm insights từ dữ liệu cả năm nếu có
+        year_insights = self.extract_year_insights(context_data)
 
         return f"""
            Bạn là **PowerSight AI** – một **Coach chiến lược, Advisor phân tích dữ liệu và Partner đồng hành phát triển**.
 
            Vai trò của bạn không chỉ là trả lời câu hỏi, mà là:
            - Hiểu **mục tiêu thực sự** đằng sau câu hỏi
-           - Đưa ra **nhận định có chiều sâu dựa trên dữ liệu**
+           - Đưa ra **nhận định có chiều sâu dựa trên dữ liệu cả năm**
            - Đồng hành cùng nhân viên để **ra quyết định tốt hơn và phát triển bền vững**
 
            =============================
@@ -214,6 +196,7 @@ class GeminiAnalyzer:
            - **Không liệt kê dữ liệu thừa**, không kể lại báo cáo
            - Khi dữ liệu chưa đủ: **chỉ rõ khoảng trống và rủi ro**
            - Phân tích với tư duy của **coach & consultant thực tế**, không lý thuyết giáo khoa
+           - **Phân tích theo xu hướng tháng** khi có dữ liệu cả năm
 
            =============================
            👤 BỐI CẢNH PHÂN TÍCH
@@ -222,14 +205,16 @@ class GeminiAnalyzer:
            - Thời điểm phân tích: {context_data.get('data_timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))}
 
            =============================
-           📊 NHỮNG ĐIỂM CHÍNH TỪ DỮ LIỆU
+           📊 DỮ LIỆU HIỆN CÓ
            =============================
            {basic_insights}
+
+           {year_insights}
 
            =============================
            📁 DỮ LIỆU CHI TIẾT CÓ THỂ KHAI THÁC
            =============================
-           {detailed_data}
+           {self.prepare_detailed_data(context_data)}
 
            =============================
            ❓ VẤN ĐỀ / CÂU HỎI ĐANG ĐƯỢC QUAN TÂM
@@ -242,17 +227,17 @@ class GeminiAnalyzer:
 
            🔹 NẾU CÂU HỎI LIÊN QUAN HIỆU SUẤT / PHÁT TRIỂN CÁ NHÂN:
            - Nhận diện **điểm mạnh cốt lõi cần tiếp tục phát huy**
-           - Chỉ ra **điểm nghẽn lớn nhất đang kìm hiệu suất**
+           - Chỉ ra **điểm nghẽn lớn nhất đang kìm hiệu suất** (phân tích theo tháng nếu có dữ liệu cả năm)
            - Đề xuất **1–2 hành động thực tế, có thể triển khai ngay**
            - Gợi ý **mốc thời gian hợp lý** để thấy kết quả
 
            🔹 NẾU CÂU HỎI LIÊN QUAN DỮ LIỆU SAP (đơn hàng, doanh thu, lợi nhuận):
-           - Trả lời **đúng số liệu liên quan trực tiếp**
-           - Nhận định **xu hướng & tác động kinh doanh**
+           - Trả lời **đúng số liệu liên quan trực tiếp** (theo tháng nếu có dữ liệu cả năm)
+           - Nhận định **xu hướng & tác động kinh doanh** qua các tháng (nếu có dữ liệu cả năm)
            - Đề xuất **hướng tối ưu ưu tiên cao**, tránh dàn trải
 
            🔹 NẾU CÂU HỎI LIÊN QUAN RỦI RO / GIAN LẬN:
-           - Xác định **nguồn rủi ro từ dữ liệu**
+           - Xác định **nguồn rủi ro từ dữ liệu** (theo tháng nếu có dữ liệu cả năm)
            - Đánh giá **mức độ ảnh hưởng đến hiệu suất / uy tín**
            - Đề xuất **biện pháp kiểm soát thực tế**, không hình thức
 
@@ -269,10 +254,10 @@ class GeminiAnalyzer:
            → 1–2 câu trả lời đúng trọng tâm vấn đề
 
            2️⃣ **DỮ LIỆU THEN CHỐT**
-           → Chỉ nêu số liệu ảnh hưởng đến kết luận
+           → Chỉ nêu số liệu ảnh hưởng đến kết luận (có thể theo tháng nếu có dữ liệu cả năm)
 
            3️⃣ **NHẬN ĐỊNH CHUYÊN GIA**
-           → Phân tích ngắn gọn “vì sao điều này quan trọng”
+           → Phân tích ngắn gọn "vì sao điều này quan trọng"
 
            4️⃣ **HÀNH ĐỘNG KHUYẾN NGHỊ**
            → 1–3 bước cụ thể, khả thi, ưu tiên tác động cao
@@ -287,61 +272,120 @@ class GeminiAnalyzer:
            - Tiếng Việt tự nhiên, chuyên nghiệp
            """
 
+    def extract_year_insights(self, data: Dict[str, Any]) -> str:
+        """Trích xuất insights từ dữ liệu cả năm"""
+        try:
+            year_data = data.get('year_data', {})
+            if not year_data or 'summary' not in year_data:
+                return ""
+
+            summary = year_data['summary']
+            year = summary.get('year', datetime.now().year)
+            months_with_data = summary.get('months_with_data', 0)
+            total_orders = summary.get('total_orders', 0)
+            total_revenue = summary.get('total_revenue', 0)
+            total_profit = summary.get('total_profit', 0)
+            total_fraud = summary.get('total_fraud', 0)
+            completion_rate = summary.get('completion_rate', 0)
+            best_month = summary.get('best_month', 0)
+            best_month_revenue = summary.get('best_month_revenue', 0)
+
+            insights = []
+            insights.append(f"📅 **DỮ LIỆU CẢ NĂM {year} ({months_with_data}/12 tháng có dữ liệu):**")
+            insights.append(f"   • Tổng đơn hàng cả năm: {total_orders:,}")
+            insights.append(f"   • Tổng doanh thu cả năm: {total_revenue:,.0f} VND")
+            insights.append(f"   • Tổng lợi nhuận cả năm: {total_profit:,.0f} VND")
+            insights.append(f"   • Tổng gian lận cả năm: {total_fraud}")
+            if completion_rate > 0:
+                insights.append(f"   • Tỷ lệ hoàn thành cả năm: {completion_rate:.1f}%")
+            if best_month > 0:
+                insights.append(f"   • Tháng hiệu quả nhất: Tháng {best_month} ({best_month_revenue:,.0f} VND)")
+
+            return "\n".join(insights)
+
+        except Exception as e:
+            print(f"⚠️ Lỗi trích xuất year insights: {e}")
+            return ""
     def extract_basic_insights(self, data: Dict[str, Any]) -> str:
-        """Trích xuất insights cơ bản"""
+        """Trích xuất insights cơ bản từ dữ liệu thực tế"""
         insights = []
 
-        wl = data.get("work_log", {}).get("summary", {})
-        sap = data.get("sap_data", {}).get("summary", {})
+        # Lấy metrics thực tế
         m = data.get("metrics", {})
 
-        # Insights từ work log
-        if wl.get('fraud_count', 0) > 0:
-            insights.append(f"⚠️ Phát hiện {wl.get('fraud_count')} sự kiện gian lận")
-        if wl.get('violation_score', 0) > 5:
-            insights.append(f"⚠️ Điểm vi phạm cao: {wl.get('violation_score')}")
+        # Thêm các chỉ số thực tế
+        insights.append(f"📦 Tổng đơn hàng: {m.get('total_orders', 0):,}")
+        insights.append(f"✅ Đã hoàn thành: {m.get('completed_orders', 0):,} ({m.get('completion_rate', 0)}%)")
+        insights.append(f"⏳ Chờ xử lý: {m.get('pending_orders', 0):,}")
+        insights.append(f"💰 Doanh thu: {m.get('total_revenue', 0):,.0f} VND")
+        insights.append(f"💵 Lợi nhuận: {m.get('total_profit', 0):,.0f} VND")
+        insights.append(f"⚠️ Sự kiện gian lận: {m.get('fraud_count', 0)}")
 
-        # Insights từ SAP
-        if sap.get('completion_rate', 0) < 80:
-            insights.append(f"📊 Tỷ lệ hoàn thành: {sap.get('completion_rate')}% (dưới mục tiêu)")
-        if sap.get('pending_orders_count', 0) > 0:
-            insights.append(f"⏳ Có {sap.get('pending_orders_count')} đơn hàng chưa xử lý xong")
+        if m.get('profit_margin', 0) > 0:
+            insights.append(f"📈 Tỷ suất lợi nhuận: {m.get('profit_margin', 0):.1f}%")
 
-        # Insights từ metrics
-        if m.get('overall', 0) < 70:
-            insights.append(f"🎯 Điểm tổng thể: {m.get('overall')}/100 (cần cải thiện)")
+        if m.get('on_time_delivery', 0) > 0:
+            insights.append(f"🚚 Giao hàng đúng hạn: {m.get('on_time_delivery', 0):.1f}%")
 
-        if not insights:
-            insights.append("📈 Hiệu suất ổn định ở mức cơ bản")
-
-        return "📌 " + "\n📌 ".join(insights[:5])  # Giới hạn 5 insights
-
-    def prepare_detailed_data(self, data: Dict[str, Any]) -> str:
-        """Chuẩn bị dữ liệu chi tiết để AI tham khảo"""
-        sap = data.get("sap_data", {})
-        wl = data.get("work_log", {})
+        return "📌 " + "\n📌 ".join(insights)
+    def prepare_detailed_data(self, context_data: Dict[str, Any]) -> str:
+        """Chuẩn bị dữ liệu chi tiết từ DataProcessor để AI tham khảo"""
+        sap = context_data.get("sap_data", {})
+        wl = context_data.get("work_log", {})
+        year_data = context_data.get("year_data", {})
         details = []
 
-        # Thông tin về đơn hàng
+        # Thông tin từ summary
         if sap.get('summary', {}):
             summary = sap['summary']
-            details.append(f"📦 Tổng đơn hàng: {summary.get('total_orders', 0)}")
-            details.append(f"✅ Đã hoàn thành: {summary.get('completed_orders', 0)}")
-            details.append(f"⏳ Chờ xử lý: {summary.get('pending_orders_count', 0)}")
+            details.append(f"📦 Tổng đơn hàng: {summary.get('total_orders', 0):,}")
+            details.append(f"✅ Đã hoàn thành: {summary.get('completed_orders', 0):,}")
+            details.append(f"⏳ Chờ xử lý: {summary.get('pending_orders_count', 0):,}")
             details.append(f"💰 Doanh thu: {summary.get('total_revenue', 0):,.0f} VND")
             details.append(f"💵 Lợi nhuận: {summary.get('total_profit', 0):,.0f} VND")
 
             # Thống kê theo vùng
             region_stats = summary.get('region_stats', {})
             if region_stats:
-                region_list = [f'{k}: {v}' for k, v in region_stats.items()]
-                details.append(f"📍 Phân bổ theo vùng: {', '.join(region_list[:3])}")
+                region_list = [f'{k}: {v}' for k, v in list(region_stats.items())[:3]]
+                details.append(f"📍 Top vùng: {', '.join(region_list)}")
 
             # Thống kê theo sản phẩm
             product_stats = summary.get('product_stats', {})
             if product_stats:
-                product_list = [f'{k}: {v}' for k, v in product_stats.items()]
-                details.append(f"📊 Phân bổ sản phẩm: {', '.join(product_list[:3])}")
+                product_list = [f'{k}: {v}' for k, v in list(product_stats.items())[:3]]
+                details.append(f"📊 Top sản phẩm: {', '.join(product_list)}")
+
+        # Thông tin từ dữ liệu cả năm
+        if year_data:
+            sap_sheets = year_data.get('sap_data', {}).get('sheets', {})
+            work_log_sheets = year_data.get('work_log', {}).get('sheets', {})
+
+            # Thông tin đơn hàng cả năm
+            if 'Orders' in sap_sheets and sap_sheets['Orders'] is not None:
+                orders_df = sap_sheets['Orders']
+                if not orders_df.empty:
+                    details.append(f"📅 Đơn hàng cả năm: {len(orders_df):,} đơn")
+
+                    # Phân tích theo tháng
+                    if 'Month' in orders_df.columns:
+                        monthly_summary = orders_df.groupby('Month').size()
+                        top_months = monthly_summary.nlargest(3)
+                        details.append(
+                            f"📈 Top tháng đơn hàng: {', '.join([f'Tháng {m}: {c}' for m, c in top_months.items()])}")
+
+            # Thông tin gian lận cả năm
+            if 'Fraud_Events' in work_log_sheets and work_log_sheets['Fraud_Events'] is not None:
+                fraud_df = work_log_sheets['Fraud_Events']
+                if not fraud_df.empty:
+                    details.append(f"⚠️ Gian lận cả năm: {len(fraud_df):,} sự kiện")
+
+                    # Phân tích theo tháng
+                    if 'Month' in fraud_df.columns:
+                        monthly_fraud = fraud_df.groupby('Month').size()
+                        if not monthly_fraud.empty:
+                            worst_month = monthly_fraud.idxmax()
+                            details.append(f"📉 Tháng nhiều gian lận nhất: Tháng {worst_month}")
 
         # Ví dụ về đơn hàng
         pending_orders = sap.get('summary', {}).get('pending_orders', [])
@@ -374,13 +418,14 @@ class GeminiAnalyzer:
             "────────────────────────\n"
             f"• Thời gian: {datetime.now():%d/%m/%Y %H:%M}\n"
             f"• Chế độ xử lý: {self.api_type}\n"
+            f"• Model: {self.active_model or 'DEMO'}\n"
             "────────────────────────\n\n"
             "❓ CÂU HỎI\n"
             f"{question}\n\n"
             "📊 PHÂN TÍCH & TRẢ LỜI\n"
             f"{response}\n\n"
             "────────────────────────\n"
-            "ℹ️ Ghi chú: Phân tích được tạo bởi AI, nên đối chiếu với thực tế vận hành."
+            "ℹ️ Ghi chú: Phân tích được tạo bởi AI dựa trên dữ liệu cả năm, nên đối chiếu với thực tế vận hành."
         )
 
     def get_demo_response(self, question: str, context_data: Dict) -> str:
@@ -391,10 +436,10 @@ class GeminiAnalyzer:
             "2. Chọn model phù hợp trong VALID_MODELS\n"
             "3. Đảm bảo quota API còn hạn\n\n"
             "🔧 *Ví dụ phân tích thực tế sẽ bao gồm:*\n"
-            "- Phân tích SWOT chi tiết\n"
-            "- Chiến lược hành động SMART\n"
+            "- Phân tích SWOT chi tiết dựa trên dữ liệu cả năm\n"
+            "- Chiến lược hành động SMART theo tháng\n"
             "- KPIs đo lường tiến bộ\n"
-            "- Tư vấn phát triển nghề nghiệp",
+            "- Tư vấn phát triển nghề nghiệp dựa trên xu hướng",
             question
         )
 
