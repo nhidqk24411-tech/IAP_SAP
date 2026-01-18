@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
 Employee Chatbot - PowerSight Employee Assistant
-Phiên bản tối ưu giao diện giống dashboard - FIX UI Quick Actions
-Cập nhật để sử dụng DataProcessor
+Giao diện giống manager_chatbot nhưng tính năng cho nhân viên
 """
 
 import random
@@ -11,55 +10,44 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-# Thêm đường dẫn
+# Add path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
 
-# Import modules với try-except
+# Import modules with try-except
 try:
     from config import Config
-
     config_available = True
 except ImportError:
-    print("⚠️ Không thể import config.py")
+    print("⚠️ Cannot import config.py")
     config_available = False
     Config = None
 
 try:
     from gemini_analyzer import GeminiAnalyzer
-
     gemini_available = True
 except ImportError as e:
-    print(f"⚠️ Không thể import gemini_analyzer: {e}")
+    print(f"⚠️ Cannot import gemini_analyzer: {e}")
     gemini_available = False
 
 try:
-    from dashboard import PerformanceDashboard
-
-    dashboard_available = True
-except ImportError as e:
-    print(f"⚠️ Không thể import dashboard: {e}")
-    dashboard_available = False
-
-try:
     from data_processor import DataProcessor
-
     dataprocessor_available = True
 except ImportError as e:
-    print(f"⚠️ Không thể import data_processor: {e}")
+    print(f"⚠️ Cannot import data_processor: {e}")
     dataprocessor_available = False
 
 
 class EmployeeChatbotGUI(QMainWindow):
-    """Giao diện chính - Phiên bản giống Dashboard"""
+    """Employee Chatbot với giao diện giống manager_chatbot"""
 
     def __init__(self, user_name=None, parent=None):
         super().__init__(parent)
 
-        # Khởi tạo với Config
+        # Initialize with Config
         if config_available and Config:
             if user_name:
                 self.employee_name = user_name
@@ -67,503 +55,295 @@ class EmployeeChatbotGUI(QMainWindow):
                 self.employee_name = Config.DEFAULT_EMPLOYEE_NAME
             app_name = Config.APP_NAME
         else:
-            self.employee_name = user_name if user_name else "Giang"
+            self.employee_name = user_name if user_name else "Giang_MG"
             app_name = "PowerSight Employee Assistant"
 
-        print(f"🤖 Initializing chatbot for: {self.employee_name}")
+        print(f"🤖 Khởi tạo chatbot cho: {self.employee_name}")
 
-        # Khởi tạo AI
+        # Store parent window for going back
+        self.parent_window = parent
+
+        # Initialize AI
         self.gemini = None
         if gemini_available:
             try:
                 self.gemini = GeminiAnalyzer()
             except Exception as e:
-                print(f"⚠️ Lỗi khởi tạo Gemini: {e}")
+                print(f"⚠️ Gemini initialization error: {e}")
         else:
             print("⚠️ Gemini không khả dụng, sử dụng chế độ DEMO")
 
-        # Khởi tạo Data Processor
+        # Initialize Data Processor
         self.data_processor = None
         if dataprocessor_available:
             try:
                 self.data_processor = DataProcessor(self.employee_name)
             except Exception as e:
-                print(f"⚠️ Lỗi khởi tạo DataProcessor: {e}")
+                print(f"⚠️ DataProcessor initialization error: {e}")
         else:
             print("⚠️ DataProcessor không khả dụng")
 
-        # Khởi tạo Dashboard
-        self.dashboard = None
-        self.dashboard_available = dashboard_available
-
-        # Khởi tạo UI với theme giống Dashboard
+        # Initialize UI với giao diện giống manager_chatbot
         self.init_ui(app_name)
 
-        # Hiển thị welcome
+        # Show welcome message
         self.show_welcome_message()
 
-        # Tự động tải dữ liệu
+        # Auto load data
         QTimer.singleShot(1000, self.load_initial_data)
 
     def init_ui(self, app_name):
-        """Khởi tạo giao diện với theme giống Dashboard - FIXED UI"""
+        """Khởi tạo giao diện giống manager_chatbot"""
         self.setWindowTitle(f"💬 {app_name} - Chat Assistant")
-        self.setGeometry(100, 100, 1200, 800)
-
-        # Màu sắc chủ đạo
-        self.primary_color = "#1e40af"  # Xanh dương đậm
-        self.secondary_color = "#3b82f6"  # Xanh dương
-        self.accent_color = "#10b981"  # Xanh lá
-        self.warning_color = "#f59e0b"  # Cam
-        self.danger_color = "#ef4444"  # Đỏ
-
-        # Màu nền
-        self.bg_color = "#f8fafc"  # Nền sáng xám nhạt
-        self.card_bg = "#ffffff"  # Nền card trắng
-        self.sidebar_bg = "#1e293b"  # Sidebar tối giống Dashboard
-        self.text_color = "#1e293b"  # Chữ chính đen xám
-        self.text_light = "#64748b"  # Chữ phụ xám
-        self.text_white = "#ffffff"  # Chữ trắng
-        self.border_color = "#e2e8f0"  # Viền xám nhạt
+        self.setGeometry(200, 200, 700, 600)
 
         # Central widget
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        central_widget.setStyleSheet(f"""
-            QWidget {{
-                background-color: {self.bg_color};
-                font-family: 'Segoe UI', 'Inter', Arial, sans-serif;
-            }}
-        """)
 
-        main_layout = QHBoxLayout(central_widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
+        # Main layout
+        layout = QVBoxLayout(central_widget)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(10)
 
-        # ========== SIDEBAR LEFT ==========
-        sidebar = QFrame()
-        sidebar.setMinimumWidth(260)
-        sidebar.setMaximumWidth(320)
-        sidebar.setStyleSheet(f"""
-            QFrame {{
-                background-color: {self.sidebar_bg};
-                border-right: 1px solid #334155;
-            }}
-        """)
+        # Header
+        header_widget = QWidget()
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(0, 0, 0, 0)
 
-        sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(0, 0, 0, 0)
-        sidebar_layout.setSpacing(0)
-
-        # User profile card
-        profile_card = QFrame()
-        profile_card.setMinimumHeight(130)
-        profile_card.setMaximumHeight(150)
-        profile_card.setStyleSheet(f"""
-            QFrame {{
-                background-color: #0f172a;
-                border-bottom: 1px solid #334155;
-            }}
-        """)
-        profile_layout = QVBoxLayout(profile_card)
-        profile_layout.setContentsMargins(20, 25, 20, 25)
-        profile_layout.setSpacing(10)
-
-        # Avatar và tên
-        avatar_label = QLabel("👤")
-        avatar_label.setStyleSheet(f"""
-            font-size: 32px;
-            color: {self.secondary_color};
-        """)
-        avatar_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        avatar_label.setFixedHeight(40)
-
-        name_label = QLabel(self.employee_name)
-        name_label.setStyleSheet(f"""
-            color: {self.text_white};
-            font-size: 16px;
-            font-weight: 600;
-            text-align: center;
-        """)
-        name_label.setWordWrap(True)
-
-        role_label = QLabel("Senior Employee")
-        role_label.setStyleSheet(f"""
-            color: #94a3b8;
-            font-size: 12px;
-            text-align: center;
-        """)
-
-        profile_layout.addWidget(avatar_label)
-        profile_layout.addWidget(name_label)
-        profile_layout.addWidget(role_label)
-
-        # Quick actions section - Sử dụng ScrollArea
-        actions_container = QWidget()
-        actions_container.setStyleSheet("background-color: transparent;")
-
-        actions_scroll = QScrollArea()
-        actions_scroll.setWidgetResizable(True)
-        actions_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        actions_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        actions_scroll.setStyleSheet("""
-            QScrollArea {
+        # Home button
+        self.home_btn = QPushButton("🏠 Home")
+        self.home_btn.setFixedSize(80, 35)
+        self.home_btn.clicked.connect(self.go_back_to_home)
+        self.home_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3b82f6;
+                color: white;
                 border: none;
-                background-color: transparent;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 500;
             }
-            QScrollBar:vertical {
-                background-color: #1e293b;
-                width: 6px;
-                border-radius: 3px;
-            }
-            QScrollBar::handle:vertical {
-                background-color: #475569;
-                border-radius: 3px;
-                min-height: 20px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background-color: #64748b;
+            QPushButton:hover {
+                background-color: #2563eb;
             }
         """)
 
-        actions_widget = QWidget()
-        actions_layout = QVBoxLayout(actions_widget)
-        actions_layout.setContentsMargins(20, 20, 20, 20)
-        actions_layout.setSpacing(8)
-
-        actions_title = QLabel("QUICK ACTIONS")
-        actions_title.setStyleSheet(f"""
-            QLabel {{
-                color: #64748b;
-                font-size: 11px;
-                font-weight: 600;
-                letter-spacing: 1px;
-                margin-bottom: 5px;
-                padding: 0;
-            }}
-        """)
-        actions_layout.addWidget(actions_title)
-
-        # Action buttons
-        actions = [
-            ("Mở Dashboard", self.show_dashboard, "#3b82f6"),
-            ("Phân tích hiệu suất", lambda: self.ask_question("Phân tích hiệu suất làm việc của tôi"), "#10b981"),
-            ("Mục tiêu phát triển", lambda: self.ask_question("Mục tiêu phát triển của tôi là gì?"), "#8b5cf6"),
-            ("Đề xuất đào tạo", lambda: self.ask_question("Khóa học nào phù hợp với tôi?"), "#f59e0b"),
-            ("Vấn đề cần sửa", lambda: self.ask_question("Tôi đang mắc những lỗi nào?"), "#ef4444"),
-            ("Tối ưu doanh thu", lambda: self.ask_question("Làm sao tăng doanh thu?"), "#06b6d4"),
-            ("Tải lại dữ liệu", self.load_initial_data, "#64748b"),
-        ]
-
-        self.action_buttons = []
-
-        for text, handler, color in actions:
-            btn_widget = QWidget()
-            btn_widget.setStyleSheet(f"""
-                QWidget {{
-                    background-color: transparent;
-                    border: none;
-                }}
-            """)
-
-            btn_layout = QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(0, 0, 0, 0)
-            btn_layout.setSpacing(10)
-
-            # Icon bullet
-            icon_label = QLabel("•")
-            icon_label.setStyleSheet(f"""
-                QLabel {{
-                    color: {color};
-                    font-size: 20px;
-                    font-weight: bold;
-                    min-width: 20px;
-                    max-width: 20px;
-                }}
-            """)
-            icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-            # Button text
-            btn = QPushButton(text)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-
-            # Disable dashboard button nếu không có dashboard
-            if "Dashboard" in text and not self.dashboard_available:
-                btn.setEnabled(False)
-                btn.setToolTip("Dashboard module không khả dụng")
-                color = "#64748b"
-
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: #334155;
-                    color: #cbd5e1;
-                    border: none;
-                    border-radius: 6px;
-                    padding: 10px 15px;
-                    text-align: left;
-                    font-size: 12px;
-                    font-weight: 500;
-                    margin: 0;
-                    min-height: 40px;
-                }}
-                QPushButton:hover {{
-                    background-color: #475569;
-                    color: white;
-                    border-left: 3px solid {color};
-                }}
-                QPushButton:pressed {{
-                    background-color: #1e293b;
-                }}
-                QPushButton:disabled {{
-                    background-color: #1f2937;
-                    color: #64748b;
-                }}
-            """)
-            btn.clicked.connect(handler)
-
-            btn_layout.addWidget(icon_label)
-            btn_layout.addWidget(btn, 1)
-
-            actions_layout.addWidget(btn_widget)
-            self.action_buttons.append(btn)
-
-        actions_layout.addStretch()
-
-        actions_scroll.setWidget(actions_widget)
-
-        # Footer sidebar
-        footer_frame = QFrame()
-        footer_frame.setMinimumHeight(80)
-        footer_frame.setMaximumHeight(100)
-        footer_frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: #0f172a;
-                border-top: 1px solid #334155;
-            }}
-        """)
-        footer_layout = QVBoxLayout(footer_frame)
-        footer_layout.setContentsMargins(15, 10, 15, 10)
-        footer_layout.setSpacing(5)
-
-        self.ai_status_label = QLabel("🤖 AI: Khởi động...")
-        self.ai_status_label.setStyleSheet(f"""
-            color: #94a3b8;
-            font-size: 11px;
-            padding: 2px 0;
-        """)
-
-        self.data_status_label = QLabel("⏳ Đang tải dữ liệu...")
-        self.data_status_label.setStyleSheet(f"""
-            color: #94a3b8;
-            font-size: 11px;
-            padding: 2px 0;
-        """)
-
-        footer_layout.addWidget(self.ai_status_label)
-        footer_layout.addWidget(self.data_status_label)
-
-        # Thêm các phần vào sidebar
-        sidebar_layout.addWidget(profile_card)
-        sidebar_layout.addWidget(actions_scroll, 1)
-        sidebar_layout.addWidget(footer_frame)
-
-        # ========== MAIN CHAT AREA ==========
-        main_area = QFrame()
-        main_area.setStyleSheet(f"QFrame {{ background-color: {self.bg_color}; }}")
-
-        main_area_layout = QVBoxLayout(main_area)
-        main_area_layout.setContentsMargins(0, 0, 0, 0)
-        main_area_layout.setSpacing(0)
-
-        # Header chat area
-        chat_header = QFrame()
-        chat_header.setMinimumHeight(60)
-        chat_header.setMaximumHeight(70)
-        chat_header.setStyleSheet(f"""
-            QFrame {{
-                background-color: {self.card_bg};
-                border-bottom: 1px solid {self.border_color};
-            }}
-        """)
-
-        header_layout = QHBoxLayout(chat_header)
-        header_layout.setContentsMargins(25, 0, 25, 0)
-
-        title_label = QLabel("💬 PowerSight AI Chat Assistant")
-        title_label.setStyleSheet(f"""
-            color: {self.text_color};
-            font-size: 16px;
-            font-weight: 600;
-        """)
-
-        self.status_indicator = QLabel("🟢 Online")
+        # Status indicator
+        self.status_indicator = QLabel("●" if self.gemini else "○")
         self.status_indicator.setStyleSheet(f"""
-            color: {self.accent_color};
-            font-size: 11px;
-            background-color: rgba(16, 185, 129, 0.1);
-            padding: 4px 10px;
-            border-radius: 10px;
+            QLabel {{
+                color: {"#10b981" if self.gemini else "#ef4444"};
+                font-size: 20px;
+                font-weight: bold;
+            }}
         """)
 
+        title_label = QLabel(f"💬 CHATBOT HỖ TRỢ NHÂN VIÊN - {app_name}")
+        title_label.setStyleSheet("""
+            QLabel {
+                font-size: 16px;
+                font-weight: bold;
+                color: #1e40af;
+            }
+        """)
+
+        header_layout.addWidget(self.home_btn)
+        header_layout.addWidget(self.status_indicator)
         header_layout.addWidget(title_label)
         header_layout.addStretch()
-        header_layout.addWidget(self.status_indicator)
 
-        # Chat display area
+        layout.addWidget(header_widget)
+
+        # Chat display
         self.chat_display = QTextEdit()
         self.chat_display.setReadOnly(True)
-        self.chat_display.setStyleSheet(f"""
-            QTextEdit {{
-                background-color: {self.card_bg};
-                border: none;
-                font-family: 'Segoe UI', Arial;
-                font-size: 13px;
-                color: {self.text_color};
-                line-height: 1.6;
-                padding: 20px;
-            }}
-            QScrollBar:vertical {{
-                background-color: #f1f5f9;
-                width: 8px;
-                border-radius: 4px;
-            }}
-            QScrollBar::handle:vertical {{
-                background-color: #cbd5e1;
-                border-radius: 4px;
-                min-height: 20px;
-            }}
-            QScrollBar::handle:vertical:hover {{
-                background-color: #94a3b8;
-            }}
+        self.chat_display.setStyleSheet("""
+            QTextEdit {
+                background-color: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                padding: 15px;
+                font-size: 12px;
+                font-family: 'Segoe UI', Arial, sans-serif;
+            }
         """)
-        self.chat_display.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        layout.addWidget(self.chat_display, 1)
 
         # Input area
-        input_container = QFrame()
-        input_container.setMinimumHeight(80)
-        input_container.setMaximumHeight(100)
-        input_container.setStyleSheet(f"""
-            QFrame {{
-                background-color: {self.card_bg};
-                border-top: 1px solid {self.border_color};
-            }}
-        """)
+        input_widget = QWidget()
+        input_layout = QHBoxLayout(input_widget)
+        input_layout.setContentsMargins(0, 0, 0, 0)
+        input_layout.setSpacing(10)
 
-        input_layout = QHBoxLayout(input_container)
-        input_layout.setContentsMargins(20, 15, 20, 15)
-        input_layout.setSpacing(12)
-
-        self.message_input = QLineEdit()
-        self.message_input.setPlaceholderText("Nhập câu hỏi của bạn về hiệu suất, phát triển nghề nghiệp...")
-        self.message_input.setStyleSheet(f"""
-            QLineEdit {{
-                background-color: {self.bg_color};
-                border: 1px solid {self.border_color};
+        self.input_field = QLineEdit()
+        self.input_field.setPlaceholderText("Nhập câu hỏi về hiệu suất, phát triển, doanh thu...")
+        self.input_field.setStyleSheet("""
+            QLineEdit {
+                padding: 12px;
+                border: 2px solid #e2e8f0;
                 border-radius: 8px;
-                padding: 12px 18px;
-                font-size: 13px;
-                color: {self.text_color};
-                min-height: 20px;
-            }}
-            QLineEdit:focus {{
-                border: 1px solid {self.secondary_color};
-                outline: none;
-            }}
-            QLineEdit::placeholder {{
-                color: {self.text_light};
-                font-size: 13px;
-            }}
+                font-size: 12px;
+            }
+            QLineEdit:focus {
+                border: 2px solid #3b82f6;
+            }
         """)
-        self.message_input.returnPressed.connect(self.send_message)
+        self.input_field.returnPressed.connect(self.send_message)
 
-        self.send_btn = QPushButton("Gửi")
-        self.send_btn.setMinimumWidth(80)
-        self.send_btn.setMaximumWidth(100)
-        self.send_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {self.secondary_color};
+        self.send_button = QPushButton("Gửi")
+        self.send_button.setFixedSize(100, 40)
+        self.send_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3b82f6;
                 color: white;
                 border: none;
                 border-radius: 8px;
-                padding: 12px 20px;
+                font-weight: 500;
                 font-size: 13px;
-                font-weight: 600;
-                min-height: 20px;
-            }}
-            QPushButton:hover {{
+            }
+            QPushButton:hover {
                 background-color: #2563eb;
-            }}
-            QPushButton:disabled {{
+            }
+            QPushButton:disabled {
                 background-color: #cbd5e1;
                 color: #64748b;
-            }}
+            }
         """)
-        self.send_btn.clicked.connect(self.send_message)
-        self.send_btn.setEnabled(False)
+        self.send_button.clicked.connect(self.send_message)
+        self.send_button.setEnabled(False)
 
-        input_layout.addWidget(self.message_input, 1)
-        input_layout.addWidget(self.send_btn)
+        input_layout.addWidget(self.input_field, 1)
+        input_layout.addWidget(self.send_button)
 
-        # Thêm các phần vào main area
-        main_area_layout.addWidget(chat_header)
-        main_area_layout.addWidget(self.chat_display, 1)
-        main_area_layout.addWidget(input_container)
+        layout.addWidget(input_widget)
 
-        # Ghép sidebar và main area
-        main_layout.addWidget(sidebar)
-        main_layout.addWidget(main_area, 1)
+        # Quick actions - Employee specific
+        quick_actions_widget = QWidget()
+        quick_layout = QHBoxLayout(quick_actions_widget)
+        quick_layout.setContentsMargins(0, 0, 0, 0)
+        quick_layout.setSpacing(10)
 
-        # Thiết lập size policy
-        sidebar.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
-        main_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        quick_buttons = [
+            ("📊 Phân tích hiệu suất", "phân tích hiệu suất làm việc của tôi"),
+            ("🎯 Mục tiêu phát triển", "mục tiêu phát triển của tôi là gì"),
+            ("📚 Đề xuất đào tạo", "khóa học nào phù hợp với tôi"),
+            ("⚠️ Vấn đề cần sửa", "những lỗi nào tôi đang mắc phải"),
+            ("💰 Tối ưu doanh thu", "làm thế nào để tăng doanh thu"),
+            ("🔄 Tải lại dữ liệu", self.load_initial_data)
+        ]
+
+        for text, command in quick_buttons:
+            btn = QPushButton(text)
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #f1f5f9;
+                    color: #475569;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 6px;
+                    padding: 8px 12px;
+                    font-size: 11px;
+                }
+                QPushButton:hover {
+                    background-color: #e2e8f0;
+                }
+            """)
+            if callable(command):
+                btn.clicked.connect(command)
+            else:
+                btn.clicked.connect(lambda checked, cmd=command: self.quick_command(cmd))
+            quick_layout.addWidget(btn)
+
+        layout.addWidget(quick_actions_widget)
+
+        # Status bar
+        self.status_bar = QLabel(f"Trạng thái: Đang khởi tạo...")
+        self.status_bar.setStyleSheet("""
+            QLabel {
+                color: #64748b;
+                font-size: 11px;
+                padding: 8px;
+                background-color: #f8fafc;
+                border-radius: 5px;
+                border: 1px solid #e2e8f0;
+            }
+        """)
+        self.status_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.status_bar)
+
+        # Show welcome message in UI
+        self.show_welcome_ui()
+
+    def show_welcome_ui(self):
+        """Hiển thị thông báo chào mừng trong UI"""
+        self.add_bot_message(f"Xin chào {self.employee_name}! Tôi là chatbot hỗ trợ nhân viên.")
+        self.add_bot_message("Tôi có thể giúp bạn với:")
+        self.add_bot_message("• Phân tích hiệu suất làm việc")
+        self.add_bot_message("• Mục tiêu phát triển cá nhân")
+        self.add_bot_message("• Đề xuất khóa học phù hợp")
+        self.add_bot_message("• Tối ưu doanh thu và hiệu suất")
+
+        if not self.gemini:
+            self.add_bot_message(
+                "⚠️ **Lưu ý**: Gemini AI chưa khả dụng. Đang sử dụng chế độ DEMO.")
+
+    def go_back_to_home(self):
+        """Quay về HomeWindow"""
+        if self.parent_window:
+            try:
+                self.parent_window.showNormal()
+                self.parent_window.raise_()
+                self.parent_window.activateWindow()
+                if hasattr(self.parent_window, 'on_chatbot_closed'):
+                    self.parent_window.on_chatbot_closed()
+            except Exception as e:
+                print(f"Lỗi khi khôi phục home window: {e}")
+        self.close()
 
     def show_welcome_message(self):
-        """Hiển thị tin nhắn chào mừng"""
-        dashboard_status = "✓ Có sẵn" if self.dashboard_available else "✗ Không khả dụng"
-        ai_status = "✓ Có sẵn" if self.gemini else "✗ DEMO MODE"
-        data_status = "✓ Có sẵn" if self.data_processor else "✗ Không khả dụng"
+        """Hiển thị thông báo chào mừng (backend)"""
+        ai_status = "✓ Khả dụng" if self.gemini else "✗ CHẾ ĐỘ DEMO"
+        data_status = "✓ Khả dụng" if self.data_processor else "✗ Không khả dụng"
 
-        welcome = f"""**CHÀO MỪNG ĐẾN VỚI POWER SIGHT AI ASSISTANT**
+        welcome = f"""**CHÀO MỪNG ĐẾN POWER SIGHT AI ASSISTANT**
 
 **👤 Nhân viên:** {self.employee_name}
 **📅 Ngày:** {datetime.now().strftime('%d/%m/%Y')}
 
 **🛠️ TRẠNG THÁI HỆ THỐNG:**
 • AI Assistant: {ai_status}
-• Dashboard: {dashboard_status}
 • Data Processor: {data_status}
 
 **🤖 TÔI CÓ THỂ GIÚP BẠN:**
-• Phân tích hiệu suất làm việc cả năm
-• Đề xuất cải thiện và phát triển theo tháng
-• Cảnh báo vấn đề cần khắc phục
-• Tư vấn chiến lược tăng doanh thu
+• Phân tích hiệu suất làm việc hàng năm
+• Đề xuất cải thiện và phát triển hàng tháng
+• Cảnh báo vấn đề cần sửa
+• Tư vấn chiến lược doanh thu
 • Đề xuất khóa học phù hợp
 
-**🚀 QUICK ACTIONS:**
-- Sử dụng nút bên trái để hỏi nhanh
-- **Nhấn "Mở Dashboard"** để xem biểu đồ chi tiết cả năm
-- Chat tự nhiên bằng tiếng Việt
+**🚀 HÀNH ĐỘNG NHANH:**
+- Sử dụng các nút bên dưới cho câu hỏi nhanh
+- Chat tự nhiên bằng tiếng Việt/Anh
+- **Nhấn "🏠 Home" để quay về menu chính**
 
 **⏳ Đang tải dữ liệu từ hệ thống...**"""
 
-        self.append_to_chat("Trợ lý AI", welcome)
+        self.add_bot_message(welcome)
 
     def load_initial_data(self):
-        """Tải dữ liệu ban đầu - Bổ sung hiển thị dữ liệu cả năm"""
-        self.status_indicator.setText("🔄 Đang tải dữ liệu...")
-        self.data_status_label.setText("📂 Đang đọc dữ liệu từ hệ thống...")
-        self.send_btn.setEnabled(False)
+        """Tải dữ liệu ban đầu"""
+        self.status_indicator.setText("🔄")
+        self.status_bar.setText("📂 Đang đọc dữ liệu từ hệ thống...")
+        self.send_button.setEnabled(False)
 
         try:
-            # Kiểm tra nếu có DataProcessor
             if not self.data_processor:
-                self.status_indicator.setText("⚠️ Không có DataProcessor")
-                self.data_status_label.setText("❌ Module DataProcessor không khả dụng")
-                self.send_btn.setEnabled(True)
+                self.status_indicator.setText("○")
+                self.status_bar.setText("❌ Module DataProcessor không khả dụng")
+                self.send_button.setEnabled(True)
+                self.add_bot_message("⚠️ Không thể tải dữ liệu. DataProcessor không khả dụng.")
                 return
 
-            # Tải dữ liệu qua DataProcessor
             success = self.data_processor.load_all_data()
 
             if success:
@@ -572,76 +352,75 @@ class EmployeeChatbotGUI(QMainWindow):
                 sap_data = data.get('sap', {})
                 metrics = data.get('metrics', {})
 
-                self.status_indicator.setText("🟢 Sẵn sàng")
+                self.status_indicator.setText("●")
+                self.status_indicator.setStyleSheet("""
+                    QLabel {
+                        color: #10b981;
+                        font-size: 20px;
+                        font-weight: bold;
+                    }
+                """)
 
-                # Hiển thị chi tiết work log và SAP
                 fraud_count = work_log_data.get('fraud_count', 0)
                 warning_count = work_log_data.get('warning_count', 0)
-                mouse_sessions = work_log_data.get('total_sessions', 0)
                 sap_orders = sap_data.get('total_orders', 0)
                 pending_orders = sap_data.get('pending_orders', 0)
 
-                # Lấy dữ liệu tổng hợp cả năm
                 year_summary = self.data_processor.get_year_summary()
                 if year_summary:
                     total_orders_year = year_summary.get('total_orders', 0)
-                    total_revenue_year = year_summary.get('total_revenue', 0)
-                    total_profit_year = year_summary.get('total_profit', 0)
-                    total_fraud_year = year_summary.get('total_fraud', 0)
                     months_with_data = year_summary.get('months_with_data', 0)
 
-                    self.data_status_label.setText(
+                    self.status_bar.setText(
                         f"📅 {year_summary.get('year', datetime.now().year)}: {months_with_data} tháng | "
                         f"📊 WL: {fraud_count} gian lận | "
-                        f"🛒 SAP: {sap_orders} đơn ({pending_orders} chờ)"
+                        f"🛒 SAP: {sap_orders} đơn ({pending_orders} đang chờ)"
                     )
                 else:
-                    self.data_status_label.setText(
+                    self.status_bar.setText(
                         f"📊 WL: {fraud_count} gian lận, {warning_count} cảnh báo | "
-                        f"🛒 SAP: {sap_orders} đơn ({pending_orders} chờ)"
+                        f"🛒 SAP: {sap_orders} đơn ({pending_orders} đang chờ)"
                     )
 
-                if self.gemini and hasattr(self.gemini, 'active_model'):
-                    model_name = self.gemini.active_model or 'DEMO'
-                    self.ai_status_label.setText(f"🤖 {model_name.split('/')[-1]}")
-                else:
-                    self.ai_status_label.setText("🤖 DEMO MODE")
+                self.send_button.setEnabled(True)
 
-                self.send_btn.setEnabled(True)
-
-                # Lấy dữ liệu cả năm
-                year_data = self.data_processor.get_dashboard_data()
-
-                # Hiển thị tóm tắt chi tiết với dữ liệu thực tế
-                completion_rate = sap_data.get('completion_rate', 0)
-                revenue = sap_data.get('total_revenue', 0)
-                profit = sap_data.get('total_profit', 0)
-
-                # Tạo summary message với dữ liệu cả năm
                 summary_msg = self._create_summary_message(
                     work_log_data, sap_data, metrics, year_summary
                 )
 
-                self.append_to_chat("Hệ thống", summary_msg)
+                self.add_bot_message(summary_msg)
             else:
-                self.status_indicator.setText("⚠️ Thiếu dữ liệu")
-                self.data_status_label.setText("❌ Không thể tải đầy đủ dữ liệu")
-                self.append_to_chat("Hệ thống",
-                                    "Không thể tải dữ liệu đầy đủ. Vui lòng kiểm tra file dữ liệu!")
+                self.status_indicator.setText("○")
+                self.status_indicator.setStyleSheet("""
+                    QLabel {
+                        color: #ef4444;
+                        font-size: 20px;
+                        font-weight: bold;
+                    }
+                """)
+                self.status_bar.setText("❌ Không thể tải đầy đủ dữ liệu")
+                self.add_bot_message("Không thể tải đầy đủ dữ liệu. Vui lòng kiểm tra file dữ liệu!")
 
         except Exception as e:
             print(f"❌ Lỗi tải dữ liệu: {e}")
             import traceback
             traceback.print_exc()
-            self.status_indicator.setText("❌ Lỗi dữ liệu")
-            self.data_status_label.setText(f"Lỗi: {str(e)[:50]}")
-            self.send_btn.setEnabled(True)
+            self.status_indicator.setText("○")
+            self.status_indicator.setStyleSheet("""
+                QLabel {
+                    color: #ef4444;
+                    font-size: 20px;
+                    font-weight: bold;
+                }
+            """)
+            self.status_bar.setText(f"Lỗi: {str(e)[:50]}")
+            self.send_button.setEnabled(True)
+            self.add_bot_message(f"❌ Lỗi khi tải dữ liệu: {str(e)}")
 
     def _create_summary_message(self, work_log_data, sap_data, metrics, year_summary):
-        """Tạo message tóm tắt với dữ liệu cả năm"""
+        """Tạo thông báo tổng hợp với dữ liệu hàng năm"""
         current_year = datetime.now().year
 
-        # Thông tin tháng hiện tại
         fraud_count = work_log_data.get('fraud_count', 0)
         warning_count = work_log_data.get('warning_count', 0)
         sap_orders = sap_data.get('total_orders', 0)
@@ -657,7 +436,6 @@ class EmployeeChatbotGUI(QMainWindow):
 
 """
 
-        # Thêm phần dữ liệu cả năm nếu có
         if year_summary:
             total_orders_year = year_summary.get('total_orders', 0)
             total_revenue_year = year_summary.get('total_revenue', 0)
@@ -668,226 +446,139 @@ class EmployeeChatbotGUI(QMainWindow):
             best_month = year_summary.get('best_month', 0)
             best_month_revenue = year_summary.get('best_month_revenue', 0)
 
-            message += f"""**📊 TỔNG QUAN CẢ NĂM {current_year}:**
+            message += f"""**📊 TỔNG QUAN HÀNG NĂM {current_year}:**
 • **Phạm vi dữ liệu:** {months_with_data}/12 tháng
-• **Tổng đơn hàng cả năm:** {total_orders_year:,}
-• **Tổng doanh thu cả năm:** {total_revenue_year:,.0f} VND
-• **Tổng lợi nhuận cả năm:** {total_profit_year:,.0f} VND
-• **Tổng gian lận cả năm:** {total_fraud_year}
-• **Tỷ lệ hoàn thành cả năm:** {year_completion_rate:.1f}%
+• **Tổng đơn hàng năm:** {total_orders_year:,}
+• **Tổng doanh thu năm:** {total_revenue_year:,.0f} VND
+• **Tổng lợi nhuận năm:** {total_profit_year:,.0f} VND
+• **Tổng gian lận năm:** {total_fraud_year}
+• **Tỷ lệ hoàn thành năm:** {year_completion_rate:.1f}%
 • **Tháng hiệu quả nhất:** Tháng {best_month} ({best_month_revenue:,.0f} VND)
 
 """
 
-        message += f"""**🔍 WORK LOG PHÂN TÍCH (THÁNG HIỆN TẠI):**
+        message += f"""**🔍 PHÂN TÍCH WORK LOG (THÁNG HIỆN TẠI):**
 • Sự kiện gian lận: {fraud_count}
 • Cảnh báo nghiêm trọng: {work_log_data.get('critical_count', 0)}
 • Cảnh báo nhẹ: {warning_count}
 • Thời gian làm việc: {work_log_data.get('total_work_hours', 0)}h
 
-**📈 SAP DATA TỔNG QUAN (THÁNG HIỆN TẠI):**
+**📈 TỔNG QUAN DỮ LIỆU SAP (THÁNG HIỆN TẠI):**
 • Tổng đơn hàng: {sap_orders:,}
 • Đã hoàn thành: {sap_data.get('completed_orders', 0):,} ({completion_rate:.1f}%)
-• Chờ xử lý: {pending_orders:,}
+• Đang chờ xử lý: {pending_orders:,}
 • Doanh thu: {revenue:,.0f} VND
 • Lợi nhuận: {profit:,.0f} VND
-• Tỷ suất lợi nhuận: {profit_margin:.1f}%
+• Biên lợi nhuận: {profit_margin:.1f}%
 
 **📊 CHỈ SỐ THỰC TẾ:**
-• **Hiệu suất làm việc:** {metrics.get('efficiency', 0):.1f}/100 (dựa trên số đơn/giờ)
-• **Chất lượng công việc:** {metrics.get('quality', 0):.1f}/100 (dựa trên tỷ lệ hoàn thành & lợi nhuận)
-• **Tuân thủ quy định:** {metrics.get('compliance', 0):.1f}/100 (dựa trên việc tuân thủ quy định)
+• **Hiệu suất làm việc:** {metrics.get('efficiency', 0):.1f}/100 (dựa trên đơn/giờ)
+• **Chất lượng công việc:** {metrics.get('quality', 0):.1f}/100 (dựa trên hoàn thành & lợi nhuận)
+• **Tuân thủ:** {metrics.get('compliance', 0):.1f}/100 (dựa trên quy định)
 • **Năng suất kinh doanh:** {metrics.get('productivity', 0):.1f}/100 (dựa trên doanh thu & lợi nhuận)
 • **Tỷ lệ lỗi:** {metrics.get('error_rate', 0):.1f}%
-• **Hiệu suất thời gian:** {metrics.get('time_efficiency', 0):.1f}%
+• **Hiệu quả thời gian:** {metrics.get('time_efficiency', 0):.1f}%
 
 """
 
-        # Thêm gợi ý hành động khác nhau dựa trên có dữ liệu cả năm hay không
         if year_summary:
-            message += """**💡 GỢI Ý HÀNH ĐỘNG (DỰA TRÊN DỮ LIỆU CẢ NĂM):**
-1. **Nhấn "Mở Dashboard"** - Xem biểu đồ chi tiết và xu hướng cả năm
-2. **Hỏi "Phân tích hiệu suất theo tháng"** - So sánh giữa các tháng
-3. **Hỏi "Tháng nào có doanh thu cao nhất?"** - Tìm điểm mạnh theo mùa
-4. **Hỏi "Làm sao duy trì hiệu suất cao?"** - Được tư vấn chiến lược dài hạn"""
+            message += """**💡 ĐỀ XUẤT HÀNH ĐỘNG (DỰA TRÊN DỮ LIỆU NĂM):**
+1. **Hỏi "Phân tích hiệu suất hàng tháng"** - So sánh giữa các tháng
+2. **Hỏi "Tháng nào có doanh thu cao nhất?"** - Tìm điểm mạnh theo mùa
+3. **Hỏi "Làm thế nào để duy trì hiệu suất cao?"** - Nhận tư vấn chiến lược dài hạn"""
         else:
-            message += """**💡 GỢI Ý HÀNH ĐỘNG:**
-1. **Nhấn "Mở Dashboard"** - Xem biểu đồ chi tiết
-2. **Hỏi "Đơn hàng nào chưa xử lý xong?"** - Kiểm tra trạng thái đơn hàng
-3. **Hỏi "Làm sao cải thiện hiệu suất?"** - Được tư vấn chiến lược
-4. **Hỏi "Doanh thu theo tháng nào cao nhất?"** - Phân tích dữ liệu theo tháng"""
+            message += """**💡 ĐỀ XUẤT HÀNH ĐỘNG:**
+1. **Hỏi "Đơn hàng nào chưa xử lý?"** - Kiểm tra trạng thái đơn hàng
+2. **Hỏi "Làm thế nào để cải thiện hiệu suất?"** - Nhận tư vấn chiến lược
+3. **Hỏi "Phân tích doanh thu theo tháng"** - Phân tích dữ liệu hàng tháng"""
 
-            return message
-    def show_dashboard(self):
-        """Hiển thị dashboard"""
-        try:
-            if not self.dashboard_available:
-                QMessageBox.warning(self, "Không khả dụng",
-                                    "Dashboard module không khả dụng. Không thể mở dashboard.")
-                return
+        return message
 
-            print(f"🚀 Đang mở Dashboard cho {self.employee_name}...")
-
-            # Tạo mới dashboard
-            self.dashboard = PerformanceDashboard(self.employee_name)
-
-            # Thiết lập kích thước
-            screen = QApplication.primaryScreen()
-            screen_geometry = screen.geometry()
-
-            width = int(screen_geometry.width() * 0.85)
-            height = int(screen_geometry.height() * 0.85)
-
-            self.dashboard.resize(width, height)
-            self.dashboard.move(
-                (screen_geometry.width() - width) // 2,
-                (screen_geometry.height() - height) // 2
-            )
-
-            # Hiển thị dashboard
-            self.dashboard.show()
-            self.dashboard.raise_()
-            self.dashboard.activateWindow()
-
-            print(f"✅ Dashboard đã hiển thị: {width}x{height}")
-
-        except Exception as e:
-            print(f"❌ Lỗi khi mở dashboard: {e}")
-            import traceback
-            traceback.print_exc()
-            QMessageBox.warning(self, "Lỗi",
-                                f"Không thể mở dashboard:\n{str(e)}")
+    def quick_command(self, command):
+        """Xử lý lệnh nhanh"""
+        self.input_field.setText(command)
+        self.send_message()
 
     def send_message(self):
-        """Gửi tin nhắn"""
-        message = self.message_input.text().strip()
-        if not message:
+        """Xử lý tin nhắn người dùng"""
+        user_input = self.input_field.text().strip()
+        if not user_input:
             return
 
-        self.append_to_chat("Bạn", message)
-        self.message_input.clear()
+        # Thêm tin nhắn người dùng
+        self.add_user_message(user_input)
+        self.input_field.clear()
+        self.send_button.setEnabled(False)
+        self.status_bar.setText("🤔 AI đang phân tích...")
 
-        # Vô hiệu hóa nút trong khi xử lý
-        self.send_btn.setEnabled(False)
-        self.status_indicator.setText("🤔 AI đang phân tích...")
-
-        # Lấy dữ liệu context nâng cao từ DataProcessor
         context_data = {}
         if self.data_processor:
             try:
                 context_data = self.data_processor.get_enhanced_context()
-
-                # Log dữ liệu context
-                print(f"📋 Context data keys: {list(context_data.keys())}")
-                print(f"📊 SAP data: {len(context_data.get('sap_data', {}).get('all_orders', []))} orders")
-                print(f"📈 Work log: {len(context_data.get('work_log', {}).get('fraud_events', []))} fraud events")
-
-                # Thêm thông tin dữ liệu cả năm
-                if 'year_data' in context_data and context_data['year_data']:
-                    print(
-                        f"📅 Year data available: {len(context_data['year_data'].get('sap_data', {}).get('sheets', {}).get('Orders', []))} orders")
-
             except Exception as e:
-                print(f"⚠️ Không thể lấy context data: {e}")
-                import traceback
-                traceback.print_exc()
+                print(f"⚠️ Không thể lấy dữ liệu context: {e}")
 
-        # Xử lý trong thread riêng
-        self.chat_thread = ChatThread(self.gemini, message, context_data)
+        self.chat_thread = ChatThread(self.gemini, user_input, context_data)
         self.chat_thread.response_ready.connect(self.on_ai_response)
         self.chat_thread.error_occurred.connect(self.on_ai_error)
         self.chat_thread.start()
 
-    def ask_question(self, question):
-        """Hỏi câu hỏi tự động"""
-        self.message_input.setText(question)
-        self.send_message()
-
     def on_ai_response(self, response):
         """Nhận phản hồi từ AI"""
-        self.append_to_chat("Trợ lý AI", response)
-        self.send_btn.setEnabled(True)
-        self.status_indicator.setText("✅ Sẵn sàng")
+        self.add_bot_message(response)
+        self.send_button.setEnabled(True)
+        self.status_bar.setText("✅ Sẵn sàng")
 
     def on_ai_error(self, error):
         """Xử lý lỗi AI"""
         error_msg = f"""**❌ LỖI HỆ THỐNG**
 
-Không thể kết nối đến AI service:
+Không thể kết nối đến dịch vụ AI:
 
 **Chi tiết:** {error}
 
-**Khắc phục:**
+**Khắc phục sự cố:**
 1. Kiểm tra kết nối Internet
 2. Đảm bảo API Key hợp lệ trong file .env
 3. Thử lại sau vài phút
 
 **Chế độ DEMO sẽ được sử dụng tạm thời.**"""
 
-        self.append_to_chat("Hệ thống", error_msg)
-        self.send_btn.setEnabled(True)
-        self.status_indicator.setText("⚠️ Có lỗi xảy ra")
+        self.add_bot_message(error_msg)
+        self.send_button.setEnabled(True)
+        self.status_bar.setText("⚠️ Đã xảy ra lỗi")
 
-    def append_to_chat(self, sender, message):
-        """Thêm tin nhắn vào chat với format đẹp"""
+    def add_bot_message(self, message):
+        """Thêm tin nhắn từ bot"""
         timestamp = datetime.now().strftime("%H:%M")
+        self.chat_display.append(
+            f"<div style='margin: 5px 0; padding: 10px; background-color: #f1f5f9; border-radius: 8px;'>"
+            f"<b>🤖 PowerSight AI:</b> {message}<br>"
+            f"<small style='color: #64748b;'>{timestamp}</small></div>")
+        self.scroll_to_bottom()
 
-        # Xác định màu sắc cho sender
-        if sender == "Bạn":
-            color = self.secondary_color
-            bg_color = "#eff6ff"
-            avatar = "👤"
-        elif "Lỗi" in sender or "❌" in message or "⚠️" in sender:
-            color = self.danger_color
-            bg_color = "#fef2f2"
-            avatar = "⚠️"
-        elif "Hệ thống" in sender:
-            color = self.text_light
-            bg_color = "#f8fafc"
-            avatar = "⚙️"
-        else:
-            color = self.accent_color
-            bg_color = "#f0fdf4"
-            avatar = "🤖"
+    def add_user_message(self, message):
+        """Thêm tin nhắn từ người dùng"""
+        timestamp = datetime.now().strftime("%H:%M")
+        self.chat_display.append(
+            f"<div style='margin: 5px 0; padding: 10px; background-color: #dbeafe; border-radius: 8px; text-align: right;'>"
+            f"<b>👤 {self.employee_name}:</b> {message}<br>"
+            f"<small style='color: #64748b;'>{timestamp}</small></div>")
+        self.scroll_to_bottom()
 
-        html = f"""
-        <div style="margin: 0 0 15px 0;">
-            <div style="display: flex; gap: 10px;">
-                <!-- Avatar -->
-                <div style="flex-shrink: 0; width: 32px; height: 32px; background-color: {color}; 
-                     border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 16px;">
-                    {avatar}
-                </div>
+    def scroll_to_bottom(self):
+        """Cuộn xuống cuối"""
+        scrollbar = self.chat_display.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
-                <!-- Content -->
-                <div style="flex: 1; min-width: 0;">
-                    <!-- Header -->
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                        <span style="font-weight: 600; color: {color}; font-size: 13px;">
-                            {sender}
-                        </span>
-                        <span style="color: #94a3b8; font-size: 11px;">
-                            {timestamp}
-                        </span>
-                    </div>
-
-                    <!-- Message -->
-                    <div style="background-color: {bg_color}; padding: 12px; border-radius: 8px; 
-                         border-left: 3px solid {color}; line-height: 1.5; font-size: 13px; color: {self.text_color};">
-                        {message.replace(chr(10), '<br>')}
-                    </div>
-                </div>
-            </div>
-        </div>
-        """
-
-        current_html = self.chat_display.toHtml()
-        self.chat_display.setHtml(current_html + html)
-
-        # Cuộn xuống cuối
-        cursor = self.chat_display.textCursor()
-        cursor.movePosition(QTextCursor.MoveOperation.End)
-        self.chat_display.setTextCursor(cursor)
+    def closeEvent(self, event):
+        """Xử lý đóng cửa sổ"""
+        if self.parent_window and hasattr(self.parent_window, 'on_chatbot_closed'):
+            try:
+                self.parent_window.on_chatbot_closed()
+            except:
+                pass
+        event.accept()
 
 
 class ChatThread(QThread):
@@ -904,11 +595,10 @@ class ChatThread(QThread):
     def run(self):
         try:
             if not self.gemini:
-                # Demo response nếu không có Gemini
                 import random
                 demo_responses = [
-                    f"**Câu hỏi:** {self.question}\n\n**Phân tích (DEMO):** Hiệu suất của bạn hiện ở mức ổn định. Tập trung vào hoàn thành đơn hàng đúng hạn để cải thiện tỷ lệ hoàn thành.",
-                    f"**Câu hỏi:** {self.question}\n\n**Phân tích (DEMO):** Dữ liệu cả năm cho thấy bạn cần giảm số lượng cảnh báo trong quy trình làm việc. Kiểm tra kỹ các bước trước khi submit.",
+                    f"**Câu hỏi:** {self.question}\n\n**Phân tích (DEMO):** Hiệu suất của bạn hiện đang ổn định. Tập trung hoàn thành đơn hàng đúng hạn để cải thiện tỷ lệ hoàn thành.",
+                    f"**Câu hỏi:** {self.question}\n\n**Phân tích (DEMO):** Dữ liệu hàng năm cho thấy bạn cần giảm cảnh báo trong quy trình làm việc. Kiểm tra kỹ các bước trước khi gửi.",
                 ]
                 response = random.choice(demo_responses)
                 self.response_ready.emit(response)

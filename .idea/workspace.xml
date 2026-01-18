@@ -5,24 +5,31 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="af2765fa-5722-4e4b-b348-4caae5d6a0eb" name="Changes" comment="start">
-      <change afterPath="$PROJECT_DIR$/MG/aggregate_dashboard.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/MG/data_manager.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/MG/main_controller.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/MG/manager_chatbot.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Face/Save_file/SAP_Credentials.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MG/dashboard.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MG/data_processor.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MainApp/Run/App.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/MainApp/Run/main_manager.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chatbot/.env" beforeDir="false" afterPath="$PROJECT_DIR$/Chatbot/.env" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chatbot/chatbot_launcher.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Chatbot/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/Chatbot/config.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chatbot/dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/Chatbot/dashboard.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chatbot/data_processor.py" beforeDir="false" afterPath="$PROJECT_DIR$/Chatbot/data_processor.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Chatbot/employee_chatbot.py" beforeDir="false" afterPath="$PROJECT_DIR$/Chatbot/employee_chatbot.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chatbot/gemini_analyzer.py" beforeDir="false" afterPath="$PROJECT_DIR$/Chatbot/gemini_analyzer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Interface/__pycache__/UI_MG_EMPLIST.ui" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/UI_MG_EMPLIST.ui" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Interface/__pycache__/UI_MG_HOME.ui" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/UI_MG_HOME.ui" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Interface/__pycache__/main_mg_emplist.py" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/main_mg_emplist.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/MainApp/main_intergrated.py" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/main_intergrated.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Saved_file/Giang/2026_01/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/Giang/2026_01/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Face/anh/Giang/z7318687843404_9a726472aa2f1f1e579f101253b97fcf.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/Face/anh/Giang_MG/z7318687843404_9a726472aa2f1f1e579f101253b97fcf.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Face/anh/Giang/z7340594384342_832bfe535efa879dc38cc9fa723d22ce.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/Face/anh/Giang_MG/z7340594384342_832bfe535efa879dc38cc9fa723d22ce.jpg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MG/aggregate_dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/MG/aggregate_dashboard.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MG/main_controller.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MG/manager_chatbot.py" beforeDir="false" afterPath="$PROJECT_DIR$/MG/manager_chatbot.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MainApp/UI/UI_HOME.py" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/UI_HOME.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MainApp/UI/UI_HOME.ui" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/UI_HOME.ui" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MainApp/UI/UI_MG_EMPLIST.ui" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/UI_MG_EMPLIST.ui" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MainApp/UI/main_faceid.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MainApp/UI/main_login.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MainApp/UI/main_mg_emplist.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/MainApp/main_intergrated.py" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/Run/main_emp.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Saved_file/Giang/2026_01/work_logs_Giang_2026_01.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/Giang/2026_01/work_logs_Giang_2026_01.xlsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Saved_file/Thu/2026_01/work_logs_Thu_2026_01.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/Thu/2026_01/work_logs_Thu_2026_01.xlsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Workspace/SafeWorkingBrowser.py" beforeDir="false" afterPath="$PROJECT_DIR$/Workspace/SafeWorkingBrowser.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/test.py" beforeDir="false" afterPath="$PROJECT_DIR$/test.py" afterDir="false" />
     </list>
@@ -66,63 +73,72 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python tests.Python tests in face_engine.py.executor": "Run",
-    "Python tests.Python tests in tets.py.executor": "Run",
-    "Python.Launcher (1).executor": "Run",
-    "Python.Main (1).executor": "Run",
-    "Python.Main.executor": "Run",
-    "Python.Main_mouse.executor": "Run",
-    "Python.Mouse_module.executor": "Run",
-    "Python.Process_mouse_data.executor": "Run",
-    "Python.SAP_Gen.executor": "Run",
-    "Python.SafeWorkingBrowser.executor": "Run",
-    "Python.Session_launcher.executor": "Run",
-    "Python.UI_Home_empEX.executor": "Run",
-    "Python.aggregate_dashboard.executor": "Run",
-    "Python.app.executor": "Run",
-    "Python.chatbot_launcher.executor": "Run",
-    "Python.config.executor": "Run",
-    "Python.dashboard.executor": "Run",
-    "Python.data_processor.executor": "Run",
-    "Python.employee_chatbot.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.main_app.executor": "Run",
-    "Python.main_controller.executor": "Run",
-    "Python.main_face.executor": "Run",
-    "Python.main_intergrated (1).executor": "Run",
-    "Python.main_intergrated (2).executor": "Run",
-    "Python.main_intergrated.executor": "Run",
-    "Python.manager_chatbot.executor": "Run",
-    "Python.retrieve.executor": "Run",
-    "Python.temp_browser_launcher.executor": "Run",
-    "Python.test.executor": "Run",
-    "Python.xgboost_anomaly.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "master",
-    "last_opened_file_path": "C:/Users/legal/PycharmProjects/PythonProject/MainApp",
-    "settings.editor.selected.configurable": "preferences.externalTools"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python tests.Python tests in face_engine.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python tests.Python tests in tets.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python.App (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.Launcher (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.Main (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.Main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.Main_mouse.executor&quot;: &quot;Run&quot;,
+    &quot;Python.Mouse_module.executor&quot;: &quot;Run&quot;,
+    &quot;Python.Process_mouse_data.executor&quot;: &quot;Run&quot;,
+    &quot;Python.SAP_Gen.executor&quot;: &quot;Run&quot;,
+    &quot;Python.SafeWorkingBrowser.executor&quot;: &quot;Run&quot;,
+    &quot;Python.Session_launcher.executor&quot;: &quot;Run&quot;,
+    &quot;Python.UI_Home_empEX.executor&quot;: &quot;Run&quot;,
+    &quot;Python.aggregate_dashboard.executor&quot;: &quot;Run&quot;,
+    &quot;Python.app.executor&quot;: &quot;Run&quot;,
+    &quot;Python.chatbot_launcher.executor&quot;: &quot;Run&quot;,
+    &quot;Python.config.executor&quot;: &quot;Run&quot;,
+    &quot;Python.dashboard.executor&quot;: &quot;Run&quot;,
+    &quot;Python.data_processor.executor&quot;: &quot;Run&quot;,
+    &quot;Python.employee_chatbot.executor&quot;: &quot;Run&quot;,
+    &quot;Python.face_login.executor&quot;: &quot;Run&quot;,
+    &quot;Python.hehe.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main_app.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main_controller.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main_face.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main_intergrated (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.main_intergrated (2).executor&quot;: &quot;Run&quot;,
+    &quot;Python.main_intergrated (3).executor&quot;: &quot;Run&quot;,
+    &quot;Python.main_intergrated.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main_laucher.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main_manager (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.manager_chatbot.executor&quot;: &quot;Run&quot;,
+    &quot;Python.retrieve.executor&quot;: &quot;Run&quot;,
+    &quot;Python.temp_browser_launcher.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test.executor&quot;: &quot;Run&quot;,
+    &quot;Python.xgboost_anomaly.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/legal/PycharmProjects/PythonProject/MainApp/Run&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.externalTools&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\legal\PycharmProjects\PythonProject\MainApp\Run" />
+      <recent name="C:\Users\legal\PycharmProjects\PythonProject\MG" />
+      <recent name="C:\Users\legal\PycharmProjects\PythonProject\Face\Save_file" />
       <recent name="C:\Users\legal\PycharmProjects\PythonProject\MainApp" />
       <recent name="C:\Users\legal\PycharmProjects\PythonProject\MainApp\UI" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\legal\PycharmProjects\PythonProject\MainApp\Run" />
       <recent name="C:\Users\legal\PycharmProjects\PythonProject\Saved_file\Giang\2026_01" />
       <recent name="C:\Users\legal\PycharmProjects\PythonProject\Saved_file\Giang\Mouse\2026_01" />
       <recent name="C:\Users\legal\PycharmProjects\PythonProject\Saved_file\Giang\Mouse\2025_12" />
       <recent name="C:\Users\legal\PycharmProjects\PythonProject\Saved_file" />
-      <recent name="C:\Users\legal\PycharmProjects\PythonProject\Interface\UI_LOGIN" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.main_controller">
-    <configuration name="SafeWorkingBrowser" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.App (1)">
+    <configuration name="App (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PythonProject" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -131,11 +147,33 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Workspace" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/MainApp/Run" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Workspace/SafeWorkingBrowser.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/MainApp/Run/App.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="aggregate_dashboard" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="PythonProject" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/MG" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/MG/aggregate_dashboard.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -166,7 +204,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="main_controller" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="main_manager (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PythonProject" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -175,33 +213,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/MG" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/MainApp/Run" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/MG/main_controller.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="main_intergrated (2)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="PythonProject" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/MainApp" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/MainApp/main_intergrated.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/MainApp/Run/main_manager.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -234,11 +250,11 @@
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.main_controller" />
+        <item itemvalue="Python.App (1)" />
         <item itemvalue="Python.manager_chatbot" />
+        <item itemvalue="Python.main_manager (1)" />
+        <item itemvalue="Python.aggregate_dashboard" />
         <item itemvalue="Python.employee_chatbot" />
-        <item itemvalue="Python.SafeWorkingBrowser" />
-        <item itemvalue="Python.main_intergrated (2)" />
       </list>
     </recent_temporary>
   </component>
@@ -321,7 +337,23 @@
       <option name="project" value="LOCAL" />
       <updated>1767831233607</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="start">
+      <option name="closed" value="true" />
+      <created>1767923027893</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1767923027893</updated>
+    </task>
+    <task id="LOCAL-00010" summary="start">
+      <option name="closed" value="true" />
+      <created>1767923516669</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1767923516669</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">

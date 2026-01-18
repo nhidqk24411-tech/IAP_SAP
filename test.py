@@ -19,7 +19,7 @@ BASE_DIR = r"C:\Users\legal\PycharmProjects\PythonProject\Saved_file"
 
 # 3 nhân viên với cấp độ khác nhau
 EMPLOYEES_CONFIG = {
-    "Giang": {"level": "HIGH", "color": "🟢"},
+    "Giang_MG": {"level": "HIGH", "color": "🟢"},
     "Thu": {"level": "MEDIUM", "color": "🟡"},
     "Kha": {"level": "LOW", "color": "🔴"}
 }
@@ -73,7 +73,7 @@ def get_employee_config(employee):
     """Lấy cấu hình theo cấp độ nhân viên"""
     level = EMPLOYEES_CONFIG[employee]["level"]
 
-    if level == "HIGH":  # Giang - Xuất sắc
+    if level == "HIGH":  # Giang_MG - Xuất sắc
         return {
             "orders_per_month": 120,  # Nhiều đơn
             "revenue_range": (30000000, 60000000),
@@ -403,7 +403,7 @@ def generate_complete_data():
     print("=" * 70)
     print("🚀 TẠO DỮ LIỆU HOÀN CHỈNH - POWER SIGHT SYSTEM")
     print("=" * 70)
-    print("👥 Nhân viên: Giang (Xuất sắc), Thu (Trung bình), Kha (Cần cải thiện)")
+    print("👥 Nhân viên: Giang_MG (Xuất sắc), Thu (Trung bình), Kha (Cần cải thiện)")
     print("📅 Thời gian: 12 tháng năm 2026")
     print("=" * 70)
 
@@ -529,7 +529,7 @@ def create_summary_report():
         comparison_data = {
             'Chỉ số': ['Doanh thu trung bình/đơn', 'Tỷ lệ hoàn thành', 'Lợi nhuận biên',
                        'Sự kiện gian lận/tháng', 'Giờ làm việc/tháng', 'Hiệu suất làm việc'],
-            'Giang (Xuất sắc)': ['$35-60M', '75%', '25-35%', '20-40', '~176 giờ', '90-100%'],
+            'Giang_MG (Xuất sắc)': ['$35-60M', '75%', '25-35%', '20-40', '~176 giờ', '90-100%'],
             'Thu (Trung bình)': ['$15-40M', '60%', '15-25%', '40-70', '~108 giờ', '75-90%'],
             'Kha (Cần cải thiện)': ['$8-25M', '45%', '10-20%', '70-100', '~68 giờ', '60-80%']
         }
@@ -543,7 +543,7 @@ def create_summary_report():
             f"Thư mục gốc: {BASE_DIR}",
             "",
             "Mỗi nhân viên có thư mục riêng:",
-            "├── Giang/",
+            "├── Giang_MG/",
             "│   ├── 2026_01/",
             "│   │   ├── sap_data.xlsx",
             "│   │   │   ├── Orders (đơn hàng)",
@@ -559,7 +559,7 @@ def create_summary_report():
             "└── Kha/ (tương tự)",
             "",
             "📊 KHÁC BIỆT GIỮA NHÂN VIÊN:",
-            "• Giang (Xuất sắc): Nhiều đơn, doanh thu cao, ít gian lận, hiệu suất cao",
+            "• Giang_MG (Xuất sắc): Nhiều đơn, doanh thu cao, ít gian lận, hiệu suất cao",
             "• Thu (Trung bình): Trung bình, doanh thu ổn, gian lận vừa phải",
             "• Kha (Cần cải thiện): Ít đơn, doanh thu thấp, nhiều gian lận, hiệu suất thấp"
         ]
@@ -639,7 +639,7 @@ if __name__ == "__main__":
 
     # Xác nhận
     print(f"\n⚠️  Bạn sắp tạo dữ liệu cho:")
-    print(f"   • 3 nhân viên: Giang, Thu, Kha")
+    print(f"   • 3 nhân viên: Giang_MG, Thu, Kha")
     print(f"   • 12 tháng năm 2026")
     print(f"   • Tổng số file: 72 file Excel")
     print(f"\n📁 Vị trí lưu: {BASE_DIR}")

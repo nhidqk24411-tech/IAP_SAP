@@ -274,7 +274,7 @@ class ProfessionalWorkBrowser(QMainWindow):
 
     def __init__(self, pause_event=None, command_queue=None, alert_queue=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setWindowTitle("Professional Workspace Browser")
+        self.setWindowTitle("Professional Workspace Browser - LOCKED MODE")
 
         # Lưu các queues và events
         self.pause_event = pause_event
@@ -283,6 +283,7 @@ class ProfessionalWorkBrowser(QMainWindow):
 
         # Biến theo dõi trạng thái
         self.is_alert_showing = False
+        self.is_locked_mode = True  # Mặc định là locked mode
 
         # Domain được phép cho Google Workspace
         self.google_domains = [
@@ -359,7 +360,7 @@ class ProfessionalWorkBrowser(QMainWindow):
         title_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         title_label.setStyleSheet("color: #E8EAED;")
 
-        subtitle = QLabel("Secure & Focused Working")
+        subtitle = QLabel("Secure & Focused")
         subtitle.setFont(QFont("Arial", 9))
         subtitle.setStyleSheet("color: #9AA0A6; padding-left: 10px;")
 
@@ -437,11 +438,11 @@ class ProfessionalWorkBrowser(QMainWindow):
         status_layout = QVBoxLayout(status_container)
         status_layout.setContentsMargins(0, 0, 0, 0)
 
-        status_text = QLabel("🔒 Secure Mode | Allowed: Google Workspace & SAP")
+        status_text = QLabel("🔒 LOCKED MODE | NO EXIT SHORTCUTS | Allowed: Google Workspace & SAP")
         status_text.setFont(QFont("Arial", 9))
         status_text.setStyleSheet("color: #34A853;")
 
-        connection_status = QLabel("✓ Default tabs cannot be closed")
+        connection_status = QLabel("✓ Default tabs cannot be closed | Use Exit button to close")
         connection_status.setFont(QFont("Arial", 8))
         connection_status.setStyleSheet("color: #9AA0A6;")
 
@@ -454,9 +455,9 @@ class ProfessionalWorkBrowser(QMainWindow):
         self.timer_widget = TimerWidget(pause_event=pause_event, command_queue=command_queue)
         control_layout.addWidget(self.timer_widget)
 
-        # Nút Exit
-        exit_btn = QPushButton("Exit")
-        exit_btn.setFixedWidth(100)
+        # Nút Exit - CÁCH DUY NHẤT ĐỂ THOÁT
+        exit_btn = QPushButton("EXIT")
+        exit_btn.setFixedWidth(180)
         exit_btn.setFont(QFont("Arial", 10, QFont.Weight.Bold))
         exit_btn.setStyleSheet("""
             QPushButton {
@@ -465,9 +466,15 @@ class ProfessionalWorkBrowser(QMainWindow):
                 border: none;
                 padding: 8px 15px;
                 border-radius: 6px;
+                font-weight: bold;
+                border: 2px solid #B3261E;
             }
             QPushButton:hover {
                 background-color: #D23A2D;
+                border: 2px solid #EA4335;
+            }
+            QPushButton:pressed {
+                background-color: #B3261E;
             }
         """)
         exit_btn.clicked.connect(self.confirm_exit)
@@ -515,7 +522,7 @@ class ProfessionalWorkBrowser(QMainWindow):
 
         # Thanh trạng thái
         self.statusBar().setFont(QFont("Arial", 9))
-        self.statusBar().showMessage("✓ Ready - Default tabs cannot be closed")
+        self.statusBar().showMessage("✓ LOCKED MODE - No keyboard shortcuts to exit. Use Exit button only.")
 
         # Timer kiểm tra alert
         self.alert_check_timer = QTimer()
@@ -650,12 +657,14 @@ class ProfessionalWorkBrowser(QMainWindow):
             self.statusBar().showMessage("🔄 Refreshing current page...", 2000)
 
     def confirm_exit(self):
-        """Xác nhận thoát ứng dụng - KHÔNG GHI LOG"""
+        """Xác nhận thoát ứng dụng - CÁCH DUY NHẤT ĐỂ THOÁT"""
         reply = QMessageBox.question(
-            self, "Exit Workspace Browser",
-            "Are you sure you want to exit the Professional Workspace Browser?\n\n"
+            self, "Exit LOCKED Workspace Browser",
+            "⚠️ EXIT LOCKED WORKSPACE\n\n"
+            "Are you sure you want to exit the LOCKED Workspace Browser?\n\n"
             f"Total working time: {self.timer_widget.elapsed_time // 3600}h "
             f"{(self.timer_widget.elapsed_time % 3600) // 60}m\n"
+            "This is the ONLY way to exit the application.\n"
             "All unsaved work might be lost.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
@@ -676,7 +685,13 @@ class ProfessionalWorkBrowser(QMainWindow):
             self.close()
 
     def closeEvent(self, event):
-        """Xử lý khi đóng cửa sổ - SỬA LỖI: XÓA BỎ PHƯƠNG THỨC TRÙNG LẶP"""
+        """Xử lý khi đóng cửa sổ - KHÔNG CHO PHÉP ĐÓNG TRỰC TIẾP"""
+        # Trong locked mode, không cho phép đóng trực tiếp
+        if self.is_locked_mode:
+            self.statusBar().showMessage("⚠️ Use Exit button to close browser!", 3000)
+            event.ignore()
+            return
+
         # Gọi callback nếu có
         if hasattr(self, 'on_close_callback') and self.on_close_callback:
             self.on_close_callback()
@@ -693,13 +708,19 @@ class ProfessionalWorkBrowser(QMainWindow):
         event.accept()
 
     def keyPressEvent(self, event):
-        """Xử lý phím tắt"""
+        """Xử lý phím tắt - CHO PHÉP MỘT SỐ PHÍM TẮT HỮU ÍCH"""
         if event.key() == Qt.Key.Key_F5:
             self.refresh_current()
         elif event.key() == Qt.Key.Key_W and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             # Ctrl+W để đóng tab hiện tại (chỉ tab không phải mặc định)
             current_index = self.tab_widget.currentIndex()
             self.close_tab(current_index)
+        elif event.key() == Qt.Key.Key_T and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            # Ctrl+T để mở tab mới (Google Drive)
+            self.add_new_tab("https://drive.google.com", "Google Drive")
+        elif event.key() == Qt.Key.Key_R and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            # Ctrl+R để refresh
+            self.refresh_current()
         else:
             super().keyPressEvent(event)
 
@@ -717,7 +738,7 @@ class ProfessionalWorkBrowser(QMainWindow):
             print(f"⚠️ Error checking alert queue: {e}")
 
     def show_alert_popup(self, alert_data):
-        """Hiển thị popup cảnh báo - SỬA LỖI: XÓA BỎ PHƯƠNG THỨC TRÙNG LẶP"""
+        """Hiển thị popup cảnh báo"""
         self.is_alert_showing = True
 
         # Pause timer và mouse tracking
@@ -790,7 +811,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     # Thiết lập ứng dụng
-    app.setApplicationName("Professional Workspace Browser")
+    app.setApplicationName("Professional Workspace Browser - LOCKED MODE")
     app.setStyle("Fusion")
 
     # Tạo và hiển thị cửa sổ

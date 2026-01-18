@@ -284,7 +284,7 @@ hover {
       </font>
      </property>
      <property name="text">
-      <string>DASHBOARD</string>
+      <string>CHATBOT</string>
      </property>
     </widget>
     <widget class="QPushButton" name="pushButton_9">
@@ -324,6 +324,26 @@ hover {
      </property>
      <property name="textFormat">
       <enum>Qt::PlainText</enum>
+     </property>
+    </widget>
+    <widget class="QPushButton" name="pushButton_10">
+     <property name="geometry">
+      <rect>
+       <x>220</x>
+       <y>10</y>
+       <width>91</width>
+       <height>31</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>8</pointsize>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="text">
+      <string>DASHBOARD</string>
      </property>
     </widget>
    </widget>

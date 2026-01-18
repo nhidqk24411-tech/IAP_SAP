@@ -879,7 +879,7 @@ class DataProcessor:
 
 if __name__ == "__main__":
     # Test data processor
-    processor = DataProcessor("Giang")
+    processor = DataProcessor("Giang_MG")
     success = processor.load_all_data()
 
     if success:

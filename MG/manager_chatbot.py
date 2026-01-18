@@ -1,42 +1,784 @@
 #!/usr/bin/env python3
 """
-Manager Chatbot - Phiên bản chatbot dành cho quản lý
-Tích hợp với DataManager để lấy dữ liệu đa nhân viên
+Manager Chatbot - Chatbot version for manager
+Interface synchronized with employee_chatbot
 """
 
 import sys
 import os
 from pathlib import Path
-from datetime import datetime, timedelta
-import pandas as pd
-import numpy as np
+from datetime import datetime
+import traceback
 
-# Thêm đường dẫn
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add path to import from Chatbot directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+chatbot_dir = os.path.join(current_dir, '..', 'Chatbot')
+if chatbot_dir not in sys.path:
+    sys.path.append(chatbot_dir)
 
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
 
+# Import modules with try-except
 try:
-    from data_manager import get_data_manager
+    from Chatbot.config import Config
 
-    data_manager_available = True
-except ImportError as e:
-    print(f"⚠️ Không thể import data_manager: {e}")
-    data_manager_available = False
+    config_available = True
+except ImportError:
+    print("⚠️ Cannot import config.py")
+    config_available = False
+    Config = None
 
 try:
-    from gemini_analyzer import GeminiAnalyzer
+    from Chatbot.gemini_analyzer import GeminiAnalyzer
 
     gemini_available = True
 except ImportError as e:
-    print(f"⚠️ Không thể import gemini_analyzer: {e}")
+    print(f"⚠️ Cannot import gemini_analyzer: {e}")
     gemini_available = False
 
+# Import DataProcessor from MG directory
+try:
+    from MG.data_processor import DataProcessor
 
-class ManagerChatbotThread(QThread):
-    """Thread xử lý chat cho manager"""
+    dataprocessor_available = True
+except ImportError as e:
+    print(f"⚠️ Cannot import data_processor from MG: {e}")
+    dataprocessor_available = False
+
+
+class ManagerChatbotGUI(QMainWindow):
+    """Manager Chatbot with synchronized interface"""
+
+    def __init__(self, controller=None, parent=None):
+        super().__init__(parent)
+        self.controller = controller
+
+        print("🤖 Initializing Manager Chatbot...")
+
+        # Set to maximize
+        self.setWindowState(Qt.WindowState.WindowMaximized)
+
+        # Initialize Gemini Analyzer
+        self.gemini = self.initialize_gemini()
+
+        # Initialize Data Processor (no employee_name to manage all)
+        self.data_processor = self.initialize_data_processor()
+
+        # Store aggregate data
+        self.aggregate_data = None
+        self.all_employees_data = []
+
+        # Application name
+        if config_available and Config:
+            app_name = Config.APP_NAME
+        else:
+            app_name = "PowerSight Manager Assistant"
+
+        self.init_ui(app_name)
+
+        # Load initial data
+        QTimer.singleShot(1000, self.load_initial_data)
+
+    def get_manager_data_context(self):
+        """Get special data context for manager as dictionary - ENHANCED WITH COMPARISON"""
+        if not self.aggregate_data:
+            return {
+                "status": "no_data",
+                "summary": "No aggregate data yet",
+                "employee_name": "Manager",
+                "data_timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+
+        # Lấy dữ liệu tháng hiện tại từ monthly_data
+        monthly_data = self.aggregate_data.get('monthly_data', {})
+        current_month = datetime.now().month
+        current_year = datetime.now().year
+
+        # Tính revenue tháng này (index = current_month - 1)
+        revenues = monthly_data.get('revenue', [0] * 12)
+        current_month_revenue = revenues[current_month - 1] if current_month <= len(revenues) else 0
+
+        # Tính orders tháng này
+        orders = monthly_data.get('orders', [0] * 12)
+        current_month_orders = orders[current_month - 1] if current_month <= len(orders) else 0
+
+        # Tính fraud tháng này
+        frauds = monthly_data.get('fraud', [0] * 12)
+        current_month_fraud = frauds[current_month - 1] if current_month <= len(frauds) else 0
+
+        # Tính profit tháng này
+        profits = monthly_data.get('profit', [0] * 12)
+        current_month_profit = profits[current_month - 1] if current_month <= len(profits) else 0
+
+        # **MỚI: Load comparison data cho tất cả nhân viên**
+        employee_comparison = []
+        top_performers = []
+        bottom_performers = []
+
+        try:
+            if self.data_processor:
+                print("📊 Loading employee comparison data...")
+                employee_comparison = self.data_processor.get_employee_comparison_data(current_year, current_month)
+
+                # Lấy top và bottom performers
+                if employee_comparison:
+                    top_performers = self.data_processor.get_top_performers(current_year, current_month, 3)
+                    bottom_performers = self.data_processor.get_bottom_performers(current_year, current_month, 3)
+
+                    print(f"   ✅ Loaded comparison for {len(employee_comparison)} employees")
+                    print(f"   🏆 Top 3: {[emp['name'] for emp in top_performers]}")
+                    print(f"   ⚠️ Bottom 3: {[emp['name'] for emp in bottom_performers]}")
+        except Exception as e:
+            print(f"⚠️ Error loading comparison data: {e}")
+
+        # Create comprehensive context similar to employee chatbot
+        return {
+            "status": "ok",
+            "employee_name": "Manager (Team Overview)",
+            "data_timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+
+            # Metrics - Tháng hiện tại
+            "metrics": {
+                "total_orders": int(current_month_orders),
+                "completed_orders": int(current_month_orders * 0.95),
+                "pending_orders": int(current_month_orders * 0.05),
+                "completion_rate": 95.0,
+                "total_revenue": float(current_month_revenue),
+                "total_profit": float(current_month_profit),
+                "fraud_count": int(current_month_fraud),
+                "profit_margin": (
+                            current_month_profit / current_month_revenue * 100) if current_month_revenue > 0 else 0,
+                "on_time_delivery": 95.0
+            },
+
+            # Summary - Cả năm
+            "summary": {
+                "total_employees": self.aggregate_data.get('total_employees', 0),
+                "employees_with_data": self.aggregate_data.get('employees_with_data', 0),
+                "total_revenue": self.aggregate_data.get('total_revenue', 0),
+                "total_profit": self.aggregate_data.get('total_profit', 0),
+                "total_fraud": self.aggregate_data.get('total_fraud', 0),
+                "average_completion_rate": self.aggregate_data.get('average_completion_rate', 0),
+                "average_overall_score": self.aggregate_data.get('average_overall_score', 0)
+            },
+
+            # Year data - Dữ liệu cả năm
+            "year_data": {
+                "summary": {
+                    "year": current_year,
+                    "months_with_data": 12,
+                    "total_orders": sum(orders),
+                    "total_revenue": sum(revenues),
+                    "total_profit": sum(profits),
+                    "total_fraud": sum(frauds),
+                    "completion_rate": 95.0,
+                    "best_month": revenues.index(max(revenues)) + 1 if revenues and max(revenues) > 0 else 0,
+                    "best_month_revenue": max(revenues) if revenues else 0
+                }
+            },
+
+            # SAP data structure
+            "sap_data": {
+                "summary": {
+                    "total_orders": int(current_month_orders),
+                    "completed_orders": int(current_month_orders * 0.95),
+                    "pending_orders_count": int(current_month_orders * 0.05),
+                    "total_revenue": float(current_month_revenue),
+                    "total_profit": float(current_month_profit),
+                    "pending_orders": []
+                }
+            },
+
+            # Work log data
+            "work_log": {
+                "summary": {
+                    "fraud_count": int(current_month_fraud),
+                    "total_work_hours": 160 * self.aggregate_data.get('employees_with_data', 0),
+                    "critical_count": int(current_month_fraud * 0.3)
+                }
+            },
+
+            # **MỚI: Employee comparison data**
+            "employee_comparison": employee_comparison,
+            "top_performers": top_performers,
+            "bottom_performers": bottom_performers,
+
+            "employees": self.get_employee_list() if self.data_processor else [],
+            "is_manager": True
+        }
+
+    def initialize_gemini(self):
+        """Initialize Gemini Analyzer"""
+        if gemini_available:
+            try:
+                # Load environment variables first (if .env file exists)
+                self.load_env()
+                # Initialize GeminiAnalyzer without parameters
+                gemini = GeminiAnalyzer()
+                print("✅ Initialized Gemini Analyzer")
+                return gemini
+            except Exception as e:
+                print(f"⚠️ Error initializing Gemini: {e}")
+        print("⚠️ Gemini not available, using simple mode")
+        return None
+
+    def initialize_data_processor(self):
+        """Initialize Data Processor"""
+        if dataprocessor_available:
+            try:
+                # Initialize DataProcessor without employee_name to manage all
+                data_processor = DataProcessor()
+                print("✅ Initialized Data Processor for manager")
+                return data_processor
+            except Exception as e:
+                print(f"⚠️ Error initializing Data Processor: {e}")
+        return None
+
+    def load_env(self):
+        """Load environment variables from .env file"""
+        try:
+            from dotenv import load_dotenv
+            # Determine .env file path
+            env_path = Path("C:/Users/legal/PycharmProjects/PythonProject/Chatbot/.env")
+            if env_path.exists():
+                load_dotenv(dotenv_path=env_path)
+            else:
+                load_dotenv()
+
+            # Check API key
+            api_key = os.getenv('GEMINI_API_KEY')
+            if api_key:
+                print(f"✅ Loaded API key from .env")
+            else:
+                print("⚠️ GEMINI_API_KEY not found in .env")
+            return api_key
+        except Exception as e:
+            print(f"⚠️ Cannot load .env file: {e}")
+            return None
+
+    def init_ui(self, app_name):
+        """Initialize interface synchronized with employee_chatbot"""
+        self.setWindowTitle(f"💬 {app_name} - Manager Chat")
+        self.setGeometry(200, 200, 700, 600)
+
+        # Central widget
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+
+        # Main layout
+        layout = QVBoxLayout(central_widget)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(10)
+
+        # Header
+        header_widget = QWidget()
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Status indicator
+        self.status_indicator = QLabel("●" if self.gemini else "○")
+        self.status_indicator.setStyleSheet(f"""
+            QLabel {{
+                color: {"#10b981" if self.gemini else "#ef4444"};
+                font-size: 20px;
+                font-weight: bold;
+            }}
+        """)
+
+        title_label = QLabel(f"💬 MANAGER SUPPORT CHATBOT - {app_name}")
+        title_label.setStyleSheet("""
+            QLabel {
+                font-size: 16px;
+                font-weight: bold;
+                color: #1e40af;
+            }
+        """)
+
+        # Home button
+        home_btn = QPushButton("Home")
+        home_btn.setFixedSize(100, 35)
+        home_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3b82f6;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-weight: 500;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: #2563eb;
+            }
+        """)
+        if self.controller:
+            home_btn.clicked.connect(lambda: self.controller.show_home())
+
+        header_layout.addWidget(self.status_indicator)
+        header_layout.addWidget(title_label)
+        header_layout.addStretch()
+        header_layout.addWidget(home_btn)
+
+        layout.addWidget(header_widget)
+
+        # Chat display
+        self.chat_display = QTextEdit()
+        self.chat_display.setReadOnly(True)
+        self.chat_display.setStyleSheet("""
+            QTextEdit {
+                background-color: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                padding: 15px;
+                font-size: 12px;
+                font-family: 'Segoe UI', Arial, sans-serif;
+            }
+        """)
+        layout.addWidget(self.chat_display, 1)
+
+        # Input area
+        input_widget = QWidget()
+        input_layout = QHBoxLayout(input_widget)
+        input_layout.setContentsMargins(0, 0, 0, 0)
+        input_layout.setSpacing(10)
+
+        self.input_field = QLineEdit()
+        self.input_field.setPlaceholderText("Enter questions about team performance, revenue, analysis...")
+        self.input_field.setStyleSheet("""
+            QLineEdit {
+                padding: 12px;
+                border: 2px solid #e2e8f0;
+                border-radius: 8px;
+                font-size: 12px;
+            }
+            QLineEdit:focus {
+                border: 2px solid #3b82f6;
+            }
+        """)
+        self.input_field.returnPressed.connect(self.send_message)
+
+        self.send_button = QPushButton("Send")
+        self.send_button.setFixedSize(100, 40)
+        self.send_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3b82f6;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-weight: 500;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: #2563eb;
+            }
+            QPushButton:disabled {
+                background-color: #cbd5e1;
+                color: #64748b;
+            }
+        """)
+        self.send_button.clicked.connect(self.send_message)
+        self.send_button.setEnabled(False)
+
+        input_layout.addWidget(self.input_field, 1)
+        input_layout.addWidget(self.send_button)
+
+        layout.addWidget(input_widget)
+
+        # Quick actions - Manager specific
+        quick_actions_widget = QWidget()
+        quick_layout = QHBoxLayout(quick_actions_widget)
+        quick_layout.setContentsMargins(0, 0, 0, 0)
+        quick_layout.setSpacing(10)
+
+        quick_buttons = [
+            ("📊 Team analysis", "analyze overall team performance"),
+            ("💰 Team revenue", "team revenue this month"),
+            ("⚠️ Team fraud", "fraud events in team"),
+            ("👥 Compare employees", "compare performance between employees"),
+            ("🎯 Training recommendations", "training recommendations for team"),
+            ("🔄 Reload data", self.load_initial_data)
+        ]
+
+        for text, command in quick_buttons:
+            btn = QPushButton(text)
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #f1f5f9;
+                    color: #475569;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 6px;
+                    padding: 8px 12px;
+                    font-size: 11px;
+                }
+                QPushButton:hover {
+                    background-color: #e2e8f0;
+                }
+            """)
+            if callable(command):
+                btn.clicked.connect(command)
+            else:
+                btn.clicked.connect(lambda checked, cmd=command: self.quick_command(cmd))
+            quick_layout.addWidget(btn)
+
+        layout.addWidget(quick_actions_widget)
+
+        # Status bar
+        self.status_bar = QLabel(f"Status: Initializing...")
+        self.status_bar.setStyleSheet("""
+            QLabel {
+                color: #64748b;
+                font-size: 11px;
+                padding: 8px;
+                background-color: #f8fafc;
+                border-radius: 5px;
+                border: 1px solid #e2e8f0;
+            }
+        """)
+        self.status_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.status_bar)
+
+        # Display welcome message
+        self.add_bot_message("Hello Manager! I'm the performance analysis support chatbot.")
+        self.add_bot_message("I can help you with:")
+        self.add_bot_message("• Overall team performance analysis")
+        self.add_bot_message("• Employee comparison")
+        self.add_bot_message("• Training and improvement recommendations")
+        self.add_bot_message("• Risk management and bottlenecks")
+
+        if not self.gemini:
+            self.add_bot_message(
+                "⚠️ **Note**: Gemini AI is not available. Using DEMO mode.")
+
+    def add_bot_message(self, message):
+        """Add message from bot"""
+        timestamp = datetime.now().strftime("%H:%M")
+        formatted_message = message.replace('\n', '<br>')
+        self.chat_display.append(
+            f"<div style='margin: 5px 0; padding: 10px; background-color: #f1f5f9; border-radius: 8px;'>"
+            f"<b>🤖 Manager AI:</b> {formatted_message}<br>"
+            f"<small style='color: #64748b;'>{timestamp}</small></div>")
+        self.scroll_to_bottom()
+
+    def add_user_message(self, message):
+        """Add message from user"""
+        timestamp = datetime.now().strftime("%H:%M")
+        formatted_message = message.replace('\n', '<br>')
+        self.chat_display.append(
+            f"<div style='margin: 5px 0; padding: 10px; background-color: #dbeafe; border-radius: 8px; text-align: right;'>"
+            f"<b>👤 Manager:</b> {formatted_message}<br>"
+            f"<small style='color: #64748b;'>{timestamp}</small></div>")
+        self.scroll_to_bottom()
+
+    def scroll_to_bottom(self):
+        """Scroll to bottom"""
+        scrollbar = self.chat_display.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
+
+    def quick_command(self, command):
+        """Handle quick command"""
+        self.input_field.setText(command)
+        self.send_message()
+
+    def load_initial_data(self):
+        """Load initial data - Multi-employee for manager"""
+        self.status_indicator.setText("🔄")
+        self.status_bar.setText("📂 Reading aggregate data...")
+        self.send_button.setEnabled(False)
+
+        try:
+            if not self.data_processor:
+                self.status_indicator.setText("○")
+                self.status_bar.setText("❌ DataProcessor not available")
+                self.send_button.setEnabled(True)
+                self.add_bot_message("⚠️ DataProcessor not available. Using demo mode.")
+                return
+
+            # Load aggregate data from all employees
+            print("📊 Manager: Loading aggregate data...")
+            current_year = datetime.now().year
+            self.aggregate_data = self.data_processor.load_aggregate_data(current_year)
+
+            if self.aggregate_data:
+                self.status_indicator.setText("●")
+                self.status_indicator.setStyleSheet("""
+                    QLabel {
+                        color: #10b981;
+                        font-size: 20px;
+                        font-weight: bold;
+                    }
+                """)
+
+                self.send_button.setEnabled(True)
+
+                # Display aggregate report
+                self.show_manager_summary()
+
+                # Debug: Show data summary
+                self.debug_show_data_summary()
+            else:
+                self.status_indicator.setText("○")
+                self.status_indicator.setStyleSheet("""
+                    QLabel {
+                        color: #ef4444;
+                        font-size: 20px;
+                        font-weight: bold;
+                    }
+                """)
+                self.status_bar.setText("❌ Cannot load aggregate data")
+                self.send_button.setEnabled(True)
+                self.add_bot_message("⚠️ Cannot load aggregate data. Please check data connection.")
+
+        except Exception as e:
+            print(f"❌ Error loading manager data: {e}")
+            traceback.print_exc()
+            self.status_indicator.setText("○")
+            self.status_bar.setText(f"Error: {str(e)[:50]}")
+            self.send_button.setEnabled(True)
+            self.add_bot_message(f"❌ Error loading data: {str(e)}")
+
+    def debug_show_data_summary(self):
+        """Debug: Hiển thị tóm tắt dữ liệu"""
+        if not self.aggregate_data:
+            print("❌ No aggregate data")
+            return
+
+        print("\n" + "=" * 70)
+        print("📊 AGGREGATE DATA SUMMARY (DEBUG)")
+        print("=" * 70)
+
+        print(f"Total Employees: {self.aggregate_data.get('total_employees', 0)}")
+        print(f"With Data: {self.aggregate_data.get('employees_with_data', 0)}")
+        print(f"Total Revenue (Year): {self.aggregate_data.get('total_revenue', 0):,.0f} VND")
+        print(f"Total Profit (Year): {self.aggregate_data.get('total_profit', 0):,.0f} VND")
+
+        monthly_data = self.aggregate_data.get('monthly_data', {})
+        revenues = monthly_data.get('revenue', [])
+        orders = monthly_data.get('orders', [])
+
+        print("\n📈 MONTHLY BREAKDOWN:")
+        for i in range(12):
+            if i < len(revenues) and revenues[i] > 0:
+                print(f"  Month {i + 1}: {revenues[i]:,.0f} VND | {orders[i] if i < len(orders) else 0} orders")
+
+        print("\n" + "=" * 70)
+
+    def show_manager_summary(self):
+        """Display aggregate report for manager"""
+        if not self.aggregate_data:
+            return
+
+        total_employees = self.aggregate_data.get('total_employees', 0)
+        employees_with_data = self.aggregate_data.get('employees_with_data', 0)
+        total_revenue = self.aggregate_data.get('total_revenue', 0)
+        total_profit = self.aggregate_data.get('total_profit', 0)
+        total_fraud = self.aggregate_data.get('total_fraud', 0)
+        avg_completion = self.aggregate_data.get('average_completion_rate', 0)
+        avg_score = self.aggregate_data.get('average_overall_score', 0)
+
+        # Get current month data
+        monthly_data = self.aggregate_data.get('monthly_data', {})
+        current_month = datetime.now().month
+        revenues = monthly_data.get('revenue', [0] * 12)
+        current_month_revenue = revenues[current_month - 1] if current_month <= len(revenues) else 0
+
+        # Update status bar
+        self.status_bar.setText(
+            f"👥 {total_employees} Emp | "
+            f"💰 Year: {total_revenue:,.0f} VND | Month {current_month}: {current_month_revenue:,.0f} VND | "
+            f"⚠️ {total_fraud} fraud"
+        )
+
+        summary = f"""**📊 TEAM OVERVIEW REPORT**
+
+**📅 Time:** {datetime.now().strftime('%d/%m/%Y %H:%M')}
+
+**📈 AGGREGATE STATISTICS (YEAR {datetime.now().year}):**
+- Total employees: {total_employees}
+- With data: {employees_with_data} ({employees_with_data / total_employees * 100:.1f}% if have data)
+- Total revenue (year): {total_revenue:,.0f} VND
+- Total profit (year): {total_profit:,.0f} VND
+- Total revenue (month {current_month}): {current_month_revenue:,.0f} VND
+- Fraud events: {total_fraud}
+- Average completion rate: {avg_completion:.1f}%
+- Average overall score: {avg_score:.1f}/100
+
+**🎯 SAMPLE QUESTIONS:**
+- "Analyze overall team performance?"
+- "Which employees have performance issues?"
+- "What are the main workflow bottlenecks?"
+- "What training does the team need?"
+- "Team revenue this month"
+- "Compare performance between employees" """
+
+        self.add_bot_message(summary)
+
+    def send_message(self):
+        """Handle user message"""
+        user_input = self.input_field.text().strip()
+        if not user_input:
+            return
+
+        # Add user message
+        self.add_user_message(user_input)
+        self.input_field.clear()
+        self.send_button.setEnabled(False)
+        self.status_bar.setText("🤔 AI analyzing...")
+
+        # Create data context for manager
+        context_data = self.get_manager_data_context()
+
+        # DEBUG: In ra context để kiểm tra
+        print("\n" + "=" * 70)
+        print("🔍 DEBUG: Context sent to Gemini")
+        print("=" * 70)
+        print(f"Current month revenue: {context_data.get('metrics', {}).get('total_revenue', 0):,.0f}")
+        print(f"Current month orders: {context_data.get('metrics', {}).get('total_orders', 0)}")
+        print(f"Year total revenue: {context_data.get('summary', {}).get('total_revenue', 0):,.0f}")
+        print("=" * 70 + "\n")
+
+        # Process with thread to not block UI
+        self.chat_thread = ManagerChatThread(self.gemini, user_input, context_data)
+        self.chat_thread.response_ready.connect(self.on_ai_response)
+        self.chat_thread.error_occurred.connect(self.on_ai_error)
+        self.chat_thread.start()
+
+    def on_ai_response(self, response):
+        """Receive AI response"""
+        self.add_bot_message(response)
+        self.send_button.setEnabled(True)
+        self.status_bar.setText("✅ Ready")
+
+    def on_ai_error(self, error):
+        """Handle AI error"""
+        error_msg = f"""**❌ SYSTEM ERROR**
+
+Cannot connect to AI service:
+
+**Details:** {error}
+
+**DEMO mode will be used temporarily.**"""
+
+        self.add_bot_message(error_msg)
+        self.send_button.setEnabled(True)
+        self.status_bar.setText("⚠️ Error occurred")
+
+    def get_manager_data_context(self):
+        """Get special data context for manager as dictionary - FIXED VERSION"""
+        if not self.aggregate_data:
+            return {
+                "status": "no_data",
+                "summary": "No aggregate data yet",
+                "employee_name": "Manager",
+                "data_timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+
+        # Lấy dữ liệu tháng hiện tại từ monthly_data
+        monthly_data = self.aggregate_data.get('monthly_data', {})
+        current_month = datetime.now().month
+        current_year = datetime.now().year
+
+        # Tính revenue tháng này (index = current_month - 1)
+        revenues = monthly_data.get('revenue', [0] * 12)
+        current_month_revenue = revenues[current_month - 1] if current_month <= len(revenues) else 0
+
+        # Tính orders tháng này
+        orders = monthly_data.get('orders', [0] * 12)
+        current_month_orders = orders[current_month - 1] if current_month <= len(orders) else 0
+
+        # Tính fraud tháng này
+        frauds = monthly_data.get('fraud', [0] * 12)
+        current_month_fraud = frauds[current_month - 1] if current_month <= len(frauds) else 0
+
+        # Tính profit tháng này
+        profits = monthly_data.get('profit', [0] * 12)
+        current_month_profit = profits[current_month - 1] if current_month <= len(profits) else 0
+
+        # Create comprehensive context similar to employee chatbot
+        return {
+            "status": "ok",
+            "employee_name": "Manager (Team Overview)",
+            "data_timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+
+            # Metrics - Tháng hiện tại
+            "metrics": {
+                "total_orders": int(current_month_orders),
+                "completed_orders": int(current_month_orders * 0.95),  # Giả định 95% completion
+                "pending_orders": int(current_month_orders * 0.05),
+                "completion_rate": 95.0,
+                "total_revenue": float(current_month_revenue),
+                "total_profit": float(current_month_profit),
+                "fraud_count": int(current_month_fraud),
+                "profit_margin": (
+                            current_month_profit / current_month_revenue * 100) if current_month_revenue > 0 else 0,
+                "on_time_delivery": 95.0
+            },
+
+            # Summary - Cả năm
+            "summary": {
+                "total_employees": self.aggregate_data.get('total_employees', 0),
+                "employees_with_data": self.aggregate_data.get('employees_with_data', 0),
+                "total_revenue": self.aggregate_data.get('total_revenue', 0),
+                "total_profit": self.aggregate_data.get('total_profit', 0),
+                "total_fraud": self.aggregate_data.get('total_fraud', 0),
+                "average_completion_rate": self.aggregate_data.get('average_completion_rate', 0),
+                "average_overall_score": self.aggregate_data.get('average_overall_score', 0)
+            },
+
+            # Year data - Dữ liệu cả năm
+            "year_data": {
+                "summary": {
+                    "year": current_year,
+                    "months_with_data": 12,
+                    "total_orders": sum(orders),
+                    "total_revenue": sum(revenues),
+                    "total_profit": sum(profits),
+                    "total_fraud": sum(frauds),
+                    "completion_rate": 95.0,
+                    "best_month": revenues.index(max(revenues)) + 1 if revenues and max(revenues) > 0 else 0,
+                    "best_month_revenue": max(revenues) if revenues else 0
+                }
+            },
+
+            # SAP data structure
+            "sap_data": {
+                "summary": {
+                    "total_orders": int(current_month_orders),
+                    "completed_orders": int(current_month_orders * 0.95),
+                    "pending_orders_count": int(current_month_orders * 0.05),
+                    "total_revenue": float(current_month_revenue),
+                    "total_profit": float(current_month_profit),
+                    "pending_orders": []  # Không cần chi tiết đơn hàng cho manager
+                }
+            },
+
+            # Work log data
+            "work_log": {
+                "summary": {
+                    "fraud_count": int(current_month_fraud),
+                    "total_work_hours": 160 * self.aggregate_data.get('employees_with_data', 0),
+                    # Ước tính 160h/người/tháng
+                    "critical_count": int(current_month_fraud * 0.3)  # Giả định 30% là critical
+                }
+            },
+
+            "employees": self.get_employee_list() if self.data_processor else [],
+            "is_manager": True  # Flag for Gemini to know this is manager view
+        }
+
+    def get_employee_list(self):
+        """Get employee list"""
+        try:
+            if self.data_processor:
+                employees = self.data_processor.get_all_employees()
+                return employees[:10]  # Limit 10 employees
+        except Exception as e:
+            print(f"Error getting employee list: {e}")
+        return []
+
+
+class ManagerChatThread(QThread):
+    """Thread handling chat for manager"""
     response_ready = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
 
@@ -49,866 +791,38 @@ class ManagerChatbotThread(QThread):
     def run(self):
         try:
             if not self.gemini:
-                # Demo response
-                demo_response = self.get_demo_response(self.question, self.context_data)
-                self.response_ready.emit(demo_response)
+                # DEMO mode for manager
+                import random
+                demo_responses = [
+                    f"**Question:** {self.question}\n\n**Analysis (DEMO):** Team performance is currently stable. Focus on employees with low completion rates to improve.",
+                    f"**Question:** {self.question}\n\n**Analysis (DEMO):** Team data shows need to reduce fraud events. Consider compliance training for entire team.",
+                    f"**Question:** {self.question}\n\n**Analysis (DEMO):** Team revenue is growing well. Focus on top performer employees to replicate success.",
+                ]
+                response = random.choice(demo_responses)
+                self.response_ready.emit(response)
                 return
 
-            # Gọi Gemini với context data
-            response = self.gemini.analyze_manager_question(self.question, self.context_data)
-            self.response_ready.emit(response)
+            # Use Gemini for analysis - ensure context_data is dictionary
+            if isinstance(self.context_data, dict):
+                response = self.gemini.analyze_question(self.question, self.context_data)
+            else:
+                # If not dictionary, create simple dictionary
+                response = self.gemini.analyze_question(self.question, {"data": str(self.context_data)})
 
+            self.response_ready.emit(response)
         except Exception as e:
-            print(f"❌ Lỗi trong ManagerChatbotThread: {e}")
-            import traceback
+            print(f"Error in ManagerChatThread: {e}")
             traceback.print_exc()
             self.error_occurred.emit(str(e))
 
-    def get_demo_response(self, question, context):
-        """Response demo khi không có Gemini"""
-        return f"""**MANAGER CHATBOT - DEMO MODE**
-
-**Câu hỏi:** {question}
-
-**Phân tích (Demo):**
-Trong chế độ demo, chatbot có thể phân tích:
-1. Hiệu suất tổng thể của team
-2. Nhân viên cần cải thiện
-3. Đề xuất training
-4. Phân bổ resource
-
-**Dữ liệu context:**
-- Số nhân viên: {context.get('total_employees', 0)}
-- Tổng doanh thu: {context.get('total_revenue', 0):,.0f} VND
-- Tỷ lệ hoàn thành TB: {context.get('average_completion_rate', 0):.1f}%
-
-**Để sử dụng đầy đủ, cần:**
-1. Cấu hình Gemini API Key
-2. Đảm bảo file dữ liệu nhân viên đúng định dạng
-3. Kết nối với hệ thống dữ liệu thực"""
-
-
-class ManagerChatbotGUI(QMainWindow):
-    """Giao diện chatbot dành cho quản lý"""
-
-    def __init__(self, controller=None, parent=None):
-        super().__init__(parent)
-        self.controller = controller  # Thêm controller
-
-        print("🤖 Khởi tạo Manager Chatbot...")
-
-        # Khởi tạo DataManager
-        self.data_manager = None
-        if data_manager_available:
-            self.data_manager = get_data_manager()
-        else:
-            print("⚠️ DataManager không khả dụng")
-
-        # Khởi tạo Gemini
-        self.gemini = None
-        if gemini_available:
-            try:
-                self.gemini = GeminiAnalyzer()
-                # Thêm method riêng cho manager
-                self._add_manager_methods_to_gemini()
-            except Exception as e:
-                print(f"⚠️ Lỗi khởi tạo Gemini: {e}")
-
-        # Khởi tạo UI
-        self.init_ui()
-
-        # Tải dữ liệu ban đầu
-        QTimer.singleShot(1000, self.load_initial_data)
-
-    def _add_manager_methods_to_gemini(self):
-        """Thêm method phân tích cho manager vào Gemini"""
-
-        def analyze_manager_question(question, context_data):
-            # Prompt riêng cho manager
-            manager_prompt = self._create_manager_prompt(question, context_data)
-
-            # Gọi model Gemini
-            response = self.gemini.analyze_question(manager_prompt, context_data)
-            return response
-
-        # Gán method vào gemini instance
-        self.gemini.analyze_manager_question = analyze_manager_question
-
-    def _create_manager_prompt(self, question, context_data):
-        """Tạo prompt đặc biệt cho manager"""
-        employee_details = context_data.get('employee_details', [])
-        top_performers = context_data.get('top_performers', [])
-        need_improvement = context_data.get('need_improvement', [])
-
-        prompt = f"""
-        Bạn là **PowerSight Manager AI** - Trợ lý thông minh dành cho quản lý và lãnh đạo.
-
-        **VAI TRÒ CỦA BẠN:**
-        - Advisor chiến lược: Giúp ra quyết định quản lý dựa trên dữ liệu
-        - Performance coach: Phân tích hiệu suất nhân viên và đề xuất cải thiện
-        - Risk analyst: Nhận diện rủi ro và điểm nghẽn (bottleneck)
-        - Team optimizer: Đề xuất tối ưu hóa đội ngũ và phân bổ resource
-
-        **DỮ LIỆU HIỆN CÓ:**
-        - Tổng số nhân viên: {context_data.get('total_employees', 0)}
-        - Nhân viên có dữ liệu: {context_data.get('employees_with_data', 0)}
-        - Doanh thu tổng: {context_data.get('total_revenue', 0):,.0f} VND
-        - Lợi nhuận tổng: {context_data.get('total_profit', 0):,.0f} VND
-        - Tỷ lệ hoàn thành TB: {context_data.get('average_completion_rate', 0):.1f}%
-        - Điểm tổng thể TB: {context_data.get('average_overall_score', 0):.1f}/100
-        - Sự kiện gian lận: {context_data.get('total_fraud', 0)}
-
-        **TOP PERFORMERS (Top {len(top_performers)}):**
-        {self._format_employee_list(top_performers)}
-
-        **NEED IMPROVEMENT (Bottom {len(need_improvement)}):**
-        {self._format_employee_list(need_improvement)}
-
-        **CÂU HỎI CỦA QUẢN LÝ:**
-        "{question}"
-
-        **HƯỚNG DẪN PHÂN TÍCH CHO QUẢN LÝ:**
-        1. **Phân tích chiến lược:** Tập trung vào "tại sao" và "như thế nào" hơn là "cái gì"
-        2. **Đề xuất hành động:** Cụ thể, khả thi, ưu tiên tác động cao
-        3. **Nhận diện rủi ro:** Điểm yếu hệ thống, bottleneck, rủi ro tuân thủ
-        4. **Tối ưu resource:** Phân bổ nhân lực, training, công cụ
-        5. **KPIs quản lý:** Metrics quan trọng cần theo dõi
-
-        **CẤU TRÚC TRẢ LỜI:**
-        📊 **PHÂN TÍCH CHIẾN LƯỢC**
-        - Bức tranh tổng thể
-        - Điểm mạnh đội ngũ
-        - Điểm yếu cần khắc phục
-
-        🎯 **ĐỀ XUẤT HÀNH ĐỘNG ƯU TIÊN**
-        1. [Hành động 1 - Ưu tiên cao]
-        2. [Hành động 2 - Ưu tiên trung]
-        3. [Hành động 3 - Ưu tiên thấp]
-
-        ⚠️ **CẢNH BÁO & RỦI RO**
-        - Rủi ro hiện tại
-        - Rủi ro tiềm ẩn
-        - Biện pháp phòng ngừa
-
-        📈 **KPIs THEO DÕI**
-        - Metrics quan trọng tuần này
-        - Ngưỡng cảnh báo
-
-        **VĂN PHONG:** Chuyên nghiệp, trực tiếp, tập trung vào kết quả. Như một cố vấn chiến lược.
-        """
-
-        return prompt
-
-    def _format_employee_list(self, employees):
-        """Định dạng danh sách nhân viên cho prompt"""
-        if not employees:
-            return "Không có dữ liệu"
-
-        lines = []
-        for i, emp in enumerate(employees[:5]):  # Giới hạn 5
-            lines.append(f"{i + 1}. {emp.get('name', 'N/A')} - Điểm: {emp.get('overall_score', 0):.1f}, "
-                         f"Completion: {emp.get('completion_rate', 0):.1f}%, "
-                         f"Doanh thu: {emp.get('revenue', 0):,.0f} VND")
-
-        return "\n".join(lines)
-
-    def init_ui(self):
-        """Khởi tạo giao diện"""
-        self.setWindowTitle("🤖 Manager Chatbot - PowerSight")
-        self.setGeometry(100, 100, 1000, 700)
-
-        # Màu sắc theme manager
-        self.primary_color = "#1e40af"  # Xanh dương đậm
-        self.secondary_color = "#3b82f6"  # Xanh dương
-        self.accent_color = "#10b981"  # Xanh lá
-        self.warning_color = "#f59e0b"  # Vàng cam
-        self.danger_color = "#ef4444"  # Đỏ
-
-        # Màu nền
-        self.bg_color = "#f8fafc"
-        self.card_bg = "#ffffff"
-        self.sidebar_bg = "#1e293b"
-
-        # Central widget
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        central_widget.setStyleSheet(f"""
-            QWidget {{
-                background-color: {self.bg_color};
-                font-family: 'Segoe UI', Arial, sans-serif;
-            }}
-        """)
-
-        main_layout = QHBoxLayout(central_widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-
-        # ========== SIDEBAR ==========
-        sidebar = QFrame()
-        sidebar.setFixedWidth(300)
-        sidebar.setStyleSheet(f"""
-            QFrame {{
-                background-color: {self.sidebar_bg};
-                border-right: 1px solid #334155;
-            }}
-        """)
-
-        sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(0, 0, 0, 0)
-        sidebar_layout.setSpacing(0)
-
-        # Header sidebar
-        sidebar_header = QFrame()
-        sidebar_header.setFixedHeight(120)
-        sidebar_header.setStyleSheet(f"""
-            QFrame {{
-                background-color: #0f172a;
-                border-bottom: 1px solid #334155;
-            }}
-        """)
-
-        header_layout = QVBoxLayout(sidebar_header)
-        header_layout.setContentsMargins(20, 20, 20, 20)
-
-        title = QLabel("MANAGER DASHBOARD")
-        title.setStyleSheet("""
-            QLabel {
-                color: #ffffff;
-                font-size: 16px;
-                font-weight: 600;
-                margin-bottom: 10px;
-            }
-        """)
-
-        self.manager_name = QLabel("Quản lý: Sarah")
-        self.manager_name.setStyleSheet("""
-            QLabel {
-                color: #cbd5e1;
-                font-size: 14px;
-                margin-bottom: 5px;
-            }
-        """)
-
-        self.team_status = QLabel("👥 Đang tải thông tin team...")
-        self.team_status.setStyleSheet("""
-            QLabel {
-                color: #94a3b8;
-                font-size: 12px;
-            }
-        """)
-
-        header_layout.addWidget(title)
-        header_layout.addWidget(self.manager_name)
-        header_layout.addWidget(self.team_status)
-        header_layout.addStretch()
-
-        # Quick stats
-        stats_frame = QFrame()
-        stats_frame.setStyleSheet("""
-            QFrame {
-                background-color: transparent;
-                padding: 15px;
-            }
-        """)
-
-        stats_layout = QVBoxLayout(stats_frame)
-        stats_layout.setSpacing(10)
-
-        stats_title = QLabel("📊 THỐNG KÊ NHANH")
-        stats_title.setStyleSheet("""
-            QLabel {
-                color: #64748b;
-                font-size: 11px;
-                font-weight: 600;
-                letter-spacing: 1px;
-            }
-        """)
-
-        # Stats cards
-        self.total_employees_card = self.create_stat_card("👥 Tổng NV", "0", "#3b82f6")
-        self.avg_score_card = self.create_stat_card("📈 Điểm TB", "0", "#10b981")
-        self.total_revenue_card = self.create_stat_card("💰 Doanh thu", "0", "#8b5cf6")
-        self.fraud_count_card = self.create_stat_card("⚠️ Gian lận", "0", "#ef4444")
-
-        stats_layout.addWidget(stats_title)
-        stats_layout.addWidget(self.total_employees_card)
-        stats_layout.addWidget(self.avg_score_card)
-        stats_layout.addWidget(self.total_revenue_card)
-        stats_layout.addWidget(self.fraud_count_card)
-        stats_layout.addStretch()
-
-        # Quick actions
-        actions_frame = QFrame()
-        actions_frame.setStyleSheet("""
-            QFrame {
-                background-color: transparent;
-                padding: 15px;
-            }
-        """)
-
-        actions_layout = QVBoxLayout(actions_frame)
-        actions_layout.setSpacing(8)
-
-        actions_title = QLabel("⚡ HÀNH ĐỘNG NHANH")
-        actions_title.setStyleSheet("""
-            QLabel {
-                color: #64748b;
-                font-size: 11px;
-                font-weight: 600;
-                letter-spacing: 1px;
-            }
-        """)
-
-        # Action buttons
-        actions = [
-            ("📋 Xem báo cáo tổng hợp", self.show_aggregate_report),
-            ("🎯 Phân tích hiệu suất team", lambda: self.ask_question("Phân tích hiệu suất tổng thể của team")),
-            ("🔍 Tìm bottleneck", lambda: self.ask_question("Điểm nghẽn chính trong team là gì?")),
-            ("📊 So sánh nhân viên", lambda: self.ask_question("So sánh hiệu suất giữa các nhân viên")),
-            ("💡 Đề xuất training", lambda: self.ask_question("Nhân viên nào cần training gì?")),
-            ("🔄 Tải lại dữ liệu", self.load_initial_data),
-        ]
-
-        for text, handler in actions:
-            btn = QPushButton(text)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #334155;
-                    color: #cbd5e1;
-                    border: none;
-                    border-radius: 6px;
-                    padding: 10px 15px;
-                    text-align: left;
-                    font-size: 12px;
-                    font-weight: 500;
-                    margin: 2px 0;
-                }
-                QPushButton:hover {
-                    background-color: #475569;
-                    color: white;
-                }
-            """)
-            btn.clicked.connect(handler)
-            actions_layout.addWidget(btn)
-
-        # Thêm nút Home
-        home_btn = QPushButton("Home")
-        home_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        home_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3b82f6;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                padding: 10px 15px;
-                text-align: left;
-                font-size: 12px;
-                font-weight: 600;
-                margin: 10px 0 2px 0;
-            }
-            QPushButton:hover {
-                background-color: #2563eb;
-            }
-        """)
-        if self.controller:
-            home_btn.clicked.connect(lambda: self.controller.show_home())
-        actions_layout.addWidget(home_btn)
-
-        actions_layout.addStretch()
-
-        # Thêm các phần vào sidebar
-        sidebar_layout.addWidget(sidebar_header)
-        sidebar_layout.addWidget(stats_frame)
-        sidebar_layout.addWidget(actions_frame, 1)
-
-        # ========== CHAT AREA ==========
-        chat_area = QFrame()
-        chat_area.setStyleSheet(f"""
-            QFrame {{
-                background-color: {self.bg_color};
-            }}
-        """)
-
-        chat_layout = QVBoxLayout(chat_area)
-        chat_layout.setContentsMargins(0, 0, 0, 0)
-        chat_layout.setSpacing(0)
-
-        # Chat header với nút Home
-        chat_header = QFrame()
-        chat_header.setFixedHeight(80)
-        chat_header.setStyleSheet(f"""
-            QFrame {{
-                background-color: {self.card_bg};
-                border-bottom: 1px solid #e2e8f0;
-            }}
-        """)
-
-        header_chat_layout = QHBoxLayout(chat_header)
-        header_chat_layout.setContentsMargins(20, 0, 20, 0)
-
-        # Nút Home trong header
-        home_header_btn = QPushButton("Home")
-        home_header_btn.setFixedSize(80, 35)
-        home_header_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {self.secondary_color};
-                color: white;
-                border: none;
-                border-radius: 6px;
-                font-weight: 500;
-            }}
-            QPushButton:hover {{
-                background-color: #2563eb;
-            }}
-        """)
-        if self.controller:
-            home_header_btn.clicked.connect(lambda: self.controller.show_home())
-
-        chat_title = QLabel("💬 Manager AI Assistant")
-        chat_title.setStyleSheet(f"""
-            QLabel {{
-                color: {self.primary_color};
-                font-size: 18px;
-                font-weight: 600;
-            }}
-        """)
-
-        self.ai_status = QLabel("🟢 Đang kết nối...")
-        self.ai_status.setStyleSheet("""
-            QLabel {
-                color: #10b981;
-                font-size: 12px;
-                background-color: rgba(16, 185, 129, 0.1);
-                padding: 4px 12px;
-                border-radius: 12px;
-            }
-        """)
-
-        header_chat_layout.addWidget(home_header_btn)
-        header_chat_layout.addWidget(chat_title)
-        header_chat_layout.addStretch()
-        header_chat_layout.addWidget(self.ai_status)
-
-        # Chat display
-        self.chat_display = QTextEdit()
-        self.chat_display.setReadOnly(True)
-        self.chat_display.setStyleSheet(f"""
-            QTextEdit {{
-                background-color: {self.card_bg};
-                border: none;
-                font-size: 13px;
-                line-height: 1.6;
-                padding: 20px;
-                color: #1e293b;
-            }}
-            QScrollBar:vertical {{
-                width: 8px;
-                background-color: #f1f5f9;
-                border-radius: 4px;
-            }}
-            QScrollBar::handle:vertical {{
-                background-color: #cbd5e1;
-                border-radius: 4px;
-                min-height: 20px;
-            }}
-        """)
-
-        # Input area
-        input_frame = QFrame()
-        input_frame.setFixedHeight(120)
-        input_frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {self.card_bg};
-                border-top: 1px solid #e2e8f0;
-            }}
-        """)
-
-        input_layout = QVBoxLayout(input_frame)
-        input_layout.setContentsMargins(20, 15, 20, 15)
-
-        # Quick questions
-        quick_questions_frame = QFrame()
-        quick_questions_frame.setStyleSheet("background-color: transparent;")
-
-        quick_layout = QHBoxLayout(quick_questions_frame)
-        quick_layout.setSpacing(8)
-
-        quick_questions = [
-            "Hiệu suất team?",
-            "Bottleneck?",
-            "Training cần thiết?",
-            "Rủi ro tuân thủ?"
-        ]
-
-        for q in quick_questions:
-            btn = QPushButton(q)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #e2e8f0;
-                    color: #475569;
-                    border: none;
-                    border-radius: 15px;
-                    padding: 6px 12px;
-                    font-size: 11px;
-                }
-                QPushButton:hover {
-                    background-color: #cbd5e1;
-                    color: #1e293b;
-                }
-            """)
-            btn.clicked.connect(lambda checked, q=q: self.ask_question(q))
-            quick_layout.addWidget(btn)
-
-        quick_layout.addStretch()
-
-        # Input field
-        input_field_layout = QHBoxLayout()
-        input_field_layout.setSpacing(10)
-
-        self.message_input = QLineEdit()
-        self.message_input.setPlaceholderText("Nhập câu hỏi về quản lý, hiệu suất team, phân tích dữ liệu...")
-        self.message_input.setStyleSheet(f"""
-            QLineEdit {{
-                background-color: white;
-                border: 1px solid #cbd5e1;
-                border-radius: 8px;
-                padding: 12px 15px;
-                font-size: 13px;
-            }}
-            QLineEdit:focus {{
-                border: 1px solid {self.secondary_color};
-                outline: none;
-            }}
-        """)
-        self.message_input.returnPressed.connect(self.send_message)
-
-        self.send_btn = QPushButton("Gửi")
-        self.send_btn.setFixedWidth(80)
-        self.send_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {self.secondary_color};
-                color: white;
-                border: none;
-                border-radius: 8px;
-                padding: 12px 20px;
-                font-size: 13px;
-                font-weight: 600;
-            }}
-            QPushButton:hover {{
-                background-color: #2563eb;
-            }}
-            QPushButton:disabled {{
-                background-color: #cbd5e1;
-                color: #64748b;
-            }}
-        """)
-        self.send_btn.clicked.connect(self.send_message)
-        self.send_btn.setEnabled(False)
-
-        input_field_layout.addWidget(self.message_input, 1)
-        input_field_layout.addWidget(self.send_btn)
-
-        input_layout.addWidget(quick_questions_frame)
-        input_layout.addLayout(input_field_layout)
-
-        # Thêm vào chat layout
-        chat_layout.addWidget(chat_header)
-        chat_layout.addWidget(self.chat_display, 1)
-        chat_layout.addWidget(input_frame)
-
-        # Ghép sidebar và chat area
-        main_layout.addWidget(sidebar)
-        main_layout.addWidget(chat_area, 1)
-
-    def create_stat_card(self, title, value, color):
-        """Tạo card thống kê"""
-        card = QFrame()
-        card.setStyleSheet(f"""
-            QFrame {{
-                background-color: #1e293b;
-                border: 1px solid #334155;
-                border-radius: 8px;
-                padding: 10px;
-            }}
-        """)
-
-        layout = QVBoxLayout(card)
-        layout.setSpacing(5)
-
-        title_label = QLabel(title)
-        title_label.setStyleSheet("""
-            QLabel {
-                color: #94a3b8;
-                font-size: 11px;
-            }
-        """)
-
-        value_label = QLabel(value)
-        value_label.setStyleSheet(f"""
-            QLabel {{
-                color: {color};
-                font-size: 16px;
-                font-weight: 600;
-            }}
-        """)
-
-        layout.addWidget(title_label)
-        layout.addWidget(value_label)
-
-        return card
-
-    def load_initial_data(self):
-        """Tải dữ liệu ban đầu"""
-        self.ai_status.setText("🔄 Đang tải dữ liệu...")
-        self.send_btn.setEnabled(False)
-
-        if not self.data_manager:
-            self.ai_status.setText("⚠️ Không có DataManager")
-            self.show_welcome_message()
-            return
-
-        try:
-            # Lấy dữ liệu tổng hợp
-            aggregate_data = self.data_manager.get_aggregate_data()
-
-            # Cập nhật stats
-            if aggregate_data:
-                # Update cards
-                for i in range(self.total_employees_card.layout().count()):
-                    widget = self.total_employees_card.layout().itemAt(i).widget()
-                    if isinstance(widget, QLabel) and widget.text() == "0":
-                        widget.setText(str(aggregate_data.get('total_employees', 0)))
-                        break
-
-                for i in range(self.avg_score_card.layout().count()):
-                    widget = self.avg_score_card.layout().itemAt(i).widget()
-                    if isinstance(widget, QLabel) and widget.text() == "0":
-                        widget.setText(f"{aggregate_data.get('average_overall_score', 0):.1f}")
-                        break
-
-                for i in range(self.total_revenue_card.layout().count()):
-                    widget = self.total_revenue_card.layout().itemAt(i).widget()
-                    if isinstance(widget, QLabel) and widget.text() == "0":
-                        widget.setText(f"{aggregate_data.get('total_revenue', 0) / 1000000:.1f}M")
-                        break
-
-                for i in range(self.fraud_count_card.layout().count()):
-                    widget = self.fraud_count_card.layout().itemAt(i).widget()
-                    if isinstance(widget, QLabel) and widget.text() == "0":
-                        widget.setText(str(aggregate_data.get('total_fraud', 0)))
-                        break
-
-                # Update team status
-                emp_with_data = aggregate_data.get('employees_with_data', 0)
-                total_emp = aggregate_data.get('total_employees', 0)
-                self.team_status.setText(
-                    f"👥 Team: {emp_with_data}/{total_emp} nhân viên có dữ liệu"
-                )
-
-            # Update AI status
-            if self.gemini:
-                model_info = self.gemini.get_model_info()
-                model_name = model_info.get('active_model', 'DEMO').split('/')[-1]
-                self.ai_status.setText(f"🤖 {model_name}")
-            else:
-                self.ai_status.setText("🤖 DEMO MODE")
-
-            self.send_btn.setEnabled(True)
-            self.show_welcome_message(aggregate_data)
-
-        except Exception as e:
-            print(f"❌ Lỗi tải dữ liệu: {e}")
-            self.ai_status.setText("⚠️ Lỗi dữ liệu")
-            self.show_welcome_message()
-
-    def show_welcome_message(self, aggregate_data=None):
-        """Hiển thị tin nhắn chào mừng"""
-        welcome = """**👋 CHÀO MỪNG ĐẾN VỚI MANAGER AI ASSISTANT**
-
-**Vai trò của tôi:** Trợ lý AI dành riêng cho quản lý và lãnh đạo.
-
-**TÔI CÓ THỂ GIÚP BẠN:**
-
-📊 **PHÂN TÍCH HIỆU SUẤT**
-- Đánh giá tổng thể team
-- So sánh hiệu suất nhân viên
-- Nhận diện top performers và người cần hỗ trợ
-
-🎯 **TỐI ƯU ĐỘI NGŨ**
-- Đề xuất phân bổ resource
-- Xác định training needs
-- Tối ưu workflow
-
-⚠️ **QUẢN LÝ RỦI RO**
-- Phát hiện bottleneck
-- Cảnh báo rủi ro tuân thủ
-- Đề xuất biện pháp phòng ngừa
-
-📈 **CHIẾN LƯỢC PHÁT TRIỂN**
-- Kế hoạch phát triển team
-- Đề xuất KPI mới
-- Phân tích xu hướng
-
-**HƯỚNG DẪN SỬ DỤNG:**
-1. Nhập câu hỏi trực tiếp vào ô chat
-2. Sử dụng nút "hành động nhanh" bên trái
-3. Click vào câu hỏi mẫu phía trên ô chat
-
-**VÍ DỤ CÂU HỎI HIỆU QUẢ:**
-- "Phân tích hiệu suất tổng thể của team tháng này?"
-- "Nhân viên nào đang gặp vấn đề về hiệu suất?"
-- "Điểm nghẽn chính trong workflow là gì?"
-- "Nên training gì cho team?"
-- "Làm sao tăng tỷ lệ hoàn thành đơn hàng?"
-"""
-
-        # Thêm thông tin tổng hợp nếu có
-        if aggregate_data:
-            welcome += f"""
-
-**📊 THỐNG KÊ NHANH:**
-• Tổng nhân viên: {aggregate_data.get('total_employees', 0)}
-• Có dữ liệu: {aggregate_data.get('employees_with_data', 0)}
-• Doanh thu tổng: {aggregate_data.get('total_revenue', 0):,.0f} VND
-• Điểm TB: {aggregate_data.get('average_overall_score', 0):.1f}/100
-"""
-
-        self.append_to_chat("Manager AI", welcome)
-
-    def send_message(self):
-        """Gửi tin nhắn"""
-        question = self.message_input.text().strip()
-        if not question:
-            return
-
-        self.append_to_chat("Bạn", question)
-        self.message_input.clear()
-
-        # Vô hiệu hóa nút trong khi xử lý
-        self.send_btn.setEnabled(False)
-        self.ai_status.setText("🤔 Đang phân tích...")
-
-        # Lấy dữ liệu context từ DataManager
-        context_data = {}
-        if self.data_manager:
-            try:
-                aggregate_data = self.data_manager.get_aggregate_data()
-                context_data = {
-                    **aggregate_data,
-                    'data_timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'data_source': 'DataManager'
-                }
-            except Exception as e:
-                print(f"⚠️ Không lấy được context data: {e}")
-
-        # Xử lý trong thread riêng
-        self.chat_thread = ManagerChatbotThread(self.gemini, question, context_data)
-        self.chat_thread.response_ready.connect(self.on_ai_response)
-        self.chat_thread.error_occurred.connect(self.on_ai_error)
-        self.chat_thread.start()
-
-    def ask_question(self, question):
-        """Hỏi câu hỏi tự động"""
-        self.message_input.setText(question)
-        self.send_message()
-
-    def on_ai_response(self, response):
-        """Nhận phản hồi từ AI"""
-        self.append_to_chat("Manager AI", response)
-        self.send_btn.setEnabled(True)
-        self.ai_status.setText("✅ Sẵn sàng")
-
-    def on_ai_error(self, error):
-        """Xử lý lỗi AI"""
-        error_msg = f"""**❌ LỖI HỆ THỐNG**
-
-Không thể xử lý yêu cầu:
-{str(error)[:200]}...
-
-Vui lòng thử lại sau hoặc liên hệ support."""
-
-        self.append_to_chat("Hệ thống", error_msg)
-        self.send_btn.setEnabled(True)
-        self.ai_status.setText("⚠️ Có lỗi")
-
-    def show_aggregate_report(self):
-        """Hiển thị báo cáo tổng hợp"""
-        if self.controller:
-            self.controller.show_aggregate_dashboard()
-        else:
-            print("📊 Mở Aggregate Dashboard")
-
-    def append_to_chat(self, sender, message):
-        """Thêm tin nhắn vào chat"""
-        timestamp = datetime.now().strftime("%H:%M")
-
-        # Xác định màu sắc
-        if sender == "Bạn":
-            color = self.secondary_color
-            bg_color = "#eff6ff"
-            avatar = "👤"
-        elif "Lỗi" in sender or "❌" in message:
-            color = self.danger_color
-            bg_color = "#fef2f2"
-            avatar = "⚠️"
-        elif "Hệ thống" in sender:
-            color = "#64748b"
-            bg_color = "#f8fafc"
-            avatar = "⚙️"
-        else:
-            color = self.primary_color
-            bg_color = "#eff6ff"
-            avatar = "🤖"
-
-        html = f"""
-        <div style="margin: 0 0 15px 0;">
-            <div style="display: flex; gap: 10px;">
-                <!-- Avatar -->
-                <div style="flex-shrink: 0; width: 32px; height: 32px; background-color: {color}; 
-                     border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 16px;">
-                    {avatar}
-                </div>
-
-                <!-- Content -->
-                <div style="flex: 1; min-width: 0;">
-                    <!-- Header -->
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                        <span style="font-weight: 600; color: {color}; font-size: 13px;">
-                            {sender}
-                        </span>
-                        <span style="color: #94a3b8; font-size: 11px;">
-                            {timestamp}
-                        </span>
-                    </div>
-
-                    <!-- Message -->
-                    <div style="background-color: {bg_color}; padding: 12px; border-radius: 8px; 
-                         border-left: 3px solid {color}; line-height: 1.5; font-size: 13px; color: #1e293b;">
-                        {message.replace(chr(10), '<br>')}
-                    </div>
-                </div>
-            </div>
-        </div>
-        """
-
-        current_html = self.chat_display.toHtml()
-        self.chat_display.setHtml(current_html + html)
-
-        # Cuộn xuống cuối
-        cursor = self.chat_display.textCursor()
-        cursor.movePosition(QTextCursor.MoveOperation.End)
-        self.chat_display.setTextCursor(cursor)
-
 
 def main():
-    """Hàm chính"""
+    """Function to run chatbot separately"""
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 
-    window = ManagerChatbotGUI()
-    window.show()
+    chatbot = ManagerChatbotGUI()
+    chatbot.show()
 
     sys.exit(app.exec())
 
