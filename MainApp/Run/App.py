@@ -11,6 +11,7 @@ import cv2
 import subprocess
 import traceback
 import ctypes
+import pandas as pd
 from datetime import datetime
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
@@ -39,10 +40,10 @@ if not os.path.exists(SAVED_FILE_DIR):
 
 
 # =========================
-# TASKBAR CONTROLLER
+# TASKBAR CONTROLLER (ĐÃ SỬA - CHỈ ẨN KHI CẦN THIẾT)
 # =========================
 class TaskbarController:
-    """Điều khiển ẩn/hiện thanh Taskbar của Windows"""
+    """Điều khiển ẩn/hiện thanh Taskbar của Windows - CHỈ ẨN TRONG WORK SESSION"""
 
     @staticmethod
     def set_visibility(visible=True):
@@ -73,32 +74,86 @@ def load_image(image_name):
     return None
 
 
-def write_login_info(user_name, user_type):
-    """Ghi thông tin đăng nhập vào file tạm"""
-    temp_file = os.path.join(PROJECT_ROOT, "temp_login.txt")
+def get_user_info_from_excel(user_id):
+    """Lấy thông tin user từ file Excel (KHÔNG DÙNG FILE TEMP)"""
     try:
-        with open(temp_file, 'w', encoding='utf-8') as f:
-            f.write(f"{user_type}:{user_name}")
-        print(f"💾 Đã lưu thông tin đăng nhập: {user_name} ({user_type})")
-        return True
+        excel_path = os.path.join(PROJECT_ROOT, "MG", "employee_ids.xlsx")
+        if os.path.exists(excel_path):
+            df = pd.read_excel(excel_path)
+            # Chuẩn hóa tên cột
+            df.columns = [str(col).strip().lower() for col in df.columns]
+
+            # Tìm cột ID
+            id_column = None
+            for col in df.columns:
+                if col == 'id' or 'employee' in col or 'mã' in col:
+                    id_column = col
+                    break
+
+            if id_column:
+                # Tìm user theo ID
+                user_id_upper = user_id.upper()
+                df[id_column] = df[id_column].astype(str).str.strip().str.upper()
+                user_row = df[df[id_column] == user_id_upper]
+
+                if not user_row.empty:
+                    row = user_row.iloc[0]
+
+                    # Lấy thông tin
+                    info = {
+                        'id': user_id,
+                        'type': None,
+                        'display_name': None
+                    }
+
+                    # Phân loại dựa trên prefix
+                    if user_id_upper.startswith('MG'):
+                        info['type'] = 'manager'
+                    elif user_id_upper.startswith('EM') or user_id_upper.startswith('NV'):
+                        info['type'] = 'employee'
+                    else:
+                        info['type'] = 'employee'  # Mặc định
+
+                    # Lấy tên hiển thị
+                    name_column = None
+                    for col in df.columns:
+                        if 'full' in col or 'name' in col:
+                            name_column = col
+                            break
+
+                    if name_column:
+                        name = str(row[name_column]).strip()
+                        if name and name.lower() != 'nan':
+                            info['display_name'] = name
+                    else:
+                        info['display_name'] = user_id
+
+                    # Lấy thêm thông tin SAP nếu có
+                    sap_username = None
+                    sap_password = None
+                    for col in df.columns:
+                        if 'sap' in col and ('user' in col or 'name' in col):
+                            sap_username = str(row[col]).strip() if col in row else None
+                        if 'pwd' in col or 'password' in col:
+                            sap_password = str(row[col]).strip() if col in row else None
+
+                    if sap_username and sap_password:
+                        info['sap_username'] = sap_username
+                        info['sap_password'] = sap_password
+
+                    print(f"✅ Lấy thông tin từ Excel: {info['display_name']} ({info['type']})")
+                    return info
+
+        print(f"⚠️ Không tìm thấy thông tin user {user_id} trong Excel")
+        return None
+
     except Exception as e:
-        print(f"❌ Lỗi khi lưu file đăng nhập: {e}")
-        return False
-
-
-def clean_login_info():
-    """Xóa file đăng nhập tạm"""
-    temp_file = os.path.join(PROJECT_ROOT, "temp_login.txt")
-    if os.path.exists(temp_file):
-        try:
-            os.remove(temp_file)
-            print("🧹 Đã xóa file đăng nhập tạm")
-        except:
-            pass
+        print(f"❌ Lỗi đọc Excel: {e}")
+        return None
 
 
 # =========================
-# LOGIN WINDOW - CỬA SỔ ĐẦU TIÊN
+# LOGIN WINDOW - CỬA SỐ ĐẦU TIÊN
 # =========================
 class LoginWindow(QMainWindow):
     """Cửa sổ đăng nhập đầu tiên - Sử dụng UI_LOGIN"""
@@ -244,7 +299,6 @@ class FaceIDWindow(QMainWindow):
                             Qt.WindowType.WindowCloseButtonHint)
         self.setFixedSize(self.size())
 
-
         # LOAD ẢNH NỀN
         background_pixmap = load_image("background5.jpg")
         if background_pixmap:
@@ -261,8 +315,8 @@ class FaceIDWindow(QMainWindow):
         self.cap = None
         self.recognition_complete = False
 
-        # Ẩn taskbar khi mở FaceID
-        TaskbarController.set_visibility(False)
+        # KHÔNG ẨN TASKBAR KHI MỞ FACEID (ĐÃ SỬA)
+        # TaskbarController.set_visibility(False)  # ĐÃ XÓA DÒNG NÀY
 
         # Setup camera
         self.setup_camera()
@@ -316,12 +370,6 @@ class FaceIDWindow(QMainWindow):
                 anh_dir = os.path.join(face_dir, "anh")
                 if os.path.exists(anh_dir):
                     print(f"📸 Thư mục anh chứa: {os.listdir(anh_dir)}")
-                    # Kiểm tra folder Giang_MG
-                    giang_mg_path = os.path.join(anh_dir, "Giang_MG")
-                    if os.path.exists(giang_mg_path):
-                        print(f"✅ Tìm thấy folder Giang_MG, chứa: {os.listdir(giang_mg_path)}")
-                    else:
-                        print(f"❌ KHÔNG tìm thấy folder Giang_MG")
 
             if os.path.exists(face_main_path):
                 import importlib.util
@@ -404,108 +452,77 @@ class FaceIDWindow(QMainWindow):
             print(f"DEBUG - Tên user từ hệ thống: {result.get('name')}")
 
             if result["success"] and result["matched"]:
-                user_name = result["name"]
-                similarity = result["similarity"]
-                print(f"✅ Đăng nhập thành công: {user_name} ({similarity:.2%})")
+                user_id = result["name"]  # Đây là ID (MG001, MG001, NV001, etc.)
 
-                # KIỂM TRA TRONG THƯ MỤC ANH ĐỂ XÁC ĐỊNH LOẠI USER
-                face_anh_dir = os.path.join(PROJECT_ROOT, "Face", "anh")
-                user_type = "employee"  # Mặc định là nhân viên
-                display_name = user_name
+                # Lấy thông tin từ Excel thay vì file temp
+                user_info = get_user_info_from_excel(user_id)
 
-                if os.path.exists(face_anh_dir):
-                    # Kiểm tra tất cả các thư mục trong anh
-                    for folder in os.listdir(face_anh_dir):
-                        folder_path = os.path.join(face_anh_dir, folder)
-                        if os.path.isdir(folder_path):
-                            # So sánh tên folder với tên user
-                            # Nếu folder là "Giang_MG" và user_name là "Giang_MG"
-                            if folder == user_name:
-                                if "_MG" in folder.upper():
-                                    user_type = "manager"
-                                    display_name = folder.replace("_MG", "").replace("_mg", "")
-                                    print(f"👨‍💼 Phát hiện QUẢN LÝ từ folder trùng khớp: {folder}")
-                                    break
-                                else:
-                                    user_type = "employee"
-                                    display_name = folder
-                                    print(f"👤 Phát hiện NHÂN VIÊN từ folder trùng khớp: {folder}")
-                                    break
-                            # Nếu folder là "Giang_MG" và user_name chỉ là "Giang"
-                            elif user_name in folder and "_MG" in folder.upper():
-                                user_type = "manager"
-                                display_name = folder.replace("_MG", "").replace("_mg", "")
-                                print(f"👨‍💼 Phát hiện QUẢN LÝ từ folder chứa: {folder}")
-                                break
-                            # Nếu folder không có _MG và trùng hoặc chứa user_name
-                            elif user_name in folder and "_MG" not in folder.upper():
-                                user_type = "employee"
-                                display_name = folder
-                                print(f"👤 Phát hiện NHÂN VIÊN từ folder: {folder}")
-                                break
+                if user_info:
+                    user_type = user_info['type']
+                    display_name = user_info['display_name']
+                    similarity = result["similarity"]
+                    print(f"✅ Đăng nhập thành công: {display_name} ({user_type})")
 
-                self.recognized_user = user_name
+                    self.recognized_user = user_id
 
-                self.cleanup_camera()
-                self.recognition_complete = True
-
-                # Lưu thông tin đăng nhập
-                write_login_info(user_name, user_type)
-
-                # Chạy ứng dụng phù hợp
-                self.launch_app(user_type, user_name, display_name)
-
-                # Đóng cửa sổ sau 0.5 giây
-                QTimer.singleShot(500, self.close)
-            else:
-                self.attempt_count += 1
-
-                if self.attempt_count >= self.max_attempts:
                     self.cleanup_camera()
                     self.recognition_complete = True
-                    QMessageBox.warning(
-                        self, "Quá nhiều lần thử",
-                        f"Không nhận diện được khuôn mặt sau {self.max_attempts} lần thử.\n"
-                        "Quay lại màn hình đăng nhập."
-                    )
-                    QTimer.singleShot(500, self.return_to_login)
+
+                    # Chạy ứng dụng phù hợp (TRUYỀN THAM SỐ TRỰC TIẾP)
+                    self.launch_app(user_type, user_id, display_name)
+
+                    # Đóng cửa sổ sau 0.5 giây
+                    QTimer.singleShot(500, self.close)
                 else:
-                    remaining = self.max_attempts - self.attempt_count
-                    self.ui.label_2.setText(f"FACE VERIFICATION FAILED - {remaining} ATTEMPT(S) REMAINING")
-                    self.recognition_started = False
-                    self.start_time = datetime.now()
+                    # Nếu không tìm thấy trong Excel
+                    print(f"⚠️ User {user_id} không có trong hệ thống Excel")
+                    self.attempt_count += 1
+                    self.handle_failed_attempt()
+
+            else:
+                self.attempt_count += 1
+                self.handle_failed_attempt()
 
         except Exception as e:
             print("❌ Lỗi nhận diện:", e)
             traceback.print_exc()
             self.attempt_count += 1
+            self.handle_failed_attempt()
 
-            if self.attempt_count >= self.max_attempts:
-                self.cleanup_camera()
-                self.recognition_complete = True
-                QTimer.singleShot(500, self.return_to_login)
-            else:
-                self.ui.label_2.setText(f"SYSTEM ERROR ({self.max_attempts - self.attempt_count} ATTEMPTS REMAINING)")
-                self.recognition_started = False
-                self.start_time = datetime.now()
+    def handle_failed_attempt(self):
+        """Xử lý khi nhận diện thất bại"""
+        if self.attempt_count >= self.max_attempts:
+            self.cleanup_camera()
+            self.recognition_complete = True
+            QMessageBox.warning(
+                self, "Quá nhiều lần thử",
+                f"Không nhận diện được khuôn mặt sau {self.max_attempts} lần thử.\n"
+                "Quay lại màn hình đăng nhập."
+            )
+            QTimer.singleShot(500, self.return_to_login)
+        else:
+            remaining = self.max_attempts - self.attempt_count
+            self.ui.label_2.setText(f"FACE VERIFICATION FAILED - {remaining} ATTEMPT(S) REMAINING")
+            self.recognition_started = False
+            self.start_time = datetime.now()
 
-    def launch_app(self, user_type, user_name, display_name):
-        """Khởi chạy ứng dụng phù hợp"""
+    def launch_app(self, user_type, user_id, display_name):
+        """Khởi chạy ứng dụng phù hợp - TRUYỀN THAM SỐ TRỰC TIẾP"""
         try:
             if user_type == "manager":
-                print(f"👨‍💼 Khởi chạy ứng dụng quản lý cho: {display_name}")
-                self.run_manager_app(user_name)
+                print(f"👨‍💼 Khởi chạy ứng dụng quản lý cho: {display_name} ({user_id})")
+                self.run_manager_app(user_id, display_name)
             else:
-                print(f"👤 Khởi chạy ứng dụng nhân viên cho: {display_name}")
-                self.run_employee_app(user_name)
+                print(f"👤 Khởi chạy ứng dụng nhân viên cho: {display_name} ({user_id})")
+                self.run_employee_app(user_id, display_name)
         except Exception as e:
             print(f"❌ Lỗi khi khởi chạy ứng dụng: {e}")
             traceback.print_exc()
             QMessageBox.critical(self, "Lỗi hệ thống",
                                  f"Không thể khởi chạy ứng dụng:\n{str(e)}")
 
-    def run_manager_app(self, user_name):
-        """Chạy ứng dụng quản lý"""
+    def run_manager_app(self, user_id, display_name):
+        """Chạy ứng dụng quản lý - TRUYỀN THAM SỐ"""
         # Thử các đường dẫn khác nhau cho main_manager.py
         possible_paths = [
             os.path.join(PROJECT_ROOT, "MainApp", "Run", "main_manager.py"),
@@ -526,25 +543,15 @@ class FaceIDWindow(QMainWindow):
                                  f"Đã tìm tại:\n- {possible_paths[0]}\n- {possible_paths[1]}")
             return
 
-        print(f"🚀 Khởi chạy ứng dụng quản lý cho user: {user_name}")
+        print(f"🚀 Khởi chạy ứng dụng quản lý cho user: {display_name} ({user_id})")
 
-        # Kiểm tra xem có file login tạm không
-        temp_login = os.path.join(PROJECT_ROOT, "temp_login.txt")
-        if os.path.exists(temp_login):
-            with open(temp_login, 'r', encoding='utf-8') as f:
-                content = f.read()
-                print(f"📄 Nội dung temp_login: {content}")
-                # Kiểm tra lại xem có đúng là manager không
-                if ":manager:" not in content and not content.startswith("manager:"):
-                    print(f"⚠️ CẢNH BÁO: File login không chứa 'manager:'")
-
-        # Khởi chạy ứng dụng quản lý
+        # Khởi chạy ứng dụng quản lý VỚI THAM SỐ
         try:
             python_exe = sys.executable
             print(f"🐍 Python executable: {python_exe}")
 
-            # Tạo process mới
-            subprocess.Popen([python_exe, manager_app],
+            # Tạo process mới VỚI 2 THAM SỐ: user_id và user_type
+            subprocess.Popen([python_exe, manager_app, user_id, "manager"],
                              cwd=PROJECT_ROOT)
             print("✅ Đã khởi chạy ứng dụng quản lý")
         except Exception as e:
@@ -552,8 +559,8 @@ class FaceIDWindow(QMainWindow):
             traceback.print_exc()
             QMessageBox.critical(self, "Lỗi", f"Không thể chạy ứng dụng quản lý:\n{str(e)}")
 
-    def run_employee_app(self, user_name):
-        """Chạy ứng dụng nhân viên"""
+    def run_employee_app(self, user_id, display_name):
+        """Chạy ứng dụng nhân viên - TRUYỀN THAM SỐ"""
         # Thử các đường dẫn khác nhau cho main_emp.py
         possible_paths = [
             os.path.join(PROJECT_ROOT, "MainApp", "Run", "main_emp.py"),
@@ -574,14 +581,15 @@ class FaceIDWindow(QMainWindow):
                                  f"Đã tìm tại:\n- {possible_paths[0]}\n- {possible_paths[1]}")
             return
 
-        print(f"🚀 Khởi chạy ứng dụng nhân viên cho user: {user_name}")
+        print(f"🚀 Khởi chạy ứng dụng nhân viên cho user: {display_name} ({user_id})")
 
-        # Khởi chạy ứng dụng nhân viên
+        # Khởi chạy ứng dụng nhân viên VỚI THAM SỐ
         try:
             python_exe = sys.executable
             print(f"🐍 Python executable: {python_exe}")
 
-            subprocess.Popen([python_exe, employee_app],
+            # Tạo process mới VỚI 2 THAM SỐ: user_id và user_type
+            subprocess.Popen([python_exe, employee_app, user_id, "employee"],
                              cwd=PROJECT_ROOT)
             print("✅ Đã khởi chạy ứng dụng nhân viên")
         except Exception as e:
@@ -605,7 +613,6 @@ class FaceIDWindow(QMainWindow):
         """Quay lại màn hình login"""
         print("🔙 Quay lại màn hình login...")
         self.cleanup_camera()
-        TaskbarController.set_visibility(True)
         if self.parent_window:
             self.parent_window.show()
         self.close()
@@ -621,7 +628,6 @@ class FaceIDWindow(QMainWindow):
         """Xử lý khi đóng cửa sổ"""
         print("🛑 Đóng cửa sổ FaceID...")
         self.cleanup_camera()
-        TaskbarController.set_visibility(True)
         if self.parent_window and not self.recognition_complete:
             self.parent_window.show()
         event.accept()
@@ -696,13 +702,21 @@ def main():
         os.makedirs(IMAGES_DIR, exist_ok=True)
         print(f"📁 Đã tạo thư mục: {IMAGES_DIR}")
 
+    # Kiểm tra file Excel
+    excel_path = os.path.join(PROJECT_ROOT, "MG", "employee_ids.xlsx")
+    if not os.path.exists(excel_path):
+        print(f"❌ KHÔNG TÌM THẤY FILE EXCEL: {excel_path}")
+        reply = QMessageBox.critical(None, "Lỗi hệ thống",
+                                     f"Không tìm thấy file Excel chứa thông tin nhân viên:\n{excel_path}\n\n"
+                                     "Bạn có muốn tiếp tục không?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.No:
+            sys.exit(1)
+
     # Khởi tạo ứng dụng
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setApplicationName("PowerSight - Login System")
-
-    # Dọn dẹp file đăng nhập cũ (nếu có)
-    clean_login_info()
 
     # Khởi tạo và hiển thị cửa sổ Login
     window = LoginWindow()
@@ -711,7 +725,6 @@ def main():
     # Khôi phục taskbar khi thoát
     def restore_system():
         TaskbarController.set_visibility(True)
-        clean_login_info()
         print("✅ Đã khôi phục hệ thống")
 
     app.aboutToQuit.connect(restore_system)

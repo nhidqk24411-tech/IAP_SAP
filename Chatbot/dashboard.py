@@ -1242,7 +1242,7 @@ def main():
     print("=" * 70)
 
     # Create and display dashboard
-    dashboard = PerformanceDashboard("Giang_MG")
+    dashboard = PerformanceDashboard("MG001")
 
     screen = app.primaryScreen()
     screen_geometry = screen.geometry()

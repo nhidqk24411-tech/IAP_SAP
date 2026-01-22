@@ -7,7 +7,7 @@ from Mouse.Models.MouseEvents import MouseEvent, EventType
 
 
 class RealTimeTracker:
-    """Thu thập sự kiện chuột real-time với hỗ trợ pause"""
+    """EM004 thập sự kiện chuột real-time với hỗ trợ pause"""
 
     def __init__(self):
         self.events: List[MouseEvent] = []

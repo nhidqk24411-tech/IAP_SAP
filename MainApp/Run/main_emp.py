@@ -12,6 +12,8 @@ import subprocess
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtWebEngineCore import QWebEnginePage
 import ctypes
 from ctypes import wintypes
 
@@ -111,6 +113,402 @@ def load_image(image_name):
     else:
         print(f"⚠️ Image not found: {image_path}")
     return None
+
+
+# =========================
+# UIPATH SAP LOGIN AUTOMATION - ĐÃ TÍCH HỢP
+# =========================
+
+class UiPathSAPLoginAutomation(QObject):
+    """UiPath automation cho SAP login TRỰC TIẾP trên browser hiện tại"""
+
+    automation_started = pyqtSignal(str)
+    automation_completed = pyqtSignal(bool, str)
+    automation_error = pyqtSignal(str)
+
+    def __init__(self, user_name, global_logger):
+        super().__init__()
+        self.user_name = user_name  # Mã nhân viên (MG001, EM002, MG001)
+        self.global_logger = global_logger
+        self.credentials = {}
+        self.uipath_process = None
+        self.is_running = False
+
+        print(f"🤖 UiPath SAP Automation initialized for {user_name}")
+
+    def load_sap_credentials(self):
+        """Load credentials từ employee_ids.xlsx dựa trên mã nhân viên"""
+        try:
+            excel_path = os.path.join(PROJECT_ROOT, "MG", "employee_ids.xlsx")
+            print(f"🔍 Đang đọc file Excel: {excel_path}")
+
+            if not os.path.exists(excel_path):
+                print(f"❌ Excel file not found: {excel_path}")
+                return self.get_default_credentials()
+
+            df = pd.read_excel(excel_path)
+            print(f"\n📊 Excel loaded: {len(df)} rows")
+            print(f"Columns: {list(df.columns)}")
+
+            if df.empty:
+                print("⚠️ Excel file is empty")
+                return self.get_default_credentials()
+
+            # Chuẩn hóa tên cột
+            df.columns = [str(col).strip().lower() for col in df.columns]
+            print(f"Cleaned columns: {list(df.columns)}")
+
+            # Tìm cột ID (đã đổi tên từ Employee_ID)
+            id_column = None
+            for col in df.columns:
+                if col == 'id' or 'employee' in col or 'mã' in col:
+                    id_column = col
+                    print(f"✅ Found ID column: '{id_column}'")
+                    break
+
+            if not id_column:
+                print("⚠️ No ID column found, checking all columns...")
+                print("\n🔍 ALL DATA IN EXCEL:")
+                print(df.to_string())
+                return self.get_default_credentials()
+
+            # Tìm user theo mã nhân viên (self.user_name)
+            user_code = self.user_name.strip().upper()
+            print(f"\n🔍 Looking for employee ID: '{user_code}'")
+
+            # Chuyển tất cả về string và strip
+            df[id_column] = df[id_column].astype(str).str.strip().str.upper()
+
+            # Tìm chính xác
+            user_row = df[df[id_column] == user_code]
+
+            if user_row.empty:
+                print(f"❌ Employee ID '{user_code}' not found in column '{id_column}'")
+                print(f"Available IDs: {df[id_column].tolist()}")
+                return self.get_default_credentials()
+
+            if not user_row.empty:
+                row = user_row.iloc[0]
+                print(f"✅ Found match for {user_code}")
+
+                # Lấy thông tin đăng nhập từ các cột
+                credentials = {
+                    "username": self.get_column_value(row, ['sap', 'sap_username', 'username', 'user'], ''),
+                    "password": self.get_column_value(row, ['pwd', 'sap_password', 'password', 'pass'], ''),
+                    "client": self.get_column_value(row, ['client', 'sap_client', 'mandt'], '312'),
+                    "language": "EN",
+                    "system": "SAP_ECC",
+                    "employee_code": str(row.get(id_column, user_code)).strip(),
+                    "employee_name": self.get_column_value(row, ['full_name', 'fullname', 'name', 'employee_name'],
+                                                           user_code),
+                    "email": self.get_column_value(row, ['email'], '')
+                }
+
+                print(f"\n🔐 CREDENTIALS FOR {user_code}:")
+                print(f"   SAP Username: {credentials['username']}")
+                print(f"   SAP Password: {'*' * len(credentials['password']) if credentials['password'] else 'EMPTY'}")
+                print(f"   SAP Client: {credentials['client']}")
+                print(f"   Employee: {credentials['employee_name']}")
+
+                # Kiểm tra nếu thiếu thông tin
+                if not credentials['username'] or not credentials['password']:
+                    print(f"⚠️ Missing SAP credentials for {user_code}")
+                    return self.get_default_credentials()
+
+                return credentials
+
+            return self.get_default_credentials()
+
+        except Exception as e:
+            print(f"❌ Error loading credentials: {e}")
+            traceback.print_exc()
+            return self.get_default_credentials()
+
+    def get_column_value(self, row, possible_columns, default_value):
+        """Lấy giá trị từ row dựa trên các tên cột có thể"""
+        for col in possible_columns:
+            if col in row:
+                value = str(row[col]).strip()
+                if value and value.lower() != 'nan' and value != '0':
+                    return value
+
+        # Nếu không tìm thấy, thử tìm không phân biệt hoa thường
+        for actual_col in row.index:
+            if any(target in str(actual_col).lower() for target in possible_columns):
+                value = str(row[actual_col]).strip()
+                if value and value.lower() != 'nan' and value != '0':
+                    return value
+
+        return default_value
+
+    def get_default_credentials(self):
+        """Default credentials"""
+        return {
+            "username": "LEARN-724",
+            "password": "DTKUEL@123",
+            "client": "312",
+            "language": "EN",
+            "system": "SAP_ECC",
+            "employee_code": self.user_name,
+            "employee_name": self.user_name,
+            "email": ""
+        }
+
+    def execute_on_existing_browser(self, webview):
+        """Thực thi tự động đăng nhập TRÊN BROWSER HIỆN TẠI"""
+        try:
+            if not webview:
+                print("❌ No webview available")
+                return False
+
+            self.is_running = True
+            self.automation_started.emit(f"Starting SAP auto-login for {self.user_name}")
+
+            # 1. Load credentials
+            credentials = self.load_sap_credentials()
+            print(f"🔑 Credentials loaded: {credentials['username']}")
+
+            # 2. Lấy URL hiện tại để kiểm tra
+            current_url = webview.url().toString()
+            print(f"🌐 Current URL: {current_url}")
+
+            # 3. Kiểm tra nếu đang ở trang login SAP
+            if not self.is_sap_login_page(current_url):
+                print("ℹ️ Not on SAP login page, waiting for redirection...")
+                # Chờ 3 giây rồi kiểm tra lại
+                QTimer.singleShot(3000, lambda: self.retry_login_check(webview))
+                return True
+
+            # 4. Sử dụng JavaScript để tự động điền form
+            self.execute_javascript_login(webview, credentials)
+
+            return True
+
+        except Exception as e:
+            error_msg = f"UiPath automation error: {str(e)}"
+            print(f"❌ {error_msg}")
+            self.automation_error.emit(error_msg)
+            self.is_running = False
+            return False
+
+    def is_sap_login_page(self, url):
+        """Kiểm tra xem có phải trang login SAP không"""
+        sap_login_indicators = [
+            '/sap/bc/ui2/flp',
+            '/sap/bc/webdynpro/sap/',
+            '/sap/bc/logon',
+            '/sap/public/bc/icf/logon',
+            'sap-system-login',
+            'sap-client'
+        ]
+
+        url_lower = url.lower()
+        return any(indicator in url_lower for indicator in sap_login_indicators)
+
+    def retry_login_check(self, webview):
+        """Thử lại kiểm tra login page"""
+        current_url = webview.url().toString()
+        print(f"🔄 Retry check URL: {current_url}")
+
+        if self.is_sap_login_page(current_url):
+            credentials = self.load_sap_credentials()
+            self.execute_javascript_login(webview, credentials)
+        else:
+            print("⚠️ Still not on SAP login page")
+            self.automation_completed.emit(False, "Could not detect SAP login page")
+
+    def execute_javascript_login(self, webview, credentials):
+        """Thực hiện login bằng JavaScript"""
+        print("🎯 Executing JavaScript login...")
+
+        js_code = self.create_enhanced_javascript(credentials)
+
+        def on_js_result(result):
+            print(f"📊 JavaScript result: {result}")
+            if result:
+                self.automation_completed.emit(True, "Auto-login successful via JavaScript")
+                self.inject_success_notification(webview)
+            else:
+                self.automation_completed.emit(False, "JavaScript login failed")
+                self.show_fallback_instructions(webview)
+
+        # Chạy JavaScript
+        webview.page().runJavaScript(js_code, on_js_result)
+
+    def create_enhanced_javascript(self, credentials):
+        """Tạo JavaScript tự đăng nhập"""
+        username = credentials.get("username", "")
+        password = credentials.get("password", "")
+        client = credentials.get("client", "312")
+        language = credentials.get("language", "EN")
+
+        return f"""
+        (function() {{
+            console.log('🤖 Auto-login SAP...');
+
+            // Tìm tất cả input fields
+            const allInputs = document.querySelectorAll('input');
+
+            // Map credentials to field types
+            const fieldMappings = [
+                {{types: ['sap-client', 'client', 'MANDT'], value: '{client}'}},
+                {{types: ['sap-user', 'user', 'username', 'txtUser'], value: '{username}'}},
+                {{types: ['sap-password', 'password', 'pwd', 'txtPassword'], value: '{password}'}},
+                {{types: ['sap-language', 'language', 'lang'], value: '{language}'}}
+            ];
+
+            let filledCount = 0;
+
+            // Tìm và điền từng field
+            fieldMappings.forEach(mapping => {{
+                let found = false;
+
+                for (const input of allInputs) {{
+                    if (!input || input.type === 'hidden') continue;
+
+                    const name = (input.name || '').toLowerCase();
+                    const id = (input.id || '').toLowerCase();
+                    const placeholder = (input.placeholder || '').toLowerCase();
+                    const className = (input.className || '').toLowerCase();
+
+                    for (const fieldType of mapping.types) {{
+                        const typeLower = fieldType.toLowerCase();
+
+                        if (name.includes(typeLower) || 
+                            id.includes(typeLower) || 
+                            placeholder.includes(typeLower) ||
+                            className.includes(typeLower)) {{
+
+                            console.log('✅ Found field:', fieldType);
+                            input.value = mapping.value;
+
+                            // Kích hoạt events để SAP nhận biết
+                            input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                            input.dispatchEvent(new Event('change', {{ bubbles: true }}));
+
+                            filledCount++;
+                            found = true;
+                            break;
+                        }}
+                    }}
+
+                    if (found) break;
+                }}
+            }});
+
+            console.log('📊 Fields filled:', filledCount);
+
+            if (filledCount > 0) {{
+                // Đợi 0.5 giây rồi tìm nút login
+                setTimeout(() => {{
+                    // Tìm nút login
+                    const allButtons = document.querySelectorAll('button, input[type="submit"], input[type="button"]');
+
+                    const loginKeywords = ['log on', 'login', 'anmelden', 'enter', 'ok', 'submit', 'sign in'];
+
+                    for (const btn of allButtons) {{
+                        if (!btn) continue;
+
+                        const btnText = (btn.textContent || btn.value || btn.innerText || '').toLowerCase().trim();
+                        const btnType = (btn.type || '').toLowerCase();
+                        const btnName = (btn.name || '').toLowerCase();
+
+                        if (btnType === 'submit' || 
+                            loginKeywords.some(keyword => btnText.includes(keyword)) ||
+                            loginKeywords.some(keyword => btnName.includes(keyword))) {{
+
+                            console.log('🎯 Clicking login button');
+                            btn.click();
+                            return true;
+                        }}
+                    }}
+
+                    // Thử submit form nếu không tìm thấy button
+                    const forms = document.querySelectorAll('form');
+                    if (forms.length > 0) {{
+                        console.log('📤 Submitting form');
+                        forms[0].submit();
+                        return true;
+                    }}
+
+                    console.log('⚠️ No login button found');
+                    return false;
+
+                }}, 500);  // Chờ 0.5s
+
+                return true;
+            }} else {{
+                console.log('❌ No fields to fill');
+                return false;
+            }}
+        }})();
+        """
+
+    def show_fallback_instructions(self, webview):
+        """VÔ HIỆU HÓA HOÀN TOÀN - KHÔNG HIỆN GÌ CẢ"""
+        print("⚠️ Fallback disabled - not showing any notification")
+        # KHÔNG CHẠY JAVASCRIPT GÌ CẢ
+
+    def inject_success_notification(self, webview):
+        """Inject JavaScript success notification"""
+        js_code = """
+        console.log('✅ SAP auto-login successful!');
+
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            z-index: 99999;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            animation: slideIn 0.5s ease;
+        `;
+        notification.innerHTML = `
+            <strong>✅ SAP Auto-Login Successful!</strong><br>
+            <small>System completed the login automatically</small>
+        `;
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 5000);
+
+        // Thêm animation style
+        if (!document.getElementById('sap-notification-style')) {
+            const style = document.createElement('style');
+            style.id = 'sap-notification-style';
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        """
+
+        if webview:
+            QTimer.singleShot(1000, lambda: webview.page().runJavaScript(js_code))
+
+    def stop(self):
+        """Dừng automation"""
+        print("🛑 Stopping UiPath automation...")
+        self.is_running = False
+
+        if self.uipath_process:
+            try:
+                self.uipath_process.terminate()
+                print("✅ UiPath process terminated")
+            except:
+                pass
 
 
 # =========================
@@ -317,14 +715,14 @@ class FaceCheckWorker(QThread):
 
 
 # ============================================
-# ENHANCED SAFE BROWSER
+# ENHANCED SAFE BROWSER VỚI SAP AUTO-LOGIN
 # ============================================
 class EnhancedSafeBrowser(ProfessionalWorkBrowser):
-    """Safe Browser chuyên nghiệp tích hợp bảo mật cao"""
+    """Safe Browser chuyên nghiệp tích hợp SAP auto-login"""
 
     def __init__(self, user_name, global_logger, parent_window=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.user_name = user_name
+        self.user_name = user_name  # Mã nhân viên
         self.global_logger = global_logger
         self.parent_window = parent_window
         self.is_closing = False
@@ -336,6 +734,9 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
         self.last_timer_update = time.time()  # Thời điểm cập nhật timer cuối cùng
         self.timer_paused_time = 0  # Thời gian timer bị pause
 
+        # Lấy tên hiển thị từ mã nhân viên
+        self.display_name = self.get_display_name_from_id(user_name)
+
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
             Qt.WindowType.WindowStaysOnTopHint |
@@ -346,7 +747,6 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
 
         # Import face system
         try:
-            # Tìm và import main_face.py
             face_main_path = os.path.join(PROJECT_ROOT, "Face", "main_face.py")
             if os.path.exists(face_main_path):
                 import importlib.util
@@ -367,18 +767,360 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
             traceback.print_exc()
             self.face_system = None
 
+        # Khởi tạo SAP automation
+        self.uipath_automation = UiPathSAPLoginAutomation(user_name, global_logger)
+
+        # Kết nối signals
+        self.uipath_automation.automation_started.connect(self.on_automation_started)
+        self.uipath_automation.automation_completed.connect(self.on_automation_completed)
+        self.uipath_automation.automation_error.connect(self.on_automation_error)
+
         self.tab_widget.currentChanged.connect(self.on_tab_changed)
         self.setup_random_check()
 
         self.global_logger.log_browser_alert(
             event_type="BROWSER_OPEN",
-            details="Professional Workspace Browser started",
+            details="Professional Workspace Browser started with SAP auto-login",
             severity="INFO",
             is_fraud=False
         )
 
         # Ghi nhận thời điểm bắt đầu
         self.session_start_time = time.time()
+
+        # Thêm nút automation sau khi khởi tạo
+        QTimer.singleShot(1000, self.add_automation_buttons)
+
+    def get_display_name_from_id(self, employee_id):
+        """Lấy tên hiển thị từ mã nhân viên"""
+        try:
+            excel_path = os.path.join(PROJECT_ROOT, "MG","employee_ids.xlsx")
+            if os.path.exists(excel_path):
+                df = pd.read_excel(excel_path)
+                # Chuẩn hóa tên cột
+                df.columns = [str(col).strip().lower() for col in df.columns]
+
+                # Tìm cột ID (đã đổi tên từ Employee_ID)
+                id_column = None
+                for col in df.columns:
+                    if col == 'id' or 'employee' in col or 'mã' in col:
+                        id_column = col
+                        break
+
+                if id_column:
+                    # Tìm cột tên
+                    name_column = None
+                    for col in df.columns:
+                        if 'full' in col or 'name' in col:
+                            name_column = col
+                            break
+
+                    if name_column:
+                        # Tìm hàng có mã trùng
+                        for idx, row in df.iterrows():
+                            if str(row[id_column]).strip().upper() == employee_id.upper():
+                                name = str(row[name_column]).strip()
+                                if name and name.lower() != 'nan':
+                                    return name
+        except Exception as e:
+            print(f"⚠️ Error getting display name: {e}")
+
+        return employee_id  # Trả về mã nếu không tìm thấy tên
+
+    def on_automation_started(self, message):
+        """Khi automation bắt đầu"""
+        print(f"📢 {message}")
+        self.show_status_message(f"🤖 {message}", 5000)
+
+    def on_automation_completed(self, success, message):
+        """Khi automation hoàn thành"""
+        if success:
+            print(f"🎉 {message}")
+            self.show_status_message(f"✅ {message}", 5000)
+
+            # Log sự kiện thành công
+            self.global_logger.log_browser_alert(
+                event_type="SAP_AUTO_LOGIN_SUCCESS",
+                details=f"Auto-login successful for {self.display_name}",
+                severity="INFO",
+                is_fraud=False
+            )
+        else:
+            print(f"⚠️ {message}")
+            self.show_status_message(f"⚠️ {message}", 5000)
+
+    def on_automation_error(self, error_msg):
+        """Khi có lỗi"""
+        print(f"❌ {error_msg}")
+        self.show_status_message(f"❌ {error_msg}", 5000)
+
+    def show_status_message(self, message, timeout=3000):
+        """Hiển thị message trên status bar"""
+        try:
+            if hasattr(self, 'status_bar'):
+                self.status_bar.showMessage(message, timeout)
+            elif hasattr(self, 'statusBar'):
+                self.statusBar().showMessage(message, timeout)
+        except:
+            pass
+
+    def setup_sap_automation(self):
+        """Thiết lập SAP automation TRÊN TAB CÓ SẴN"""
+        print("🤖 Setting up SAP automation on existing tab...")
+
+        try:
+            # Tìm tab SAP có sẵn (không tạo tab mới)
+            sap_webview = self.find_sap_webview()
+
+            if sap_webview:
+                print(f"✅ Found SAP webview, setting up automation...")
+
+                # Khi trang load xong, chạy automation
+                sap_webview.loadFinished.connect(
+                    lambda ok: self.on_sap_page_loaded(ok, sap_webview)
+                )
+
+                # Thêm nút automation vào toolbar
+                self.add_automation_buttons()
+
+                # Kiểm tra và tự động đăng nhập nếu đang ở trang login
+                self.check_and_auto_login()
+            else:
+                print("⚠️ No SAP webview found")
+                # Tạo tab SAP mới
+                self.create_sap_tab()
+
+        except Exception as e:
+            print(f"❌ Error setting up SAP automation: {e}")
+
+    def find_sap_webview(self):
+        """Tìm webview SAP có sẵn trong browser"""
+        try:
+            # Tìm tab có chứa "SAP" trong tiêu đề
+            if hasattr(self, 'tab_widget'):
+                for i in range(self.tab_widget.count()):
+                    tab_text = self.tab_widget.tabText(i).lower()
+                    if 'sap' in tab_text or 'login' in tab_text:
+                        print(f"✅ Found SAP tab: {self.tab_widget.tabText(i)}")
+
+                        # Lấy widget từ tab
+                        tab_widget = self.tab_widget.widget(i)
+
+                        # Tìm QWebEngineView trong tab
+                        webview = self.find_webengineview_in_widget(tab_widget)
+                        if webview:
+                            print(f"✅ Found QWebEngineView in SAP tab")
+                            return webview
+
+            print("⚠️ No SAP tab found")
+            return None
+
+        except Exception as e:
+            print(f"❌ Error finding SAP webview: {e}")
+            return None
+
+    def find_webengineview_in_widget(self, widget):
+        """Tìm QWebEngineView trong widget"""
+        try:
+            # Nếu widget là QWebEngineView
+            if isinstance(widget, QWebEngineView):
+                return widget
+
+            # Tìm đệ quy trong children
+            for child in widget.children():
+                result = self.find_webengineview_in_widget(child)
+                if result:
+                    return result
+
+            return None
+        except:
+            return None
+
+    def on_sap_page_loaded(self, ok, webview):
+        """Khi trang SAP load xong"""
+        if ok:
+            current_url = webview.url().toString()
+            print(f"✅ Page loaded: {current_url[:100]}")
+
+            # Chạy JavaScript để debug
+            debug_js = """
+            console.log('=== SAP PAGE DEBUG ===');
+            console.log('Title:', document.title);
+            console.log('Forms:', document.forms.length);
+            document.querySelectorAll('input').forEach((input, i) => {
+                console.log(`Input ${i}:`, {
+                    name: input.name,
+                    id: input.id,
+                    type: input.type,
+                    placeholder: input.placeholder,
+                    className: input.className
+                });
+            });
+            console.log('=====================');
+            return document.forms.length;
+            """
+
+            webview.page().runJavaScript(debug_js, lambda result:
+            print(f"📋 Forms found: {result}"))
+
+            # Kiểm tra và auto-login
+            if self.uipath_automation.is_sap_login_page(current_url):
+                print("🎯 SAP login page detected, starting auto-login in 2s...")
+                QTimer.singleShot(2000, lambda: self.execute_sap_automation(webview))
+            else:
+                print(f"ℹ️ Already logged in or different page: {current_url[:50]}...")
+        else:
+            print("❌ Failed to load SAP page")
+
+    def execute_sap_automation(self, webview):
+        """Thực thi SAP automation TRÊN WEBVIEW CÓ SẴN"""
+        try:
+            if webview:
+                print("🚀 Executing SAP automation on existing webview...")
+
+                # Hiển thị status message
+                self.show_status_message("🤖 Starting SAP auto-login...", 0)
+
+                # Thực thi automation
+                success = self.uipath_automation.execute_on_existing_browser(webview)
+
+                if success:
+                    print("✅ Automation started")
+                else:
+                    print("⚠️ Failed to start automation")
+                    self.show_status_message("⚠️ Automation failed", 3000)
+
+        except Exception as e:
+            print(f"❌ Error executing automation: {e}")
+            self.show_status_message(f"❌ Error: {e}", 3000)
+
+    def add_automation_buttons(self, webview=None):
+        """Thêm nút automation vào toolbar"""
+        try:
+            if not hasattr(self, 'toolbar'):
+                print("⚠️ Toolbar not found")
+                return
+
+            # Xóa các nút cũ nếu có
+            for widget in self.toolbar.findChildren(QPushButton):
+                if widget.text() in ["🔍 Check & Login", "🚀 Force Login", "🤖 Run UiPath", "⏹️ Stop"]:
+                    widget.deleteLater()
+
+            if webview is None:
+                webview = self.find_sap_webview()
+
+            # Nút Kiểm tra & Đăng nhập
+            check_btn = QPushButton("🔍 Check & Login")
+            check_btn.clicked.connect(lambda: self.check_and_auto_login())
+            check_btn.setToolTip("Check if on SAP login page and auto-login")
+
+            # Nút Force Login (thủ công)
+            force_btn = QPushButton("🚀 Force Login")
+            if webview:
+                force_btn.clicked.connect(lambda: self.execute_sap_automation(webview))
+            force_btn.setToolTip("Force auto-login on current page")
+
+            # Style cho nút
+            button_style = """
+                QPushButton {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #667eea, stop:1 #764ba2);
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    padding: 8px 15px;
+                    font-weight: bold;
+                    margin: 2px;
+                }
+                QPushButton:hover {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #764ba2, stop:1 #667eea);
+                    border: 1px solid #3b82f6;
+                }
+                QPushButton:pressed {
+                    background: #555;
+                }
+            """
+
+            check_btn.setStyleSheet(button_style)
+            force_btn.setStyleSheet(button_style)
+
+            self.toolbar.addWidget(check_btn)
+            self.toolbar.addWidget(force_btn)
+            self.toolbar.addSeparator()
+
+            print("✅ Added enhanced automation buttons")
+
+        except Exception as e:
+            print(f"❌ Error adding buttons: {e}")
+
+    def check_and_auto_login(self):
+        """Kiểm tra và tự động đăng nhập"""
+        try:
+            sap_webview = self.find_sap_webview()
+            if sap_webview:
+                # Lấy URL hiện tại
+                current_url = sap_webview.url().toString()
+                print(f"🔍 Current URL in SAP tab: {current_url}")
+
+                if self.uipath_automation.is_sap_login_page(current_url):
+                    print("✅ Detected SAP login page, starting auto-login...")
+                    self.execute_sap_automation(sap_webview)
+                else:
+                    print(f"ℹ️ Not a login page: {current_url[:50]}...")
+
+                    # Thử navigate đến SAP login URL
+                    QTimer.singleShot(2000, lambda: self.navigate_to_sap_login(sap_webview))
+            else:
+                print("⚠️ No SAP webview found")
+                # Tạo tab SAP mới nếu không có
+                self.create_sap_tab()
+
+        except Exception as e:
+            print(f"❌ Error checking login: {e}")
+
+    def navigate_to_sap_login(self, webview):
+        """Navigate đến trang login SAP"""
+        sap_login_url = "https://s36.gb.ucc.cit.tum.de/sap/bc/ui2/flp"
+        webview.setUrl(QUrl(sap_login_url))
+        print(f"🌐 Navigating to SAP login: {sap_login_url}")
+
+        # Đợi load xong rồi chạy automation
+        def on_navigated(ok):
+            if ok:
+                print("✅ Navigation successful, waiting for auto-login...")
+                QTimer.singleShot(2000, lambda: self.execute_sap_automation(webview))
+            else:
+                print("❌ Navigation failed")
+
+        webview.loadFinished.connect(on_navigated)
+
+    def create_sap_tab(self):
+        """Tạo tab SAP mới nếu chưa có"""
+        try:
+            print("➕ Creating new SAP tab...")
+
+            # Tạo webview mới
+            new_webview = QWebEngineView()
+            new_webview.setUrl(QUrl("https://s36.gb.ucc.cit.tum.de/sap/bc/ui2/flp"))
+
+            # Thêm vào tab widget
+            if hasattr(self, 'tab_widget'):
+                tab_index = self.tab_widget.addTab(new_webview, "SAP System")
+                self.tab_widget.setCurrentIndex(tab_index)
+
+                # Đợi load xong
+                new_webview.loadFinished.connect(
+                    lambda ok: self.on_sap_page_loaded(ok, new_webview)
+                )
+
+                # Thêm nút automation mới
+                self.add_automation_buttons(new_webview)
+
+                print("✅ New SAP tab created")
+
+        except Exception as e:
+            print(f"❌ Error creating SAP tab: {e}")
 
     def show_secure(self):
         """Kích hoạt chế độ toàn màn hình bảo mật"""
@@ -454,7 +1196,7 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
             msg_box.setWindowTitle("Random Face Verification")
             msg_box.setIcon(QMessageBox.Icon.Information)
             msg_box.setText(
-                f"🔐 RANDOM IDENTITY CHECK\n\nUser: {self.user_name}\nPlease look straight at the camera.\n\nClick OK to start verification.")
+                f"🔐 RANDOM IDENTITY CHECK\n\nUser: {self.display_name}\nPlease look straight at the camera.\n\nClick OK to start verification.")
             msg_box.addButton("OK", QMessageBox.ButtonRole.AcceptRole)
             msg_box.setWindowFlags(msg_box.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
             msg_box.setWindowFlag(Qt.WindowType.WindowCloseButtonHint, False)
@@ -463,11 +1205,11 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
             if self.face_system is None:
                 print("🎭 Using demo mode...")
                 QMessageBox.information(self, "DEMO Mode",
-                                        f"DEMO: Verified as {self.user_name}\n\nYou may continue working.")
+                                        f"DEMO: Verified as {self.display_name}\n\nYou may continue working.")
                 self.global_logger.log_browser_alert("FACE_CHECK_DEMO", "Demo mode - Verification passed",
                                                      is_fraud=False)
                 self.on_face_check_finished(
-                    {"success": True, "matched": True, "name": self.user_name, "similarity": 0.99})
+                    {"success": True, "matched": True, "name": self.display_name, "similarity": 0.99})
                 return
 
             QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
@@ -489,19 +1231,19 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
                 detected_user = result.get("name")
                 similarity = result.get("similarity", 0)
 
-                if detected_user == self.user_name:
+                if detected_user == self.user_name or detected_user == self.display_name:
                     print(f"✅ User verified: {detected_user}")
                     self.global_logger.log_browser_alert("FACE_CHECK_SUCCESS", f"Confidence: {similarity:.1%}",
                                                          is_fraud=False)
                     QMessageBox.information(self, "Verification Successful",
-                                            f"✅ Verified: {detected_user}\nConfidence: {similarity:.1%}")
+                                            f"✅ Verified: {self.display_name}\nConfidence: {similarity:.1%}")
                     self.resume_after_check_logic(True)
                 else:
                     print(f"❌ User mismatch")
                     self.global_logger.log_browser_alert("FACE_CHECK_MISMATCH", f"Detected: {detected_user}",
                                                          is_fraud=True)
                     QMessageBox.critical(self, "🚨 UNAUTHORIZED",
-                                         f"❌ User mismatch!\nExpected: {self.user_name}\nDetected: {detected_user}")
+                                         f"❌ User mismatch!\nExpected: {self.display_name}\nDetected: {detected_user}")
                     self.resume_after_check_logic(True)
             else:
                 error_msg = result.get("message", "Unknown error")
@@ -767,7 +1509,9 @@ except ImportError as e:
 class HomeWindow(QMainWindow):
     def __init__(self, user_name="User"):
         super().__init__()
-        self.user_name = user_name
+        self.user_name = user_name  # Mã nhân viên (MG001, EM002, MG001)
+        self.display_name = self.get_display_name_from_id(user_name)  # Tên hiển thị
+
         self.ui = Ui_HomeWindow()
         self.ui.setupUi(self)
 
@@ -792,8 +1536,8 @@ class HomeWindow(QMainWindow):
         self.is_working = False
         self.active_window = None  # Track which window is active
 
-        # Cập nhật tên user
-        self.update_user_name(user_name)
+        # Cập nhật tên user (hiển thị tên thay vì mã)
+        self.update_user_name(self.display_name)
 
         # SETUP STYLE CHO TAB HIỆN TẠI
         self.setup_tab_styles()
@@ -823,9 +1567,45 @@ class HomeWindow(QMainWindow):
         self.timer.timeout.connect(self.update_time)
         self.timer.start(1000)
 
-        self.setWindowTitle(f"PowerSight - {user_name}")
+        self.setWindowTitle(f"PowerSight - {self.display_name}")
         self.setWindowFlag(Qt.WindowType.Window, True)
-        print(f"🏠 HomeWindow created for {user_name}")
+        print(f"🏠 HomeWindow created for {self.display_name} ({user_name})")
+
+    def get_display_name_from_id(self, employee_id):
+        """Lấy tên hiển thị từ mã nhân viên"""
+        try:
+            excel_path = os.path.join(PROJECT_ROOT, "MG","employee_ids.xlsx")
+            if os.path.exists(excel_path):
+                df = pd.read_excel(excel_path)
+                # Chuẩn hóa tên cột
+                df.columns = [str(col).strip().lower() for col in df.columns]
+
+                # Tìm cột ID (đã đổi tên từ Employee_ID)
+                id_column = None
+                for col in df.columns:
+                    if col == 'id' or 'employee' in col or 'mã' in col:
+                        id_column = col
+                        break
+
+                if id_column:
+                    # Tìm cột tên
+                    name_column = None
+                    for col in df.columns:
+                        if 'full' in col or 'name' in col:
+                            name_column = col
+                            break
+
+                    if name_column:
+                        # Tìm hàng có mã trùng
+                        for idx, row in df.iterrows():
+                            if str(row[id_column]).strip().upper() == employee_id.upper():
+                                name = str(row[name_column]).strip()
+                                if name and name.lower() != 'nan':
+                                    return name
+        except Exception as e:
+            print(f"⚠️ Error getting display name: {e}")
+
+        return employee_id  # Trả về mã nếu không tìm thấy tên
 
     def setup_tab_styles(self):
         """Setup màu sắc cho các tab - tab hiện tại màu xanh dương nhạt"""
@@ -878,7 +1658,6 @@ class HomeWindow(QMainWindow):
     def on_home_clicked(self):
         """Khi click vào HOME tab"""
         print("🏠 Home tab clicked - Already on home")
-        # Không làm gì vì đang ở home
 
     def update_tab_state(self, active_tab):
         """Cập nhật trạng thái tab khi chuyển đổi"""
@@ -928,13 +1707,12 @@ class HomeWindow(QMainWindow):
     def open_chatbot(self):
         """Mở chatbot"""
         print(f"\n{'=' * 50}")
-        print(f"🚀 OPENING CHATBOT for {self.user_name}")
+        print(f"🚀 OPENING CHATBOT for {self.display_name}")
         print(f"{'=' * 50}")
 
         if EmployeeChatbotGUI is None:
             QMessageBox.critical(self, "Lỗi hệ thống",
-                                 "Không thể tải chatbot system.\n\n"
-                                 )
+                                 "Không thể tải chatbot system.\n\n")
             return
 
         # Đảm bảo lưu dữ liệu trước
@@ -967,7 +1745,7 @@ class HomeWindow(QMainWindow):
             self.showMinimized()
             print("🏠 Home window minimized")
 
-            print(f"✅ Chatbot opened successfully for {self.user_name}")
+            print(f"✅ Chatbot opened successfully for {self.display_name}")
 
         except Exception as e:
             print(f"❌ CRITICAL ERROR opening chatbot: {e}")
@@ -979,7 +1757,7 @@ class HomeWindow(QMainWindow):
     def open_dashboard(self):
         """Mở dashboard"""
         print(f"\n{'=' * 50}")
-        print(f"📊 OPENING DASHBOARD for {self.user_name}")
+        print(f"📊 OPENING DASHBOARD for {self.display_name}")
         print(f"{'=' * 50}")
 
         if PerformanceDashboard is None:
@@ -1020,7 +1798,7 @@ class HomeWindow(QMainWindow):
             self.showMinimized()
             print("🏠 Home window minimized")
 
-            print(f"✅ Dashboard opened successfully for {self.user_name}")
+            print(f"✅ Dashboard opened successfully for {self.display_name}")
 
         except Exception as e:
             print(f"❌ CRITICAL ERROR opening dashboard: {e}")
@@ -1044,20 +1822,23 @@ class HomeWindow(QMainWindow):
             self.ui.label_4.setText(f"Date: {current_date}")
 
     def start_work_session(self):
+        """Bắt đầu session làm việc với SAP auto-login"""
         if self.is_working:
             QMessageBox.information(self, "Session Active", "Work session is already running!")
             return
 
         reply = QMessageBox.question(
             self, "Start Work Session",
-            f"Start secure work session for {self.user_name}?\n\n"
+            f"Start secure work session for {self.display_name}?\n\n"
             "Features included:\n"
-            "✓ Safe Browser (Gmail + SAP)\n"
+            "✓ Professional Workspace Browser\n"
+            "✓ SAP Auto-Login 🤖\n"
             "✓ Mouse Behavior Analysis\n"
             "✓ Random Face Verification\n"
             "✓ Stranger Detection\n"
             "✓ Activity Logging\n"
             "✓ Fraud Detection\n\n"
+            "Hệ thống sẽ tự động đăng nhập SAP System trên tab có sẵn.\n\n"
             "Continue?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
@@ -1074,18 +1855,21 @@ class HomeWindow(QMainWindow):
             if hasattr(self.ui, 'khichle'):
                 self.ui.khichle.setText("🔐 Secure work session active")
 
+            # Log bắt đầu session
             self.global_logger.log_browser_alert(
                 event_type="SESSION_START",
-                details=f"Session started for {self.user_name}",
+                details=f"Session started for {self.display_name} with SAP auto-login",
                 severity="INFO",
                 is_fraud=False
             )
 
+            # Tạo các event cho mouse tracking
             self.stop_event = multiprocessing.Event()
             self.pause_event = multiprocessing.Event()
             self.command_queue = multiprocessing.Queue()
             self.alert_queue = multiprocessing.Queue()
 
+            # Khởi chạy mouse process
             self.mouse_process = multiprocessing.Process(
                 target=mouse_process_entry,
                 args=(
@@ -1102,6 +1886,7 @@ class HomeWindow(QMainWindow):
             self.mouse_process.start()
             print("✅ Mouse process started:", self.mouse_process.pid)
 
+            # Log mouse tracking
             self.global_logger.log_browser_alert(
                 event_type="MOUSE_TRACKING_START",
                 details="Mouse analysis system started",
@@ -1109,6 +1894,7 @@ class HomeWindow(QMainWindow):
                 is_fraud=False
             )
 
+            # Tạo EnhancedSafeBrowser với SAP auto-login
             self.browser_window = EnhancedSafeBrowser(
                 user_name=self.user_name,
                 global_logger=self.global_logger,
@@ -1120,16 +1906,25 @@ class HomeWindow(QMainWindow):
 
             QTimer.singleShot(100, self.browser_window.setup_timer_with_logging)
 
+            # Hiển thị browser fullscreen
             self.browser_window.show_secure()
+
+            # HomeWindow minimized
             self.showMinimized()
             self.active_window = 'browser'
 
+            # Thiết lập SAP automation TRÊN TAB CÓ SẴN
+            QTimer.singleShot(2000, self.browser_window.setup_sap_automation)
+
+            # Log thành công
             self.global_logger.log_browser_alert(
                 event_type="SESSION_START_FULLSCREEN",
-                details="Work session started in fullscreen mode",
+                details="Work session started with SAP automation on existing tab",
                 severity="INFO",
                 is_fraud=False
             )
+
+            print("✅ Work session started with SAP auto-login on existing tab")
 
         except Exception as e:
             print(f"❌ Error starting work session: {e}")
@@ -1155,7 +1950,8 @@ class HomeWindow(QMainWindow):
         msg.setIcon(QMessageBox.Icon.Information)
         msg.setText(
             f"📊 SESSION SUMMARY\n\n"
-            f"User: {summary['user']}\n"
+            f"User: {self.display_name}\n"
+            f"Employee ID: {summary['user']}\n"
             f"Session ID: {summary['session_id']}\n"
             f"Total Alerts: {summary['total_alerts']}\n"
             f"Mouse Entries: {summary['mouse_entries']}\n"
@@ -1176,7 +1972,7 @@ class HomeWindow(QMainWindow):
 
         self.global_logger.log_browser_alert(
             event_type="SESSION_END",
-            details=f"Session ended for {self.user_name}",
+            details=f"Session ended for {self.display_name}",
             severity="INFO",
             is_fraud=False
         )
@@ -1226,6 +2022,7 @@ class HomeWindow(QMainWindow):
         self.showNormal()
         self.raise_()
         self.activateWindow()
+
 
         if hasattr(self.ui, 'khichle'):
             self.ui.khichle.setText("Sẵn sàng")
@@ -1279,9 +2076,6 @@ class HomeWindow(QMainWindow):
         print("✅ HomeWindow closed successfully")
 
 
-# ============================================
-# HÀM MAIN HOÀN CHỈNH
-# ============================================
 def main():
     # 1. Kiểm tra môi trường hệ thống
     if not os.path.exists(SAVED_FILE_DIR):
@@ -1324,42 +2118,31 @@ def main():
     # 4. CHỐT CHẶN AN TOÀN: Khi app sắp tắt, phải hiện lại Taskbar ngay
     app.aboutToQuit.connect(lambda: TaskbarController.set_visibility(True))
 
-    # 5. Đọc thông tin đăng nhập từ file tạm
-    login_file = os.path.join(PROJECT_ROOT, "temp_login.txt")
-    user_name = None
+    # 5. ĐỌC THÔNG TIN TỪ THAM SỐ DÒNG LỆNH (KHÔNG DÙNG FILE TEMP)
+    user_id = None
     user_type = None
 
-    if os.path.exists(login_file):
-        try:
-            with open(login_file, 'r', encoding='utf-8') as f:
-                content = f.read().strip()
-                print(f"📄 Nội dung file login: {content}")
-                parts = content.split(":")
-                if len(parts) == 2:
-                    user_type = parts[0]
-                    user_name = parts[1]
+    if len(sys.argv) >= 3:
+        user_id = sys.argv[1]
+        user_type = sys.argv[2]
 
-                    if user_type == "employee":
-                        print(f"✅ Đã đăng nhập với tư cách NHÂN VIÊN: {user_name}")
-                        # Xóa file tạm
-                        os.remove(login_file)
-                    else:
-                        print(f"❌ Người dùng không phải nhân viên: {user_type}")
-                        user_name = None
-                else:
-                    print("❌ Thông tin đăng nhập không hợp lệ")
-        except Exception as e:
-            print(f"❌ Lỗi đọc file đăng nhập: {e}")
+        if user_type != "employee":
+            print(f"❌ Người dùng không phải nhân viên: {user_type}")
+            QMessageBox.critical(None, "Lỗi đăng nhập",
+                                 f"Bạn không có quyền truy cập vào hệ thống nhân viên.\nLoại user: {user_type}")
+            sys.exit(1)
 
-    if not user_name:
-        print("❌ Không tìm thấy thông tin đăng nhập hợp lệ cho nhân viên")
-        QMessageBox.critical(None, "Lỗi đăng nhập",
-                             "Không tìm thấy thông tin đăng nhập hợp lệ cho nhân viên.\nVui lòng chạy App.py để đăng nhập.")
+        print(f"✅ Đã nhận thông tin từ App.py: {user_id} ({user_type})")
+    else:
+        # Fallback: Thử đọc từ file Excel trực tiếp (cho trường hợp chạy trực tiếp)
+        print("⚠️ Không có tham số dòng lệnh, thử tìm user từ hệ thống...")
+        QMessageBox.warning(None, "Cảnh báo",
+                            "Không tìm thấy thông tin đăng nhập hợp lệ.\nVui lòng chạy App.py để đăng nhập.")
         sys.exit(1)
 
     # 6. Tạo và hiển thị HomeWindow
     try:
-        window = HomeWindow(user_name)
+        window = HomeWindow(user_id)
         window.show()
         exit_code = app.exec()
         sys.exit(exit_code)

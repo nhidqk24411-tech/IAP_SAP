@@ -33,8 +33,8 @@ class GeminiAnalyzer:
 
     # Độ ưu tiên model (cao nhất = 100)
     MODEL_PRIORITY = {
-        "gemini-3-flash-preview": 100,
-        "gemini-3-pro-preview": 95,
+        "gemini-3-pro-preview": 100,
+        "gemini-3-flash-preview": 95,
         "gemini-2.5-flash": 90,
         "gemini-2.5-flash-lite": 85,
         "gemini-2.5-pro": 80,
@@ -180,97 +180,160 @@ class GeminiAnalyzer:
         # Trích xuất thêm insights từ dữ liệu cả năm nếu có
         year_insights = self.extract_year_insights(context_data)
 
+        # Kiểm tra nếu câu hỏi liên quan đến email
+        is_email_request = any(keyword in question.lower() for keyword in [
+            'gửi mail', 'send email', 'gửi email', 'thông báo', 'notify',
+            'thông báo cho', 'inform', 'email cho', 'gửi thư'
+        ])
+
+        # Thêm email guidance nếu cần
+        email_guidance = ""
+        if is_email_request:
+            email_guidance = """
+              🔹 **HƯỚNG DẪN XỬ LÝ YÊU CẦU EMAIL:**
+
+              Người dùng muốn gửi email. Bạn nên:
+
+              1️⃣ **PHÂN TÍCH YÊU CẦU:**
+              - Xác định mục đích: thông báo, cảnh báo, ghi nhận, hay hướng dẫn cải thiện?
+              - Đề xuất nội dung phù hợp dựa trên dữ liệu hiệu suất
+
+              2️⃣ **ĐỀ XUẤT NỘI DUNG:**
+              - Cung cấp mẫu email chuyên nghiệp
+              - Bao gồm các điểm chính cần truyền đạt
+              - Đề xuất timeline và hành động cụ thể
+
+              3️⃣ **HƯỚNG DẪN TIẾP THEO:**
+              - Gợi ý sử dụng chức năng gửi email tích hợp trong chatbot
+              - Nhắc kiểm tra nội dung trước khi gửi
+
+              📧 **MẪU EMAIL MẪU:**
+              ```
+              Tiêu đề: [Loại thông báo] - [Tên nhân viên/department]
+
+              Kính gửi [Tên nhân viên],
+
+              Dựa trên phân tích hiệu suất [thời gian], chúng tôi nhận thấy:
+
+              📊 KẾT QUẢ CHÍNH:
+              - [Điểm mạnh/Thành tích]
+              - [Điểm cần cải thiện]
+              - [Số liệu cụ thể nếu có]
+
+              🎯 ĐỀ XUẤT HÀNH ĐỘNG:
+              1. [Hành động 1 - cụ thể, đo lường được]
+              2. [Hành động 2 - có timeline rõ ràng]
+              3. [Hỗ trợ cần thiết từ quản lý]
+
+              📅 THỜI GIAN: [X] ngày/tuần
+
+              Chúng tôi tin tưởng vào khả năng cải thiện của bạn.
+
+              Trân trọng,
+              [Tên quản lý]
+              ```
+              """
+
         return f"""
-           Bạn là **PowerSight AI** – một **Coach chiến lược, Advisor phân tích dữ liệu và Partner đồng hành phát triển**.
+             Bạn là **PowerSight AI** – một **Coach chiến lược, Advisor phân tích dữ liệu và Partner đồng hành phát triển**.
 
-           Vai trò của bạn không chỉ là trả lời câu hỏi, mà là:
-           - Hiểu **mục tiêu thực sự** đằng sau câu hỏi
-           - Đưa ra **nhận định có chiều sâu dựa trên dữ liệu cả năm**
-           - Đồng hành cùng nhân viên để **ra quyết định tốt hơn và phát triển bền vững**
+             {email_guidance}
 
-           =============================
-           🎯 NGUYÊN TẮC LÀM VIỆC CỐT LÕI
-           =============================
-           - Trả lời **TRỰC TIẾP – ĐÚNG TRỌNG TÂM** trước tiên
-           - Chỉ sử dụng **dữ liệu CÓ GIÁ TRỊ cho quyết định**
-           - **Không liệt kê dữ liệu thừa**, không kể lại báo cáo
-           - Khi dữ liệu chưa đủ: **chỉ rõ khoảng trống và rủi ro**
-           - Phân tích với tư duy của **coach & consultant thực tế**, không lý thuyết giáo khoa
-           - **Phân tích theo xu hướng tháng** khi có dữ liệu cả năm
+             =============================
+             👤 BỐI CẢNH PHÂN TÍCH
+             =============================
+             - Người dùng: {context_data.get('employee_name', 'Chưa xác định')}
+             - Vai trò: {'Quản lý' if context_data.get('is_manager', False) else 'Nhân viên'}
+             - Thời điểm: {context_data.get('data_timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))}
 
-           =============================
-           👤 BỐI CẢNH PHÂN TÍCH
-           =============================
-           - Nhân viên: {context_data.get('employee_name', 'Chưa xác định')}
-           - Thời điểm phân tích: {context_data.get('data_timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))}
+             =============================
+             📊 DỮ LIỆU HIỆN CÓ
+             =============================
+             {basic_insights}
 
-           =============================
-           📊 DỮ LIỆU HIỆN CÓ
-           =============================
-           {basic_insights}
+             {year_insights}
 
-           {year_insights}
+             =============================
+             ❓ CÂU HỎI CỦA NGƯỜI DÙNG
+             =============================
+             "{question}"
 
-           =============================
-           📁 DỮ LIỆU CHI TIẾT CÓ THỂ KHAI THÁC
-           =============================
-           {self.prepare_detailed_data(context_data)}
+             =============================
+             {'📧 HƯỚNG XỬ LÝ CHO EMAIL' if is_email_request else '🧠 PHÂN TÍCH CHUYÊN SÂU'}
+             =============================
+             {'Nếu đây là yêu cầu gửi email, hãy cung cấp mẫu email chi tiết và hướng dẫn sử dụng tính năng gửi email tự động của hệ thống.' if is_email_request else 'Phân tích dựa trên dữ liệu và đưa ra khuyến nghị thực tế.'}
 
-           =============================
-           ❓ VẤN ĐỀ / CÂU HỎI ĐANG ĐƯỢC QUAN TÂM
-           =============================
-           "{question}"
+             =============================
+             📝 CẤU TRÚC TRẢ LỜI
+             =============================
 
-           =============================
-           🧠 CÁCH TIẾP CẬN VẤN ĐỀ (LINH HOẠT THEO NGỮ CẢNH)
-           =============================
+             1️⃣ **TRẢ LỜI TRỰC TIẾP**
+             {'→ Đề xuất nội dung email phù hợp' if is_email_request else '→ 1-2 câu trả lời trọng tâm'}
 
-           🔹 NẾU CÂU HỎI LIÊN QUAN HIỆU SUẤT / PHÁT TRIỂN CÁ NHÂN:
-           - Nhận diện **điểm mạnh cốt lõi cần tiếp tục phát huy**
-           - Chỉ ra **điểm nghẽn lớn nhất đang kìm hiệu suất** (phân tích theo tháng nếu có dữ liệu cả năm)
-           - Đề xuất **1–2 hành động thực tế, có thể triển khai ngay**
-           - Gợi ý **mốc thời gian hợp lý** để thấy kết quả
+             2️⃣ **PHÂN TÍCH DỮ LIỆU**
+             → Sử dụng dữ liệu thực tế để hỗ trợ đề xuất
 
-           🔹 NẾU CÂU HỎI LIÊN QUAN DỮ LIỆU SAP (đơn hàng, doanh thu, lợi nhuận):
-           - Trả lời **đúng số liệu liên quan trực tiếp** (theo tháng nếu có dữ liệu cả năm)
-           - Nhận định **xu hướng & tác động kinh doanh** qua các tháng (nếu có dữ liệu cả năm)
-           - Đề xuất **hướng tối ưu ưu tiên cao**, tránh dàn trải
+             3️⃣ **ĐỀ XUẤT HÀNH ĐỘNG**
+             {'→ Mẫu email chi tiết + hướng dẫn gửi' if is_email_request else '→ 1-3 hành động cụ thể, khả thi'}
 
-           🔹 NẾU CÂU HỎI LIÊN QUAN RỦI RO / GIAN LẬN:
-           - Xác định **nguồn rủi ro từ dữ liệu** (theo tháng nếu có dữ liệu cả năm)
-           - Đánh giá **mức độ ảnh hưởng đến hiệu suất / uy tín**
-           - Đề xuất **biện pháp kiểm soát thực tế**, không hình thức
+             {'4️⃣ **HƯỚNG DẪN KỸ THUẬT**\n→ Hướng dẫn sử dụng tính năng gửi email tích hợp trong chatbot' if is_email_request else ''}
 
-           🔹 NẾU CÂU HỎI LIÊN QUAN MỤC TIÊU / KẾ HOẠCH:
-           - Giúp làm rõ **mục tiêu thực sự cần đạt**
-           - Đề xuất mục tiêu theo **SMART**, tránh mục tiêu ảo
-           - Chỉ rõ **KPI then chốt** và bước đi tiếp theo
+             =============================
+             🎙️ VĂN PHONG
+             =============================
+             - Chuyên nghiệp, thân thiện
+             - Tiếng Việt tự nhiên
+             - Tập trung giải pháp
+             - Đồng hành cùng phát triển
+             """
 
-           =============================
-           📝 CẤU TRÚC CÂU TRẢ LỜI (BẮT BUỘC TUÂN THỦ)
-           =============================
+    def prepare_employee_list(self, employees: list) -> str:
+        """Chuẩn bị danh sách nhân viên cho prompt"""
+        if not employees:
+            return "Không có danh sách nhân viên"
 
-           1️⃣ **TRẢ LỜI TRỰC TIẾP**
-           → 1–2 câu trả lời đúng trọng tâm vấn đề
+        result = []
+        for i, emp in enumerate(employees[:10]):  # Giới hạn 10 nhân viên
+            name = emp.get('name', 'N/A')
+            emp_id = emp.get('id', 'N/A')
+            result.append(f"{i + 1}. {name} (ID: {emp_id})")
 
-           2️⃣ **DỮ LIỆU THEN CHỐT**
-           → Chỉ nêu số liệu ảnh hưởng đến kết luận (có thể theo tháng nếu có dữ liệu cả năm)
+        return "\n".join(result)
 
-           3️⃣ **NHẬN ĐỊNH CHUYÊN GIA**
-           → Phân tích ngắn gọn "vì sao điều này quan trọng"
+    def handle_email_suggestion(self, ai_response):
+        """Phân tích phản hồi AI và hiển thị option gửi email"""
+        if "mẫu email" in ai_response.lower() or "email đề xuất" in ai_response.lower():
+            # Hiển thị button để gửi email
+            self.show_email_action_buttons(ai_response)
 
-           4️⃣ **HÀNH ĐỘNG KHUYẾN NGHỊ**
-           → 1–3 bước cụ thể, khả thi, ưu tiên tác động cao
+    def show_email_action_buttons(self, ai_response):
+        """Hiển thị nút hành động gửi email"""
+        # Tạo button trong chat
+        button_html = """
+        <div style='margin: 10px 0; padding: 15px; background-color: #f0f9ff; border-radius: 8px; border: 1px solid #bae6fd;'>
+            <b>📧 GỬI EMAIL NGAY</b>
+            <p>Bạn muốn gửi email này đến nhân viên?</p>
+            <button onclick='window.pywebview.api.sendEmailNow()' style='
+                background-color: #3b82f6;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 6px;
+                margin-right: 10px;
+                cursor: pointer;
+            '>Gửi ngay</button>
+            <button onclick='window.pywebview.api.customizeEmail()' style='
+                background-color: #f1f5f9;
+                color: #475569;
+                border: 1px solid #e2e8f0;
+                padding: 8px 16px;
+                border-radius: 6px;
+                cursor: pointer;
+            '>Tùy chỉnh</button>
+        </div>
+        """
 
-           =============================
-           🎙️ VĂN PHONG & THÁI ĐỘ
-           =============================
-           - Như một **coach đồng hành**, không phán xét
-           - Như một **advisor dữ liệu**, không cảm tính
-           - Như một **partner**, cùng hướng đến kết quả
-           - Rõ ràng, súc tích, tập trung giải pháp
-           - Tiếng Việt tự nhiên, chuyên nghiệp
-           """
+        self.chat_display.append(button_html)
 
     def extract_year_insights(self, data: Dict[str, Any]) -> str:
         """Trích xuất insights từ dữ liệu cả năm"""

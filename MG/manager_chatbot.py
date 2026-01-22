@@ -3,12 +3,15 @@
 Manager Chatbot - Chatbot version for manager
 Interface synchronized with employee_chatbot
 """
-
+import json
 import sys
 import os
+import requests
 from pathlib import Path
 from datetime import datetime
 import traceback
+
+from MG.email_templates import EmailTemplates
 
 # Add path to import from Chatbot directory
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -54,6 +57,7 @@ class ManagerChatbotGUI(QMainWindow):
     def __init__(self, controller=None, parent=None):
         super().__init__(parent)
         self.controller = controller
+        self.n8n_webhook_url = "https://gain1109.app.n8n.cloud/webhook-test/349efadb-fad2-4589-9827-f99d94e3ac31"
 
         print("🤖 Initializing Manager Chatbot...")
 
@@ -70,6 +74,13 @@ class ManagerChatbotGUI(QMainWindow):
         self.aggregate_data = None
         self.all_employees_data = []
 
+        # Email request state
+        self.email_request_state = {
+            'waiting_confirmation': False,
+            'original_command': '',
+            'email_type': None  # 'specific' or 'all'
+        }
+
         # Application name
         if config_available and Config:
             app_name = Config.APP_NAME
@@ -81,133 +92,487 @@ class ManagerChatbotGUI(QMainWindow):
         # Load initial data
         QTimer.singleShot(1000, self.load_initial_data)
 
-    def get_manager_data_context(self):
-        """Get special data context for manager as dictionary - ENHANCED WITH COMPARISON"""
-        if not self.aggregate_data:
-            return {
-                "status": "no_data",
-                "summary": "No aggregate data yet",
-                "employee_name": "Manager",
-                "data_timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    # ========================== EMAIL CONFIRMATION SYSTEM ==========================
+
+    def check_email_intent(self, user_input):
+        """Phát hiện ý định gửi email từ câu nói"""
+        user_input_lower = user_input.lower()
+
+        # Các từ khóa phát hiện ý định gửi email
+        email_keywords = [
+            'gửi mail', 'gửi email', 'send email', 'email',
+            'thông báo', 'notify', 'thông báo cho', 'inform',
+            'email cho', 'gửi thư', 'mail cho', 'thông báo tới',
+            'nhắn cho', 'liên hệ với', 'contact', 'send mail'
+        ]
+
+        # Kiểm tra từ khóa
+        for keyword in email_keywords:
+            if keyword in user_input_lower:
+                return True
+
+        # Kiểm tra mẫu câu phổ biến
+        email_patterns = [
+            'tôi muốn gửi',
+            'mình muốn gửi',
+            'cần gửi',
+            'hãy gửi',
+            'gửi cho',
+            'thông báo đến',
+            'thông báo tới',
+            'mail tới',
+            'email tới'
+        ]
+
+        for pattern in email_patterns:
+            if pattern in user_input_lower:
+                return True
+
+        return False
+
+    def extract_email_recipients(self, user_input):
+        """Trích xuất thông tin người nhận từ câu nói (nếu có)"""
+        user_input_lower = user_input.lower()
+
+        # Phát hiện gửi cho tất cả
+        all_keywords = ['tất cả', 'mọi người', 'toàn bộ', 'cả team', 'cả phòng', 'all', 'everyone']
+        for keyword in all_keywords:
+            if keyword in user_input_lower:
+                return 'all'
+
+        # Phát hiện gửi cho nhân viên cụ thể
+        # Có thể phân tích tên nhân viên nếu có
+        return 'specific'
+
+    def handle_email_confirmation(self, user_input):
+        """Xử lý phản hồi confirm của người dùng"""
+        if not self.email_request_state['waiting_confirmation']:
+            return False
+
+        user_input_lower = user_input.lower()
+        confirm_keywords = ['có', 'yes', 'y', 'ok', 'oke', 'okay', 'đồng ý', 'chắc chắn', 'được']
+        deny_keywords = ['không', 'no', 'n', 'cancel', 'hủy', 'thôi', 'đừng']
+
+        if any(keyword in user_input_lower for keyword in confirm_keywords):
+            # Người dùng đồng ý
+            self.add_bot_message("✅ Đã xác nhận. Đang mở cửa sổ chọn nhân viên...")
+            self.email_request_state['waiting_confirmation'] = False
+            QTimer.singleShot(500, self.open_employee_selection_dialog)
+            return True
+        elif any(keyword in user_input_lower for keyword in deny_keywords):
+            # Người dùng từ chối
+            self.add_bot_message("❌ Đã hủy yêu cầu gửi email.")
+            self.email_request_state['waiting_confirmation'] = False
+            self.send_button.setEnabled(True)
+            return True
+
+        return False
+
+    def prompt_email_confirmation(self, user_input):
+        """Hiển thị prompt xác nhận gửi email"""
+        email_type = self.extract_email_recipients(user_input)
+
+        if email_type == 'all':
+            confirmation_msg = "⚠️ **XÁC NHẬN GỬI EMAIL**\n\nBạn có chắc chắn muốn gửi email cho TẤT CẢ nhân viên không?\n\nTrả lời: 'Có' hoặc 'Không'"
+        else:
+            confirmation_msg = "⚠️ **XÁC NHẬN GỬI EMAIL**\n\nBạn có muốn mở cửa sổ chọn nhân viên để gửi email không?\n\nTrả lời: 'Có' hoặc 'Không'"
+
+        self.add_bot_message(confirmation_msg)
+
+        # Lưu trạng thái
+        self.email_request_state['waiting_confirmation'] = True
+        self.email_request_state['original_command'] = user_input
+        self.email_request_state['email_type'] = email_type
+
+    # ========================== EMAIL FUNCTIONALITY ==========================
+
+    def handle_email_request(self, user_input):
+        """Xử lý yêu cầu gửi email - CHỈ GỌI KHI ĐÃ CONFIRM"""
+        # Kiểm tra dữ liệu nhân viên
+        if not self.data_processor:
+            self.add_bot_message("❌ **KHÔNG CÓ DATA PROCESSOR**\n\nKhông thể truy cập dữ liệu nhân viên.")
+            self.send_button.setEnabled(True)
+            return
+
+        employees = self.data_processor.get_employee_contact_info()
+        if not employees:
+            self.add_bot_message(
+                "❌ **KHÔNG CÓ DỮ LIỆU NHÂN VIÊN**\n\nKhông thể tìm thấy thông tin nhân viên. Vui lòng kiểm tra file employee_ids.xlsx")
+            self.send_button.setEnabled(True)
+            return
+
+        # Hiển thị dialog chọn nhân viên
+        self.open_employee_selection_dialog()
+
+    def open_employee_selection_dialog(self):
+        """Mở dialog chọn nhân viên để gửi email"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("📧 Gửi Email Cải Thiện Hiệu Suất")
+        dialog.setFixedSize(700, 600)
+
+        layout = QVBoxLayout(dialog)
+
+        # Title
+        title_label = QLabel("GỬI EMAIL CHO NHÂN VIÊN")
+        title_label.setStyleSheet("""
+            font-size: 18px;
+            font-weight: bold;
+            color: #1e40af;
+            padding: 10px;
+            background-color: #f0f9ff;
+            border-radius: 8px;
+            text-align: center;
+        """)
+        layout.addWidget(title_label)
+
+        # Employee list
+        employee_list_label = QLabel("📋 Chọn nhân viên nhận email:")
+        employee_list_label.setStyleSheet("font-weight: bold;")
+        layout.addWidget(employee_list_label)
+
+        self.employee_list_widget = QListWidget()
+        self.employee_list_widget.setSelectionMode(QListWidget.SelectionMode.MultiSelection)
+        self.employee_list_widget.setStyleSheet("""
+            QListWidget {
+                border: 1px solid #e2e8f0;
+                border-radius: 5px;
+                padding: 5px;
             }
+            QListWidget::item {
+                padding: 8px;
+                border-bottom: 1px solid #f1f5f9;
+            }
+            QListWidget::item:selected {
+                background-color: #dbeafe;
+                color: #1e40af;
+            }
+        """)
 
-        # Lấy dữ liệu tháng hiện tại từ monthly_data
-        monthly_data = self.aggregate_data.get('monthly_data', {})
-        current_month = datetime.now().month
-        current_year = datetime.now().year
+        # Load employees từ DataProcessor
+        employees = self.data_processor.get_employee_contact_info()
+        self.employee_data = {}  # Lưu trữ dữ liệu nhân viên
 
-        # Tính revenue tháng này (index = current_month - 1)
-        revenues = monthly_data.get('revenue', [0] * 12)
-        current_month_revenue = revenues[current_month - 1] if current_month <= len(revenues) else 0
+        for emp in employees:
+            item_text = f"👤 {emp['name']}"
+            if emp['id']:
+                item_text += f" (ID: {emp['id']})"
+            if emp['email']:
+                item_text += f"\n   📧 {emp['email']}"
+            if emp.get('department'):
+                item_text += f" | {emp['department']}"
 
-        # Tính orders tháng này
-        orders = monthly_data.get('orders', [0] * 12)
-        current_month_orders = orders[current_month - 1] if current_month <= len(orders) else 0
+            item = QListWidgetItem(item_text)
+            item.setData(Qt.ItemDataRole.UserRole, emp['id'])
+            self.employee_list_widget.addItem(item)
+            self.employee_data[emp['id']] = emp
 
-        # Tính fraud tháng này
-        frauds = monthly_data.get('fraud', [0] * 12)
-        current_month_fraud = frauds[current_month - 1] if current_month <= len(frauds) else 0
+        # Select all button
+        select_all_btn = QPushButton("✅ Chọn tất cả")
+        select_all_btn.clicked.connect(lambda: self.employee_list_widget.selectAll())
+        select_all_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #10b981;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 5px 15px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #059669;
+            }
+        """)
+        layout.addWidget(select_all_btn)
 
-        # Tính profit tháng này
-        profits = monthly_data.get('profit', [0] * 12)
-        current_month_profit = profits[current_month - 1] if current_month <= len(profits) else 0
+        layout.addWidget(self.employee_list_widget)
 
-        # **MỚI: Load comparison data cho tất cả nhân viên**
-        employee_comparison = []
-        top_performers = []
-        bottom_performers = []
+        # Email subject
+        subject_label = QLabel("✏️ Tiêu đề email:")
+        subject_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+        layout.addWidget(subject_label)
 
-        try:
-            if self.data_processor:
-                print("📊 Loading employee comparison data...")
-                employee_comparison = self.data_processor.get_employee_comparison_data(current_year, current_month)
+        self.email_subject = QLineEdit()
+        self.email_subject.setText("Kế hoạch cải thiện hiệu suất công việc")
+        self.email_subject.setStyleSheet("""
+            QLineEdit {
+                padding: 8px;
+                border: 1px solid #e2e8f0;
+                border-radius: 5px;
+            }
+        """)
+        layout.addWidget(self.email_subject)
 
-                # Lấy top và bottom performers
-                if employee_comparison:
-                    top_performers = self.data_processor.get_top_performers(current_year, current_month, 3)
-                    bottom_performers = self.data_processor.get_bottom_performers(current_year, current_month, 3)
+        # Email content
+        content_label = QLabel("📝 Nội dung email (có thể chỉnh sửa):")
+        content_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+        layout.addWidget(content_label)
 
-                    print(f"   ✅ Loaded comparison for {len(employee_comparison)} employees")
-                    print(f"   🏆 Top 3: {[emp['name'] for emp in top_performers]}")
-                    print(f"   ⚠️ Bottom 3: {[emp['name'] for emp in bottom_performers]}")
-        except Exception as e:
-            print(f"⚠️ Error loading comparison data: {e}")
+        self.email_content = QTextEdit()
 
-        # Create comprehensive context similar to employee chatbot
-        return {
-            "status": "ok",
-            "employee_name": "Manager (Team Overview)",
-            "data_timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        # Nội dung mẫu dựa trên dữ liệu thực tế
+        sample_content = """Kính gửi Anh/Chị,
 
-            # Metrics - Tháng hiện tại
-            "metrics": {
-                "total_orders": int(current_month_orders),
-                "completed_orders": int(current_month_orders * 0.95),
-                "pending_orders": int(current_month_orders * 0.05),
-                "completion_rate": 95.0,
-                "total_revenue": float(current_month_revenue),
-                "total_profit": float(current_month_profit),
-                "fraud_count": int(current_month_fraud),
-                "profit_margin": (
-                            current_month_profit / current_month_revenue * 100) if current_month_revenue > 0 else 0,
-                "on_time_delivery": 95.0
-            },
+Dựa trên phân tích hiệu suất công việc, chúng tôi đề xuất kế hoạch cải thiện sau:
 
-            # Summary - Cả năm
-            "summary": {
-                "total_employees": self.aggregate_data.get('total_employees', 0),
-                "employees_with_data": self.aggregate_data.get('employees_with_data', 0),
-                "total_revenue": self.aggregate_data.get('total_revenue', 0),
-                "total_profit": self.aggregate_data.get('total_profit', 0),
-                "total_fraud": self.aggregate_data.get('total_fraud', 0),
-                "average_completion_rate": self.aggregate_data.get('average_completion_rate', 0),
-                "average_overall_score": self.aggregate_data.get('average_overall_score', 0)
-            },
+🎯 TRỌNG TÂM CẢI THIỆN:
+1. Tối ưu hóa quy trình làm việc
+2. Nâng cao hiệu suất xử lý đơn hàng
+3. Giảm thiểu lỗi và gian lận
+4. Cải thiện tỷ suất lợi nhuận
 
-            # Year data - Dữ liệu cả năm
-            "year_data": {
-                "summary": {
-                    "year": current_year,
-                    "months_with_data": 12,
-                    "total_orders": sum(orders),
-                    "total_revenue": sum(revenues),
-                    "total_profit": sum(profits),
-                    "total_fraud": sum(frauds),
-                    "completion_rate": 95.0,
-                    "best_month": revenues.index(max(revenues)) + 1 if revenues and max(revenues) > 0 else 0,
-                    "best_month_revenue": max(revenues) if revenues else 0
-                }
-            },
+📊 CHỈ SỐ MỤC TIÊU:
+- Tăng hiệu suất: 15-20%
+- Giảm lỗi: 30%
+- Cải thiện tỷ lệ hoàn thành: 95%+
 
-            # SAP data structure
-            "sap_data": {
-                "summary": {
-                    "total_orders": int(current_month_orders),
-                    "completed_orders": int(current_month_orders * 0.95),
-                    "pending_orders_count": int(current_month_orders * 0.05),
-                    "total_revenue": float(current_month_revenue),
-                    "total_profit": float(current_month_profit),
-                    "pending_orders": []
-                }
-            },
+🛠️ BIỆN PHÁP:
+• Tham gia đào tạo chuyên môn
+• Áp dụng công cụ mới
+• Tăng cường báo cáo và phản hồi
+• Đánh giá định kỳ hàng tuần
 
-            # Work log data
-            "work_log": {
-                "summary": {
-                    "fraud_count": int(current_month_fraud),
-                    "total_work_hours": 160 * self.aggregate_data.get('employees_with_data', 0),
-                    "critical_count": int(current_month_fraud * 0.3)
-                }
-            },
+📅 THỜI GIAN: 30 ngày tới
+• Tuần 1-2: Triển khai và đào tạo
+• Tuần 3-4: Thực hành và điều chỉnh
+• Tuần 5: Đánh giá tổng kết
 
-            # **MỚI: Employee comparison data**
-            "employee_comparison": employee_comparison,
-            "top_performers": top_performers,
-            "bottom_performers": bottom_performers,
+Chúng tôi sẽ hỗ trợ bạn trong suốt quá trình này. Vui lòng liên hệ nếu có bất kỳ thắc mắc nào.
 
-            "employees": self.get_employee_list() if self.data_processor else [],
-            "is_manager": True
+Trân trọng,
+Quản lý"""
+        self.email_content.setPlainText(sample_content)
+        self.email_content.setStyleSheet("""
+            QTextEdit {
+                border: 1px solid #e2e8f0;
+                border-radius: 5px;
+                padding: 5px;
+                font-family: 'Segoe UI', Arial, sans-serif;
+            }
+        """)
+        layout.addWidget(self.email_content)
+
+        # Buttons
+        button_layout = QHBoxLayout()
+
+        test_btn = QPushButton("🧪 Gửi Test")
+        test_btn.setToolTip("Gửi email test đến chính bạn để kiểm tra")
+        test_btn.clicked.connect(lambda: self.send_test_email(dialog))
+        test_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f59e0b;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 8px 20px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #d97706;
+            }
+        """)
+
+        send_btn = QPushButton("📤 Gửi Email")
+        send_btn.clicked.connect(lambda: self.send_selected_emails(dialog))
+        send_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3b82f6;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 8px 20px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #2563eb;
+            }
+        """)
+
+        cancel_btn = QPushButton("Hủy")
+        cancel_btn.clicked.connect(dialog.reject)
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #ef4444;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 8px 20px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #dc2626;
+            }
+        """)
+
+        button_layout.addWidget(test_btn)
+        button_layout.addStretch()
+        button_layout.addWidget(cancel_btn)
+        button_layout.addWidget(send_btn)
+
+        layout.addLayout(button_layout)
+
+        dialog.exec()
+
+    def send_test_email(self, dialog):
+        """Gửi email test đến chính manager"""
+        test_email = "gameyuno123@gmail.com"  # THAY ĐỔI THÀNH EMAIL CỦA BẠN
+
+        # Tạo dữ liệu đơn giản hơn cho n8n
+        test_data = {
+            "test_mode": True,
+            "timestamp": datetime.now().isoformat(),
+            "to_email": test_email,
+            "subject": f"TEST: {self.email_subject.text()}",
+            "body": self.email_content.toPlainText(),
+            "html_body": EmailTemplates.get_improvement_email_template(
+                employee_name="Test User (Manager)",
+                manager_name="Manager",
+                recommendations=self.email_content.toPlainText(),
+                employee_id="TEST001"
+            )
         }
+
+        # Gửi request đến n8n
+        self.send_to_n8n(test_data, dialog, is_test=True)
+
+    def send_selected_emails(self, dialog):
+        """Gửi email cho nhân viên được chọn"""
+        # Lấy danh sách ID nhân viên được chọn
+        selected_ids = []
+        for i in range(self.employee_list_widget.count()):
+            item = self.employee_list_widget.item(i)
+            if item.isSelected():
+                emp_id = item.data(Qt.ItemDataRole.UserRole)
+                selected_ids.append(emp_id)
+
+        if not selected_ids:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng chọn ít nhất một nhân viên!")
+            return
+
+        # Lấy thông tin chi tiết của nhân viên được chọn
+        employees_info = self.data_processor.get_employee_contact_info(selected_ids)
+
+        # Chuẩn bị dữ liệu gửi đến n8n - Dạng đơn giản cho từng email
+        email_data = {
+            "test_mode": False,
+            "timestamp": datetime.now().isoformat(),
+            "emails": []
+        }
+
+        for emp in employees_info:
+            if not emp.get('email'):
+                print(f"⚠️ Nhân viên {emp['name']} không có email, bỏ qua")
+                continue
+
+            email_data["emails"].append({
+                "to_email": emp['email'],
+                "subject": self.email_subject.text(),
+                "body": self.email_content.toPlainText(),
+                "cc": "legalgiang@gmai.com",
+                "employee_name": emp['name'],
+                "employee_id": emp['id'],
+                "html_body": EmailTemplates.get_improvement_email_template(
+                    employee_name=emp['name'],
+                    manager_name="Manager",
+                    recommendations=self.email_content.toPlainText(),
+                    employee_id=emp['id']
+                )
+            })
+
+        if not email_data["emails"]:
+            QMessageBox.warning(self, "Cảnh báo", "Không có nhân viên nào có địa chỉ email hợp lệ!")
+            return
+
+        # Gửi request đến n8n
+        self.send_to_n8n(email_data, dialog, is_test=False)
+
+    def send_to_n8n(self, email_data, dialog, is_test=False):
+        """Gửi dữ liệu đến n8n webhook với cấu trúc đơn giản"""
+        try:
+            self.status_bar.setText("📤 Đang gửi email...")
+
+            # Gửi từng email riêng biệt để n8n xử lý dễ dàng hơn
+            if is_test:
+                # Test mode - gửi 1 email
+                response = requests.post(
+                    self.n8n_webhook_url,
+                    json=email_data,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=30
+                )
+
+                if response.status_code in [200, 201]:
+                    self.add_bot_message("✅ **ĐÃ GỬI EMAIL TEST THÀNH CÔNG!**\n\nVui lòng kiểm tra hộp thư của bạn.")
+                    dialog.accept()
+                else:
+                    error_msg = f"❌ **LỖI GỬI EMAIL TEST**\n\nMã lỗi: {response.status_code}\nChi tiết: {response.text[:200]}"
+                    self.add_bot_message(error_msg)
+            else:
+                # Production mode - gửi từng email
+                success_count = 0
+                error_count = 0
+
+                for email_item in email_data["emails"]:
+                    try:
+                        # Tạo payload đơn giản cho từng email
+                        payload = {
+                            "test_mode": False,
+                            "timestamp": datetime.now().isoformat(),
+                            "to_email": email_item["to_email"],
+                            "subject": email_item["subject"],
+                            "body": email_item["body"],
+                            "html_body": email_item["html_body"],
+                            "cc": email_item.get("cc", ""),
+                            "employee_name": email_item["employee_name"],
+                            "employee_id": email_item["employee_id"]
+                        }
+
+                        response = requests.post(
+                            self.n8n_webhook_url,
+                            json=payload,
+                            headers={'Content-Type': 'application/json'},
+                            timeout=30
+                        )
+
+                        if response.status_code in [200, 201]:
+                            success_count += 1
+                        else:
+                            error_count += 1
+                            print(f"❌ Lỗi gửi email cho {email_item['employee_name']}: {response.status_code}")
+
+                    except Exception as e:
+                        error_count += 1
+                        print(f"❌ Exception khi gửi email cho {email_item['employee_name']}: {e}")
+
+                # Hiển thị kết quả
+                if success_count > 0:
+                    message = f"✅ **ĐÃ GỬI {success_count}/{len(email_data['emails'])} EMAIL THÀNH CÔNG!**\n\n"
+                    if error_count > 0:
+                        message += f"⚠️ Có {error_count} email gửi thất bại.\n"
+                    self.add_bot_message(message)
+
+                    QMessageBox.information(self, "Thành công",
+                                            f"Đã gửi {success_count} email thành công! {f'Có {error_count} lỗi.' if error_count > 0 else ''}")
+                    dialog.accept()
+                else:
+                    error_msg = "❌ **KHÔNG GỬI ĐƯỢC EMAIL NÀO**\n\nVui lòng kiểm tra kết nối n8n."
+                    self.add_bot_message(error_msg)
+                    QMessageBox.critical(self, "Lỗi", "Không thể gửi email. Vui lòng kiểm tra kết nối n8n.")
+
+        except requests.exceptions.ConnectionError:
+            error_msg = "❌ **KHÔNG THỂ KẾT NỐI ĐẾN n8n**\n\nKiểm tra:\n1. n8n có đang chạy không?\n2. URL webhook có đúng không?\n3. Internet connection"
+            self.add_bot_message(error_msg)
+            QMessageBox.critical(self, "Lỗi kết nối", "Không thể kết nối đến máy chủ n8n.")
+
+        except Exception as e:
+            error_msg = f"❌ **LỖI HỆ THỐNG**\n\n{str(e)}"
+            self.add_bot_message(error_msg)
+            QMessageBox.critical(self, "Lỗi hệ thống", f"Lỗi: {str(e)}")
+
+        finally:
+            self.status_bar.setText("✅ Sẵn sàng")
+            self.send_button.setEnabled(True)
+
+    # ========================== CHAT FUNCTIONALITY ==========================
 
     def initialize_gemini(self):
         """Initialize Gemini Analyzer"""
@@ -397,6 +762,7 @@ class ManagerChatbotGUI(QMainWindow):
             ("⚠️ Team fraud", "fraud events in team"),
             ("👥 Compare employees", "compare performance between employees"),
             ("🎯 Training recommendations", "training recommendations for team"),
+            ("📧 Send emails", lambda: self.handle_quick_action_email()),
             ("🔄 Reload data", self.load_initial_data)
         ]
 
@@ -445,10 +811,15 @@ class ManagerChatbotGUI(QMainWindow):
         self.add_bot_message("• Employee comparison")
         self.add_bot_message("• Training and improvement recommendations")
         self.add_bot_message("• Risk management and bottlenecks")
+        self.add_bot_message("• Sending emails to employees (use 'send email' or click 📧 button)")
 
         if not self.gemini:
             self.add_bot_message(
                 "⚠️ **Note**: Gemini AI is not available. Using DEMO mode.")
+
+    def handle_quick_action_email(self):
+        """Xử lý quick action email button"""
+        self.prompt_email_confirmation("gửi email cho nhân viên")
 
     def add_bot_message(self, message):
         """Add message from bot"""
@@ -609,7 +980,8 @@ class ManagerChatbotGUI(QMainWindow):
 - "What are the main workflow bottlenecks?"
 - "What training does the team need?"
 - "Team revenue this month"
-- "Compare performance between employees" """
+- "Compare performance between employees"
+- "Send email to employees" """
 
         self.add_bot_message(summary)
 
@@ -619,23 +991,26 @@ class ManagerChatbotGUI(QMainWindow):
         if not user_input:
             return
 
-        # Add user message
+        # Add user message to chat
         self.add_user_message(user_input)
         self.input_field.clear()
+
+        # Kiểm tra nếu đang chờ confirm
+        if self.email_request_state['waiting_confirmation']:
+            if self.handle_email_confirmation(user_input):
+                return
+
+        # Kiểm tra nếu là lệnh gửi email
+        if self.check_email_intent(user_input):
+            self.prompt_email_confirmation(user_input)
+            return
+
+        # Nếu không phải lệnh email, xử lý bình thường
         self.send_button.setEnabled(False)
-        self.status_bar.setText("🤔 AI analyzing...")
+        self.status_bar.setText("🤔 AI đang phân tích...")
 
-        # Create data context for manager
+        # Tạo data context
         context_data = self.get_manager_data_context()
-
-        # DEBUG: In ra context để kiểm tra
-        print("\n" + "=" * 70)
-        print("🔍 DEBUG: Context sent to Gemini")
-        print("=" * 70)
-        print(f"Current month revenue: {context_data.get('metrics', {}).get('total_revenue', 0):,.0f}")
-        print(f"Current month orders: {context_data.get('metrics', {}).get('total_orders', 0)}")
-        print(f"Year total revenue: {context_data.get('summary', {}).get('total_revenue', 0):,.0f}")
-        print("=" * 70 + "\n")
 
         # Process with thread to not block UI
         self.chat_thread = ManagerChatThread(self.gemini, user_input, context_data)
@@ -710,7 +1085,7 @@ Cannot connect to AI service:
                 "total_profit": float(current_month_profit),
                 "fraud_count": int(current_month_fraud),
                 "profit_margin": (
-                            current_month_profit / current_month_revenue * 100) if current_month_revenue > 0 else 0,
+                        current_month_profit / current_month_revenue * 100) if current_month_revenue > 0 else 0,
                 "on_time_delivery": 95.0
             },
 
@@ -794,9 +1169,9 @@ class ManagerChatThread(QThread):
                 # DEMO mode for manager
                 import random
                 demo_responses = [
-                    f"**Question:** {self.question}\n\n**Analysis (DEMO):** Team performance is currently stable. Focus on employees with low completion rates to improve.",
-                    f"**Question:** {self.question}\n\n**Analysis (DEMO):** Team data shows need to reduce fraud events. Consider compliance training for entire team.",
-                    f"**Question:** {self.question}\n\n**Analysis (DEMO):** Team revenue is growing well. Focus on top performer employees to replicate success.",
+                    f"**Câu hỏi:** {self.question}\n\n**Phân tích (DEMO):** Hiệu suất team hiện ổn định. Tập trung vào nhân viên có tỷ lệ hoàn thành thấp để cải thiện.",
+                    f"**Câu hỏi:** {self.question}\n\n**Phân tích (DEMO):** Dữ liệu team cho thấy cần giảm sự kiện gian lận. Cân nhắc đào tạo tuân thủ cho toàn team.",
+                    f"**Câu hỏi:** {self.question}\n\n**Phân tích (DEMO):** Doanh thu team đang phát triển tốt. Tập trung vào nhân viên hiệu suất cao để nhân rộng thành công.",
                 ]
                 response = random.choice(demo_responses)
                 self.response_ready.emit(response)

@@ -31,7 +31,7 @@ except ImportError as e:
     # Tạo config mặc định
     class Config:
         BASE_DATA_PATH = r"C:\Users\legal\PycharmProjects\PythonProject\Saved_file"
-        DEFAULT_EMPLOYEE_NAME = "Giang_MG"
+        DEFAULT_EMPLOYEE_NAME = "MG001"
     config_available = False
 
 
@@ -647,7 +647,7 @@ class PerformanceDashboard(QWidget):
         self.revenue_canvas.setStyleSheet("background-color: transparent;")
         self.revenue_canvas.setCursor(Qt.CursorShape.PointingHandCursor)
         self.revenue_canvas.mousePressEvent = lambda event: self.open_chart_dialog(self.revenue_figure,
-                                                                                   "Doanh Thu và Lợi Nhuận Theo Tháng")
+                                                                                   "Doanh EM004 và Lợi Nhuận Theo Tháng")
         layout.addWidget(self.revenue_canvas)
 
         layout.setStretchFactor(self.revenue_canvas, 1)
@@ -2149,7 +2149,7 @@ def main():
     print("=" * 70)
 
     # Tạo và hiển thị dashboard
-    dashboard = PerformanceDashboard("Giang")
+    dashboard = PerformanceDashboard("MG001")
 
     # Lấy kích thước màn hình
     screen = app.primaryScreen()

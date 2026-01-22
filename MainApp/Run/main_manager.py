@@ -6,9 +6,9 @@ GIỮ NGUYÊN 100% TÍNH NĂNG CŨ - CHỈ BỔ SUNG TÍNH TOÁN ĐỘNG
 
 import sys
 import os
+import pandas as pd
 from pathlib import Path
 from datetime import datetime, timedelta
-import pandas as pd
 import numpy as np
 
 # Lấy đường dẫn thư mục gốc (PythonProject)
@@ -83,6 +83,24 @@ class HomeWindow(QMainWindow):
         self.connect_buttons()
         self.update_button_states('home')
 
+        # Cập nhật tên hiển thị
+        self.update_display_name()
+
+    def update_display_name(self):
+        """Cập nhật tên hiển thị từ ID"""
+        try:
+            user_id = self.controller.user_id
+            display_name = self.controller.get_display_name_from_id(user_id)
+
+            if hasattr(self.ui, 'label_7'):
+                self.ui.label_7.setText(f"{display_name}!")
+            if hasattr(self.ui, 'label_5'):
+                self.ui.label_5.setText(f"Welcome, {display_name}")
+
+            self.setWindowTitle(f"PowerSight Manager - {display_name}")
+        except Exception as e:
+            print(f"⚠️ Error updating display name: {e}")
+
     def connect_buttons(self):
         if hasattr(self.ui, 'pushButton_17'):
             self.ui.pushButton_17.clicked.connect(lambda: self.controller.show_manager_chatbot())
@@ -111,13 +129,52 @@ class HomeWindow(QMainWindow):
 
 
 class MainController:
-    def __init__(self):
+    def __init__(self, user_id):
+        self.user_id = user_id  # Mã quản lý (MG001, MG002, etc.)
+        self.display_name = self.get_display_name_from_id(user_id)
+
         self.windows = {'home': None, 'employee_list': None, 'manager_chatbot': None, 'aggregate_dashboard': None}
         self.active_window = None
         # Đường dẫn gốc quan trọng
-        self.base_data_path = r"C:\Users\legal\PycharmProjects\PythonProject\Saved_file"
+        self.base_data_path = os.path.join(root_path, "Saved_file")
         self.data_manager = DataProcessor()
         self.show_home()
+
+    def get_display_name_from_id(self, employee_id):
+        """Lấy tên hiển thị từ mã nhân viên"""
+        try:
+            excel_path = os.path.join(root_path, "employee_ids.xlsx")
+            if os.path.exists(excel_path):
+                df = pd.read_excel(excel_path)
+                # Chuẩn hóa tên cột
+                df.columns = [str(col).strip().lower() for col in df.columns]
+
+                # Tìm cột ID (đã đổi tên từ Employee_ID)
+                id_column = None
+                for col in df.columns:
+                    if col == 'id' or 'employee' in col or 'mã' in col:
+                        id_column = col
+                        break
+
+                if id_column:
+                    # Tìm cột tên
+                    name_column = None
+                    for col in df.columns:
+                        if 'full' in col or 'name' in col:
+                            name_column = col
+                            break
+
+                    if name_column:
+                        # Tìm hàng có mã trùng
+                        for idx, row in df.iterrows():
+                            if str(row[id_column]).strip().upper() == employee_id.upper():
+                                name = str(row[name_column]).strip()
+                                if name and name.lower() != 'nan':
+                                    return name
+        except Exception as e:
+            print(f"⚠️ Error getting display name: {e}")
+
+        return employee_id  # Trả về mã nếu không tìm thấy tên
 
     def show_home(self):
         if self.windows['home'] is None:
@@ -244,6 +301,9 @@ class EmployeeListWindow(QMainWindow):
         self.initialize_combo_boxes()
         self.update_button_states('employee_list')
 
+        # Cập nhật tiêu đề với tên quản lý
+        self.setWindowTitle(f"Employee List - {self.controller.display_name}")
+
     def connect_buttons(self):
         self.ui.pushButton_17.clicked.connect(lambda: self.controller.show_manager_chatbot())
         self.ui.pushButton_9.clicked.connect(lambda: self.controller.show_aggregate_dashboard())
@@ -278,15 +338,20 @@ class EmployeeListWindow(QMainWindow):
         y_filter = self.ui.comboBox.currentData()
         m_filter = self.ui.comboBox_2.currentData()
 
-        raw_employees = self.controller.data_manager.get_all_employees()
+        # Lấy danh sách nhân viên từ thư mục Saved_file
+        employees = self.get_employee_list_from_folders()
         processed_data = []
 
-        for emp in raw_employees:
+        for emp in employees:
+            # Lấy tên hiển thị từ ID
+            display_name = self.controller.get_display_name_from_id(emp['id'])
+
             # Gọi hàm tính toán thực tế
-            calc = self.recalculate_metrics(emp['name'], y_filter, m_filter)
+            calc = self.recalculate_metrics(emp['id'], y_filter, m_filter)
             if calc:
                 processed_data.append({
-                    'name': emp['name'],
+                    'id': emp['id'],
+                    'name': display_name,
                     'path': emp['path'],
                     'has_data': calc['has_data'],
                     'months_count': calc['months_count'],
@@ -296,9 +361,30 @@ class EmployeeListWindow(QMainWindow):
 
         self.initialize_employee_table(processed_data)
 
-    def recalculate_metrics(self, emp_name, year, month):
+    def get_employee_list_from_folders(self):
+        """Lấy danh sách nhân viên từ thư mục Saved_file"""
+        employees = []
+        base_path = self.controller.base_data_path
+
+        if not os.path.exists(base_path):
+            return employees
+
+        # Lấy tất cả thư mục con trong Saved_file
+        for item in os.listdir(base_path):
+            item_path = os.path.join(base_path, item)
+            if os.path.isdir(item_path):
+                # Kiểm tra xem có phải là thư mục nhân viên không (dựa trên prefix)
+                if item.upper().startswith('EM') or item.upper().startswith('NV'):
+                    employees.append({
+                        'id': item,
+                        'path': item_path
+                    })
+
+        return employees
+
+    def recalculate_metrics(self, emp_id, year, month):
         """TÍNH TOÁN CHÍNH XÁC: Doanh thu / 12 tháng hoặc theo số tháng tìm thấy"""
-        emp_folder = os.path.join(self.controller.base_data_path, emp_name)
+        emp_folder = os.path.join(self.controller.base_data_path, emp_id)
         total_rev, total_orders, total_fraud, folders_found = 0, 0, 0, 0
 
         if not os.path.exists(emp_folder):
@@ -318,7 +404,10 @@ class EmployeeListWindow(QMainWindow):
                 if "_" not in folder_name:
                     continue
 
-                f_year, f_month = folder_name.split("_")
+                try:
+                    f_year, f_month = folder_name.split("_")
+                except:
+                    continue
 
                 # Kiểm tra năm
                 if f_year != year_str:
@@ -343,7 +432,7 @@ class EmployeeListWindow(QMainWindow):
                         print(f"⚠️ Lỗi đọc SAP {sap_p}: {e}")
 
                 # Tính Gian lận
-                wl_p = os.path.join(path, f"work_logs_{emp_name}_{folder_name}.xlsx")
+                wl_p = os.path.join(path, f"work_logs_{emp_id}_{folder_name}.xlsx")
                 if os.path.exists(wl_p):
                     try:
                         df_wl = pd.read_excel(wl_p, sheet_name="Fraud_Events")
@@ -392,6 +481,9 @@ class EmployeeListWindow(QMainWindow):
             name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
             self.ui.tableWidget.setItem(i, 0, name_item)
 
+            # Thêm tooltip hiển thị mã nhân viên
+            name_item.setToolTip(f"Mã nhân viên: {emp['id']}")
+
             # 2. Dữ liệu (Màu xanh/đỏ) - Cột 1
             has_d = "Có" if emp['has_data'] else "Không"
             data_item = QTableWidgetItem(has_d)
@@ -429,7 +521,7 @@ class EmployeeListWindow(QMainWindow):
             view_btn.setFixedSize(50, 25)
             view_btn.setStyleSheet("background-color: #3b82f6; color: white; border-radius: 3px; font-size: 11px;")
             # KHI NHẤN XEM: Truyền filter hiện tại vào
-            view_btn.clicked.connect(lambda chk, n=emp['name'], y=y_now, m=m_now:
+            view_btn.clicked.connect(lambda chk, n=emp['id'], y=y_now, m=m_now:
                                      self.controller.show_performance_dashboard(n, y, m))
 
             detail_btn = QPushButton("Chi tiết")
@@ -456,7 +548,7 @@ class EmployeeListWindow(QMainWindow):
         """HIỂN THỊ DIALOG CHI TIẾT - BỎ ĐƯỜNG DẪN"""
         try:
             dialog = QDialog(self)
-            dialog.setWindowTitle(f"Chi tiết - {emp_info['name']}")
+            dialog.setWindowTitle(f"Chi tiết - {emp_info['name']} ({emp_info['id']})")
             dialog.setMinimumSize(500, 400)
             layout = QVBoxLayout(dialog)
             tab_widget = QTabWidget()
@@ -464,7 +556,12 @@ class EmployeeListWindow(QMainWindow):
             # Tab 1: Thông tin
             info_tab = QWidget()
             info_layout = QVBoxLayout(info_tab)
-            info_text = f"<h3>Thông tin nhân viên</h3><p><b>Tên:</b> {emp_info['name']}</p>"
+            info_text = f"""
+            <h3>Thông tin nhân viên</h3>
+            <p><b>Tên:</b> {emp_info['name']}</p>
+            <p><b>Mã nhân viên:</b> {emp_info['id']}</p>
+            <p><b>Loại:</b> {'Nhân viên' if emp_info['id'].upper().startswith('EM') else 'Khác'}</p>
+            """
             info_label = QLabel(info_text)
             info_label.setWordWrap(True)
             info_layout.addWidget(info_label)
@@ -533,38 +630,41 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 
-    # Đọc thông tin đăng nhập từ file tạm
-    login_file = os.path.join(root_path, "temp_login.txt")
-    user_name = None
+    # ĐỌC THÔNG TIN TỪ THAM SỐ DÒNG LỆNH (KHÔNG DÙNG FILE TEMP)
+    user_id = None
     user_type = None
 
-    if os.path.exists(login_file):
-        try:
-            with open(login_file, 'r', encoding='utf-8') as f:
-                content = f.read().strip()
-                print(f"📄 Nội dung file login: {content}")
-                parts = content.split(":")
-                if len(parts) == 2:
-                    user_type = parts[0]
-                    user_name = parts[1]
+    if len(sys.argv) >= 3:
+        user_id = sys.argv[1]
+        user_type = sys.argv[2]
 
-                    if user_type == "manager":
-                        print(f"✅ Đã đăng nhập với tư cách QUẢN LÝ: {user_name}")
-                        # Xóa file tạm
-                        os.remove(login_file)
-                    else:
-                        print(f"❌ Người dùng không phải quản lý: {user_type}")
-                        QMessageBox.critical(None, "Lỗi đăng nhập",
-                                             "Bạn không có quyền truy cập vào hệ thống quản lý.\nVui lòng đăng nhập với tài khoản quản lý.")
-                        sys.exit(1)
-                else:
-                    print("❌ Thông tin đăng nhập không hợp lệ")
-        except Exception as e:
-            print(f"❌ Lỗi đọc file đăng nhập: {e}")
+        if user_type != "manager":
+            QMessageBox.critical(None, "Lỗi đăng nhập",
+                                 f"Bạn không có quyền truy cập vào hệ thống quản lý.\nLoại user: {user_type}")
+            sys.exit(1)
 
-    c = MainController()
-    sys.exit(app.exec())
+        print(f"✅ Đã nhận thông tin từ App.py: {user_id} ({user_type})")
+    else:
+        # Fallback: Thử đọc từ file Excel trực tiếp
+        print("⚠️ Không có tham số dòng lệnh, thử tìm user từ hệ thống...")
+        QMessageBox.critical(None, "Lỗi đăng nhập",
+                             "Không tìm thấy thông tin đăng nhập hợp lệ.\nVui lòng chạy App.py để đăng nhập.")
+        sys.exit(1)
+
+    # Tạo và hiển thị controller với user_id
+    try:
+        controller = MainController(user_id)
+        print(f"🚀 Ứng dụng quản lý đã khởi động cho: {controller.display_name}")
+
+        sys.exit(app.exec())
+    except Exception as e:
+        print(f"❌ Lỗi khi khởi động ứng dụng quản lý: {e}")
+        import traceback
+        traceback.print_exc()
+        QMessageBox.critical(None, "Lỗi hệ thống",
+                             f"Không thể khởi động ứng dụng quản lý:\n{str(e)}")
 
 
 if __name__ == "__main__":
     main()
+

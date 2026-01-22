@@ -18,7 +18,7 @@ except ImportError as e:
 
     class Config:
         BASE_DATA_PATH = r"C:\Users\legal\PycharmProjects\PythonProject\Saved_file"
-        DEFAULT_EMPLOYEE_NAME = "Giang_MG"
+        DEFAULT_EMPLOYEE_NAME = "MG001"
 
 
     config_available = False
@@ -35,6 +35,92 @@ class DataProcessor:
         self.metrics = None
         self.year_data = None
         print(f"🚀 Initializing DataProcessor for: {self.employee_name or 'All employees'}")
+
+    # ========== LOAD DATA BY PERIOD ==========
+
+    def get_employee_contact_info(self, employee_ids=None):
+        """Lấy thông tin liên hệ của nhân viên từ file Excel"""
+        try:
+            # Đường dẫn đến file Excel trong cùng thư mục
+            current_dir = Path(__file__).parent
+            excel_path = current_dir / 'employee_ids.xlsx'
+
+            if not excel_path.exists():
+                print(f"⚠️ File employee info not found: {excel_path}")
+                return self.get_sample_employee_data()
+
+            # Đọc file Excel
+            df = pd.read_excel(excel_path)
+
+            # Chuẩn hóa tên cột (case-insensitive, bỏ khoảng trắng)
+            df.columns = df.columns.str.strip().str.lower()
+
+            # Đổi tên cột 'emai' thành 'email' nếu tồn tại
+            if 'emai' in df.columns:
+                df = df.rename(columns={'emai': 'email'})
+
+            # Đảm bảo các cột bắt buộc tồn tại
+            if 'employee_id' not in df.columns or 'full_name' not in df.columns:
+                print("❌ Thiếu cột bắt buộc: employee_id hoặc full_name")
+                return self.get_sample_employee_data()
+
+            # Nếu không có cột email, tạo cột rỗng
+            if 'email' not in df.columns:
+                df['email'] = ''
+
+            # Lọc theo ID nếu có
+            if employee_ids:
+                # Chuẩn hóa employee_ids thành string
+                employee_ids = [str(id).strip() for id in employee_ids]
+                df = df[df['employee_id'].astype(str).str.strip().isin(employee_ids)]
+
+            # Chuyển thành danh sách dictionary
+            employees = []
+            for _, row in df.iterrows():
+                # Bỏ qua hàng trống
+                if pd.isna(row['employee_id']) or str(row['employee_id']).strip() == '':
+                    continue
+
+                employees.append({
+                    'id': str(row['employee_id']).strip(),
+                    'name': str(row['full_name']).strip(),
+                    'email': str(row['email']).strip() if not pd.isna(row['email']) else ''
+                })
+
+            print(f"✅ Đã tải {len(employees)} nhân viên từ {excel_path.name}")
+
+            # Debug: In ra thông tin nhân viên
+            for emp in employees[:5]:
+                print(f"   - {emp['id']}: {emp['name']} ({emp['email']})")
+
+            return employees
+
+        except Exception as e:
+            print(f"❌ Lỗi đọc thông tin nhân viên: {e}")
+            traceback.print_exc()
+            return self.get_sample_employee_data()
+
+    def get_sample_employee_data(self):
+        """Dữ liệu mẫu khi không có file Excel"""
+        return [
+            {
+                'id': 'MG001',
+                'name': 'MG001',
+                'email': 'gameyuno123@gmail.com',
+            },
+            {
+                'id': 'EM002',
+                'name': 'Nguyen Van A',
+                'email': 'nguyenvana@example.com',
+            },
+            {
+                'id': 'NV003',
+                'name': 'Tran Thi B',
+                'email': 'tranthib@example.com',
+            }
+        ]
+
+    # ... (giữ nguyên các phương thức khác) ...
 
     # ========== LOAD DATA BY PERIOD ==========
     def get_employee_comparison_data(self, year=None, month=None):
