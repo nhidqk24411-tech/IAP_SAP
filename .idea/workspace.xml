@@ -5,45 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="af2765fa-5722-4e4b-b348-4caae5d6a0eb" name="Changes" comment="start">
-      <change afterPath="$PROJECT_DIR$/MG/email_templates.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chatbot/.env" beforeDir="false" afterPath="$PROJECT_DIR$/Chatbot/.env" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chatbot/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/Chatbot/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chatbot/dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/Chatbot/dashboard.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chatbot/data_processor.py" beforeDir="false" afterPath="$PROJECT_DIR$/Chatbot/data_processor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chatbot/employee_chatbot.py" beforeDir="false" afterPath="$PROJECT_DIR$/Chatbot/employee_chatbot.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Chatbot/gemini_analyzer.py" beforeDir="false" afterPath="$PROJECT_DIR$/Chatbot/gemini_analyzer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Face/Save_file/SAP_Credentials.xlsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Face/Save_file/embeddings.npy" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Face/Save_file/ids.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Face/Save_file/names.json" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Face/anh/Giang_MG/z7318687843404_9a726472aa2f1f1e579f101253b97fcf.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/Face/anh/MG001/z7318687843404_9a726472aa2f1f1e579f101253b97fcf.jpg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Face/anh/Giang_MG/z7340594384342_832bfe535efa879dc38cc9fa723d22ce.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/Face/anh/MG001/z7340594384342_832bfe535efa879dc38cc9fa723d22ce.jpg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Face/anh/Kha/699cd11f-4ca7-4040-bba1-037130c4156e.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/Face/anh/EM003/699cd11f-4ca7-4040-bba1-037130c4156e.jpg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Face/anh/Thu/z7312974420011_e045cd4946002c16250b0eae64874708.jpg" beforeDir="false" afterPath="$PROJECT_DIR$/Face/anh/EM004/z7312974420011_e045cd4946002c16250b0eae64874708.jpg" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/MG/dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/MG/dashboard.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/MG/data_processor.py" beforeDir="false" afterPath="$PROJECT_DIR$/MG/data_processor.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/MG/manager_chatbot.py" beforeDir="false" afterPath="$PROJECT_DIR$/MG/manager_chatbot.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/MainApp/Run/App.py" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/Run/App.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/MainApp/Run/main_emp.py" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/Run/main_emp.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/MainApp/Run/main_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/Run/main_manager.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/MainApp/Run/temp_login.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Mouse/Module/real_time_tracker.py" beforeDir="false" afterPath="$PROJECT_DIR$/Mouse/Module/real_time_tracker.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Saved_file/Giang/2026_01/face_captures/SUCCESS_Giang_20260101_172946_038016.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Saved_file/Giang/2026_01/face_captures/SUCCESS_Giang_20260101_173527_442013.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Saved_file/Giang/2026_01/face_captures/SUCCESS_Giang_20260101_174225_030288.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Saved_file/Giang/2026_01/face_captures/SUCCESS_Giang_20260101_175048_840626.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Saved_file/Giang/2026_01/face_captures/SUCCESS_Giang_20260101_175447_883919.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Saved_file/Giang/2026_01/face_captures/SUCCESS_Giang_20260101_180132_265382.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Saved_file/Giang/2026_01/face_captures/SUCCESS_Giang_20260101_180603_804595.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Saved_file/Giang/2026_01/face_captures/SUCCESS_Giang_20260101_181213_007885.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Saved_file/Giang/2026_01/face_captures/SUCCESS_Giang_20260104_194134_690093.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Saved_file/Giang/2026_01/face_captures/SUCCESS_Giang_20260104_194944_698518.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Saved_file/Giang/2026_01/sap_data.xlsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Saved_file/Giang/2026_01/work_logs_Giang_2026_01.xlsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Saved_file/Thu/2026_01/work_logs_Thu_2026_01.xlsx" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/temp_login.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/test.py" beforeDir="false" afterPath="$PROJECT_DIR$/test.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Face/anh/MG001/z7340594384342_832bfe535efa879dc38cc9fa723d22ce.jpg" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -382,7 +345,23 @@
       <option name="project" value="LOCAL" />
       <updated>1768712534675</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL-00013" summary="start">
+      <option name="closed" value="true" />
+      <created>1769085754682</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1769085754682</updated>
+    </task>
+    <task id="LOCAL-00014" summary="start">
+      <option name="closed" value="true" />
+      <created>1769085850297</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1769085850297</updated>
+    </task>
+    <option name="localTasksCounter" value="15" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
