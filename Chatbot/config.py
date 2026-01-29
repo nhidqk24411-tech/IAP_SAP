@@ -29,7 +29,7 @@ class Config:
     TEMPERATURE = float(os.getenv("TEMPERATURE", "0.4"))
 
     # ========== EMPLOYEE ==========
-    DEFAULT_EMPLOYEE_NAME = os.getenv("DEFAULT_EMPLOYEE_NAME", "MG001")
+    DEFAULT_EMPLOYEE_NAME = os.getenv("DEFAULT_EMPLOYEE_NAME", "EM001")
 
     # ========== DEBUG ==========
     DEBUG_MODE = os.getenv("DEBUG_MODE", "true").lower() == "true"

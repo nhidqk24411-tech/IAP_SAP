@@ -55,7 +55,7 @@ class EmployeeChatbotGUI(QMainWindow):
                 self.employee_name = Config.DEFAULT_EMPLOYEE_NAME
             app_name = Config.APP_NAME
         else:
-            self.employee_name = user_name if user_name else "MG001"
+            self.employee_name = user_name if user_name else "EM001"
             app_name = "PowerSight Employee Assistant"
 
         print(f"🤖 Khởi tạo chatbot cho: {self.employee_name}")

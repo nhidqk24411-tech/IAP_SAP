@@ -67,7 +67,15 @@ if 'pydevd' in sys.modules:
     os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     print("⚠️ Debug mode active - applied TensorFlow fixes")
-
+# =========================
+# IMPORT SAP AUTOMATION
+# =========================
+try:
+    from SAP.SAP_automation import SAPDataCollector
+    print("✅ SAP automation imported successfully")
+except ImportError as e:
+    print(f"⚠️ Cannot import SAPDataCollector: {e}")
+    SAPDataCollector = None
 
 # =========================
 # PATH UTILITIES
@@ -128,7 +136,7 @@ class UiPathSAPLoginAutomation(QObject):
 
     def __init__(self, user_name, global_logger):
         super().__init__()
-        self.user_name = user_name  # Mã nhân viên (MG001, EM002, MG001)
+        self.user_name = user_name  # Mã nhân viên (EM001, EM002, EM001)
         self.global_logger = global_logger
         self.credentials = {}
         self.uipath_process = None
@@ -540,6 +548,83 @@ def mouse_process_entry(stop_event, pause_event, command_queue, alert_queue, del
         traceback.print_exc()
 
 
+class SAPBackgroundCollector(QThread):
+    """Thu thập SAP data trong nền - KHÔNG CHẶN UI"""
+
+    finished = pyqtSignal(bool, str)
+    progress = pyqtSignal(str)
+
+    def __init__(self, user_name, save_directory, logger):
+        super().__init__()
+        self.user_name = user_name
+        self.save_directory = save_directory
+        self.logger = logger
+        self.is_running = True
+
+    def run(self):
+        try:
+            if not self.is_running:
+                return
+
+            self.progress.emit("Starting SAP data collection...")
+
+            # Kiểm tra module SAP có tồn tại không
+            if SAPDataCollector is None:
+                self.progress.emit("SAP module not available")
+                self.finished.emit(False, "SAP module not available")
+                return
+
+            # Tạo collector
+            collector = SAPDataCollector(
+                user_name=self.user_name,
+                save_directory=self.save_directory
+            )
+
+            if not self.is_running:
+                return
+
+            self.progress.emit("Connecting to SAP...")
+
+            # Thu thập dữ liệu
+            result = collector.quick_collect()
+
+            if result and os.path.exists(result):
+                self.progress.emit(f"✅ SAP data saved: {os.path.basename(result)}")
+                self.logger.log_alert(
+                    "SAP",
+                    "SAP_DATA_COLLECTED_BACKGROUND",
+                    f"Data collected in background: {os.path.basename(result)}",
+                    "INFO",
+                    is_fraud=False
+                )
+                self.finished.emit(True, result)
+            else:
+                self.progress.emit("❌ Failed to collect SAP data")
+                self.logger.log_alert(
+                    "SAP",
+                    "SAP_DATA_FAILED_BACKGROUND",
+                    "Background collection failed",
+                    "WARNING",
+                    is_fraud=False
+                )
+                self.finished.emit(False, "Collection failed")
+
+        except Exception as e:
+            error_msg = f"Background collection error: {str(e)[:100]}"
+            self.progress.emit(f"❌ {error_msg}")
+            self.logger.log_alert(
+                "SAP",
+                "SAP_DATA_ERROR_BACKGROUND",
+                error_msg,
+                "ERROR",
+                is_fraud=False
+            )
+            self.finished.emit(False, error_msg)
+
+    def stop(self):
+        """Dừng collection"""
+        self.is_running = False
+
 # Import UI
 from MainApp.UI.UI_HOME import Ui_MainWindow as Ui_HomeWindow
 
@@ -558,20 +643,114 @@ class GlobalExcelLogger:
         self.user_name = user_name
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.PATHS = setup_user_directories(user_name)
-        current_date = datetime.now()
-        self.current_year_month = current_date.strftime("%Y_%m")
 
+        # Initialize the lists that were missing
+        self.fraud_events = []  # Initialize fraud events list
+        self.mouse_details = []  # Initialize mouse details list
+
+        # Đường dẫn file SAP data
+        self.sap_data_dir = self.PATHS['monthly']
+
+        # Excel file path
+        current_date = datetime.now().strftime("%Y_%m")
         self.excel_path = os.path.join(
             self.PATHS['monthly'],
-            f"work_logs_{user_name}_{self.current_year_month}.xlsx"
+            f"work_logs_{user_name}_{current_date}.xlsx"
         )
 
-        self.fraud_events = []
-        self.mouse_details = []
-        self.last_save_time = time.time()
-        self.save_interval = 60
+        print(f"🌐 Global logger initialized for: {user_name}")
+        print(f"📊 SAP data directory: {self.sap_data_dir}")
+        print(f"📄 Excel file path: {self.excel_path}")
 
-        print(f"🌐 Global logger initialized: {self.excel_path}")
+        # Kiểm tra .env file
+        self.check_env_file()
+    def check_env_file(self):
+        """Kiểm tra file .env có tồn tại không"""
+        env_path = os.path.join(PROJECT_ROOT, "SAP", ".env")
+        if os.path.exists(env_path):
+            print(f"✅ Found .env file at: {env_path}")
+
+            # Đọc và hiển thị (không hiện password)
+            try:
+                # Thử nhiều encoding phổ biến
+                encodings_to_try = ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252', 'gb2312']
+
+                for encoding in encodings_to_try:
+                    try:
+                        with open(env_path, 'r', encoding=encoding) as f:
+                            content = f.read()
+                        print(f"✅ Successfully read .env with {encoding} encoding")
+
+                        # Xử lý từng dòng
+                        lines = content.split('\n')
+                        for line in lines:
+                            line = line.strip()
+                            if line and not line.startswith('#') and '=' in line:
+                                key = line.split('=')[0].strip()
+                                if 'PASSWORD' not in key.upper():  # Không hiện password
+                                    print(f"   {line}")
+                        break  # Thành công thì dừng
+                    except UnicodeDecodeError:
+                        continue  # Thử encoding tiếp theo
+
+            except Exception as e:
+                print(f"⚠️ Cannot read .env file with any encoding: {e}")
+                # Chỉ in đường dẫn nếu không đọc được
+                print(f"   .env file exists but cannot be read")
+        else:
+            print(f"⚠️ .env file not found at: {env_path}")
+            print("   Please create .env file with SAP_USER and SAP_PASSWORD")
+
+    def collect_sap_data_at_session_end(self):
+        """Thu thập dữ liệu SAP khi kết thúc session"""
+        try:
+            print(f"\n{'=' * 50}")
+            print(f"🤖 STARTING SAP DATA COLLECTION")
+            print(f"   User: {self.user_name}")
+            print(f"   Directory: {self.sap_data_dir}")
+            print(f"{'=' * 50}")
+
+            # Tạo collector với credentials từ .env
+            sap_collector = SAPDataCollector(
+                user_name=self.user_name,
+                save_directory=self.sap_data_dir
+            )
+
+            # Thu thập dữ liệu
+            file_path = sap_collector.quick_collect()
+
+            if file_path and os.path.exists(file_path):
+                print(f"✅ SAP data collected: {file_path}")
+                self.log_alert(
+                    "SAP",
+                    "SAP_DATA_COLLECTED",
+                    f"Data collected at session end: {os.path.basename(file_path)}",
+                    "INFO",
+                    is_fraud=False
+                )
+                return True
+            else:
+                print(f"❌ Failed to collect SAP data")
+                self.log_alert(
+                    "SAP",
+                    "SAP_DATA_FAILED",
+                    "Failed to collect SAP data at session end",
+                    "WARNING",
+                    is_fraud=False
+                )
+                return False
+
+        except Exception as e:
+            print(f"❌ SAP collection error: {e}")
+            traceback.print_exc()
+            self.log_alert(
+                "SAP",
+                "SAP_DATA_ERROR",
+                f"Error during SAP collection: {str(e)[:100]}",
+                "ERROR",
+                is_fraud=False
+            )
+            return False
 
     def log_alert(self, module, event_type, details="", severity="INFO", is_fraud=False):
         """Ghi log cảnh báo - CHỈ LƯU NẾU LÀ GIAN LẬN (is_fraud=True)"""
@@ -611,11 +790,10 @@ class GlobalExcelLogger:
             "Module": "Mouse"
         }
         mouse_entry.update(mouse_data)
-        self.mouse_details.append(mouse_data)
+        self.mouse_details.append(mouse_entry)  # Fixed: append mouse_entry, not mouse_data
 
         if is_fraud:
             self.log_alert("Mouse", event_type, details, severity, is_fraud)
-
     def log_face_alert(self, event_type, details="", severity="INFO", is_fraud=False, **face_data):
         """Ghi log face - CHỈ LƯU NẾU GIAN LẬN"""
         if is_fraud:
@@ -633,6 +811,12 @@ class GlobalExcelLogger:
     def save_to_excel(self):
         """Lưu vào file Excel với 2 sheet"""
         try:
+            # Ensure lists exist
+            if not hasattr(self, 'fraud_events'):
+                self.fraud_events = []
+            if not hasattr(self, 'mouse_details'):
+                self.mouse_details = []
+
             df_fraud = pd.DataFrame(self.fraud_events) if self.fraud_events else pd.DataFrame(columns=[
                 "Timestamp", "Event_Type", "Details", "User", "Session_ID",
                 "Severity", "IsFraud", "Date", "Time", "Module"
@@ -668,12 +852,27 @@ class GlobalExcelLogger:
             print(f"❌ Error saving global log: {e}")
             traceback.print_exc()
             return False
-
     def save_final_data(self):
-        """Lưu dữ liệu cuối cùng"""
-        self.save_to_excel()
-        print(f"✅ Final data saved for user: {self.user_name}")
+        """Lưu dữ liệu cuối cùng - BÂY GIỜ CÓ THÊM SAP"""
+        print(f"\n💾 SAVING FINAL DATA (WITH SAP COLLECTION)")
 
+        # 1. Lưu log data vào Excel
+        log_success = self.save_to_excel()
+
+        # 2. Thu thập dữ liệu SAP (chạy sau để không ảnh hưởng đến log data)
+        sap_success = self.collect_sap_data_at_session_end()
+
+        # Summary
+        if sap_success:
+            print(f"✅ SAP data collected successfully")
+        else:
+            print(f"⚠️ SAP data collection skipped or failed")
+
+        if log_success:
+            print(f"✅ Log data saved: {self.excel_path}")
+
+        print(f"🎉 Final data saved for user: {self.user_name}")
+        return sap_success or log_success
     def get_session_summary(self):
         """Lấy thông tin tổng hợp session"""
         return {
@@ -1362,32 +1561,61 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
             self.show_secure()
 
     def closeEvent(self, event):
-        """Dọn dẹp tài nguyên khi đóng hẳn"""
+        """Tối ưu quá trình đóng browser - ĐÓNG NHANH"""
         if self.is_closing:
-            print("🛑 Closing browser and restoring system...")
+            print("🛑 Fast-closing browser...")
+
+            # 1. Ẩn window ngay lập tức để người dùng thấy nó đã đóng
+            self.hide()
+
+            # 2. Ngừng tất cả timers và workers
+            if hasattr(self, 'check_timer'):
+                self.check_timer.stop()
+
+            if hasattr(self, 'uipath_automation'):
+                try:
+                    self.uipath_automation.stop()
+                except:
+                    pass
+
+            # 3. Đóng tất cả webviews
+            if hasattr(self, 'tab_widget'):
+                for i in range(self.tab_widget.count()):
+                    widget = self.tab_widget.widget(i)
+                    if widget:
+                        try:
+                            # Gọi deleteLater thay vì đóng trực tiếp
+                            widget.deleteLater()
+                        except:
+                            pass
+
+            # 4. Restore taskbar
             TaskbarController.set_visibility(True)
 
-            # Tính thời gian làm việc thực tế cuối cùng
-            current_time = time.time()
-            if hasattr(self, 'timer_widget') and self.timer_widget and self.timer_widget.is_running:
-                self.actual_work_time += (current_time - self.last_timer_update)
+            # 5. Tính toán thời gian nhanh
+            try:
+                current_time = time.time()
+                if hasattr(self, 'timer_widget') and self.timer_widget and self.timer_widget.is_running:
+                    self.actual_work_time += (current_time - self.last_timer_update)
 
-            total_hours = int(self.actual_work_time // 3600)
-            total_minutes = int((self.actual_work_time % 3600) // 60)
-            total_seconds = int(self.actual_work_time % 60)
+                total_hours = int(self.actual_work_time // 3600)
+                total_minutes = int((self.actual_work_time % 3600) // 60)
 
-            self.global_logger.log_browser_alert(
-                event_type="BROWSER_CLOSED",
-                details=f"Secure session ended by user. Actual work time: {total_hours}h {total_minutes}m {total_seconds}s",
-                severity="INFO",
-                is_fraud=False
-            )
+                self.global_logger.log_browser_alert(
+                    event_type="BROWSER_CLOSED",
+                    details=f"Session ended. Work time: {total_hours}h {total_minutes}m",
+                    severity="INFO",
+                    is_fraud=False
+                )
+            except:
+                pass
 
-            if hasattr(self, 'check_timer'): self.check_timer.stop()
-
+            # 6. Gọi parent để lưu SAP data (sẽ chạy trong background)
             if self.parent_window and hasattr(self.parent_window, 'on_browser_closed'):
-                self.parent_window.on_browser_closed()
+                # Gọi sau 100ms để browser có thể đóng hoàn toàn
+                QTimer.singleShot(100, self.parent_window.on_browser_closed)
 
+            print("✅ Browser closed successfully")
             event.accept()
         else:
             event.ignore()
@@ -1509,11 +1737,16 @@ except ImportError as e:
 class HomeWindow(QMainWindow):
     def __init__(self, user_name="User"):
         super().__init__()
-        self.user_name = user_name  # Mã nhân viên (MG001, EM002, MG001)
+        self.user_name = user_name  # Mã nhân viên (EM001, EM002, EM001)
         self.display_name = self.get_display_name_from_id(user_name)  # Tên hiển thị
 
         self.ui = Ui_HomeWindow()
         self.ui.setupUi(self)
+        # Thêm biến cho SAP background collector
+        self.sap_collector = None
+
+        # Đảm bảo dọn dẹp khi đóng
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
         # DISABLE PHÓNG TO và không cho thay đổi kích thước
         self.setWindowFlags(Qt.WindowType.Window |
@@ -1967,9 +2200,10 @@ class HomeWindow(QMainWindow):
             self.global_logger.open_log_file()
 
     def on_browser_closed(self):
-        """Xử lý khi browser đóng"""
-        print("\n🛑 Browser closed by user")
+        """Xử lý khi browser đóng - KHÔNG CHỜ SAP DATA"""
+        print("\n🛑 Browser closed - Starting background cleanup...")
 
+        # 1. Log sự kiện
         self.global_logger.log_browser_alert(
             event_type="SESSION_END",
             details=f"Session ended for {self.display_name}",
@@ -1977,31 +2211,90 @@ class HomeWindow(QMainWindow):
             is_fraud=False
         )
 
-        self.global_logger.save_final_data()
-
+        # 2. Dừng mouse process (có timeout ngắn)
         if self.stop_event:
             self.stop_event.set()
 
         if self.mouse_process:
-            print("⏳ Waiting for mouse process to save data...")
-            self.mouse_process.join(timeout=10)
+            print("⏳ Stopping mouse process...")
+            # Chỉ chờ 3 giây thôi
+            self.mouse_process.join(timeout=3)
 
             if self.mouse_process.is_alive():
-                print("⚠️ Mouse process not responding, terminating...")
-                self.mouse_process.terminate()
-                self.mouse_process.join(timeout=2)
+                print("⚠️ Mouse process still alive, forcing termination...")
+                try:
+                    self.mouse_process.terminate()
+                    self.mouse_process.join(timeout=1)
+                except:
+                    pass
 
-        print("✅ Mouse data saved successfully!")
-        self.reset_ui()
+        # 3. Lưu log data NGAY LẬP TỨC (không chờ SAP)
+        print("\n💾 Saving log data immediately...")
+        log_success = self.global_logger.save_to_excel()
+
+        if log_success:
+            print("✅ Log data saved")
+        else:
+            print("⚠️ Failed to save log data")
+
+        # 4. Chạy SAP data collection TRONG BACKGROUND (không chờ)
+        print("🤖 Starting SAP data collection in background...")
+
+        # Tạo và chạy background collector
+        self.sap_collector = SAPBackgroundCollector(
+            user_name=self.user_name,
+            save_directory=self.global_logger.PATHS['monthly'],
+            logger=self.global_logger
+        )
+
+        def on_sap_finished(success, message):
+            """Callback khi SAP collection hoàn thành"""
+            if success:
+                print(f"✅ Background SAP collection successful: {message}")
+                # Có thể hiển thị thông báo nhỏ ở đây nếu muốn
+            else:
+                print(f"⚠️ Background SAP collection failed: {message}")
+
+        self.sap_collector.finished.connect(on_sap_finished)
+        self.sap_collector.start()
+
+        # 5. Reset UI NGAY LẬP TỨC
+        self.reset_ui_immediately()
+
+        # 6. Hiển thị thông báo nhanh
+        QMessageBox.information(
+            self,
+            "Session Ended",
+            f"✅ Session ended for {self.display_name}\n\n"
+            f"✓ Mouse tracking stopped\n"
+            f"✓ Log data saved\n"
+            f"✓ SAP data collection started in background\n\n"
+            f"You can continue using other features.\n"
+            f"SAP data will be saved automatically."
+        )
+
+        print("✅ Browser cleanup completed (non-blocking)")
+        self.showNormal()
+        self.activateWindow()
+
+    def reset_ui_immediately(self):
+        """Reset UI ngay lập tức"""
+        self.is_working = False
+        self.ui.pushButton_8.setText("Start")
+        self.ui.pushButton_8.setEnabled(True)
+        self.ui.pushButton_5.setEnabled(False)
+        self.ui.pushButton_6.setEnabled(False)
+
+        # Clean up references
         self.mouse_process = None
         self.stop_event = None
         self.pause_event = None
         self.command_queue = None
         self.alert_queue = None
         self.browser_window = None
-        print("✅ Session cleanup completed.")
-        self.showNormal()
-        self.activateWindow()
+
+        if hasattr(self.ui, 'khichle'):
+            self.ui.khichle.setText("Session ended. Ready for next session.")
 
     def reset_ui(self):
         """Reset UI về trạng thái ban đầu"""
@@ -2041,41 +2334,40 @@ class HomeWindow(QMainWindow):
             self.ui.khichle.setText("Sẵn sàng")
 
     def closeEvent(self, event):
-        """Xử lý khi đóng HomeWindow"""
-        print("\n🛑 HomeWindow close event")
+        """Xử lý khi đóng HomeWindow - Dọn dẹp tất cả"""
+        print("\n🛑 HomeWindow closing - Cleaning up everything...")
         TaskbarController.set_visibility(True)
 
-        # Đóng chatbot nếu đang mở
+        # Dừng SAP collector nếu đang chạy
+        if self.sap_collector and self.sap_collector.isRunning():
+            print("   Stopping SAP background collector...")
+            self.sap_collector.stop()
+            self.sap_collector.quit()
+            self.sap_collector.wait(1000)  # Chờ tối đa 1 giây
+
+        # Đóng các cửa sổ con
         if self.chatbot_window:
             try:
-                print("   Closing chatbot window...")
                 self.chatbot_window.close()
-                self.chatbot_window = None
             except:
                 pass
 
-        # Đóng dashboard nếu đang mở
         if self.dashboard_window:
             try:
-                print("   Closing dashboard window...")
                 self.dashboard_window.close()
-                self.dashboard_window = None
             except:
                 pass
 
-        # Kiểm tra work session
-        if self.is_working and self.browser_window:
-            self.browser_window.show()
-            self.browser_window.activateWindow()
-            QMessageBox.warning(self, "Không thể đóng",
-                                "Không thể đóng Home khi session đang chạy.\nVui lòng đóng browser trước.")
-            event.ignore()
-            return
+        # Đảm bảo mouse process được dọn dẹp
+        if self.mouse_process and self.mouse_process.is_alive():
+            try:
+                self.mouse_process.terminate()
+                self.mouse_process.join(timeout=1)
+            except:
+                pass
 
         event.accept()
-        print("✅ HomeWindow closed successfully")
-
-
+        print("✅ HomeWindow closed cleanly")
 def main():
     # 1. Kiểm tra môi trường hệ thống
     if not os.path.exists(SAVED_FILE_DIR):
@@ -2120,7 +2412,6 @@ def main():
 
     # 5. ĐỌC THÔNG TIN TỪ THAM SỐ DÒNG LỆNH (KHÔNG DÙNG FILE TEMP)
     user_id = None
-    user_type = None
 
     if len(sys.argv) >= 3:
         user_id = sys.argv[1]

@@ -11,8 +11,14 @@ from pathlib import Path
 from datetime import datetime, timedelta
 import numpy as np
 
-# Lấy đường dẫn thư mục gốc (PythonProject)
-root_path = Path(__file__).parent.parent
+# SỬA: Lấy đường dẫn thư mục gốc đúng cách
+current_file = Path(__file__).resolve()
+# Đi từ: C:\Users\legal\PycharmProjects\PythonProject\MainApp\MG\main_manager.py
+# Đến: C:\Users\legal\PycharmProjects\PythonProject
+root_path = current_file.parent.parent.parent
+
+print(f"📁 Root path: {root_path}")
+
 # Thêm thư mục Chatbot vào hệ thống tìm kiếm của Python
 sys.path.append(str(root_path / "MG"))
 
@@ -35,15 +41,21 @@ except ImportError as e:
 # Mock class phòng trường hợp không có module
 if not data_manager_available:
     class DataProcessor:
-        def __init__(self, employee_name=None): self.employee_name = employee_name
+        def __init__(self, employee_name=None):
+            self.employee_name = employee_name
+            self.base_path = Path(root_path) / "Saved_file"
 
-        def get_all_employees(self): return []
+        def get_employees_for_list(self):
+            return []
 
-        def load_all_data(self): return False
+        def load_all_data(self):
+            return False
 
-        def get_summary_data(self): return {'metrics': {}, 'sap': {}, 'work_log': {}}
+        def get_summary_data(self):
+            return {'metrics': {}, 'sap': {}, 'work_log': {}}
 
-        def get_context_data(self): return {}
+        def get_context_data(self):
+            return {}
 
 try:
     from MG.manager_chatbot import ManagerChatbotGUI
@@ -130,13 +142,34 @@ class HomeWindow(QMainWindow):
 
 class MainController:
     def __init__(self, user_id):
-        self.user_id = user_id  # Mã quản lý (MG001, MG002, etc.)
+        self.user_id = user_id  # Mã quản lý (EM001, MG002, etc.)
         self.display_name = self.get_display_name_from_id(user_id)
 
         self.windows = {'home': None, 'employee_list': None, 'manager_chatbot': None, 'aggregate_dashboard': None}
         self.active_window = None
-        # Đường dẫn gốc quan trọng
+
+        # ĐƯỜNG DẪN ĐÚNG: C:\Users\legal\PycharmProjects\PythonProject\Saved_file
         self.base_data_path = os.path.join(root_path, "Saved_file")
+
+        print(f"🎯 Đường dẫn dữ liệu: {self.base_data_path}")
+        print(f"   Tồn tại: {os.path.exists(self.base_data_path)}")
+
+        # Kiểm tra nội dung thư mục
+        if os.path.exists(self.base_data_path):
+            try:
+                items = os.listdir(self.base_data_path)
+                print(f"📁 Nội dung Saved_file: {len(items)} items")
+                for item in items:
+                    item_path = os.path.join(self.base_data_path, item)
+                    is_dir = os.path.isdir(item_path)
+                    print(f"   - {item} {'(Thư mục)' if is_dir else '(File)'}")
+            except Exception as e:
+                print(f"⚠️ Không thể đọc thư mục: {e}")
+        else:
+            print(f"⚠️ Thư mục Saved_file không tồn tại!")
+            print(f"   Vui lòng tạo thư mục: {self.base_data_path}")
+            print(f"   Và thêm các thư mục nhân viên (EM001, EM002, ...) vào đó")
+
         self.data_manager = DataProcessor()
         self.show_home()
 
@@ -144,12 +177,14 @@ class MainController:
         """Lấy tên hiển thị từ mã nhân viên"""
         try:
             excel_path = os.path.join(root_path, "employee_ids.xlsx")
+
             if os.path.exists(excel_path):
                 df = pd.read_excel(excel_path)
+
                 # Chuẩn hóa tên cột
                 df.columns = [str(col).strip().lower() for col in df.columns]
 
-                # Tìm cột ID (đã đổi tên từ Employee_ID)
+                # Tìm cột ID
                 id_column = None
                 for col in df.columns:
                     if col == 'id' or 'employee' in col or 'mã' in col:
@@ -167,10 +202,10 @@ class MainController:
                     if name_column:
                         # Tìm hàng có mã trùng
                         for idx, row in df.iterrows():
-                            if str(row[id_column]).strip().upper() == employee_id.upper():
-                                name = str(row[name_column]).strip()
-                                if name and name.lower() != 'nan':
-                                    return name
+                            current_id = str(row[id_column]).strip().upper() if not pd.isna(row[id_column]) else ""
+                            if current_id == employee_id.upper():
+                                name = str(row[name_column]).strip() if not pd.isna(row[name_column]) else employee_id
+                                return name
         except Exception as e:
             print(f"⚠️ Error getting display name: {e}")
 
@@ -235,7 +270,6 @@ class MainController:
                 dashboard.destroyed.connect(on_closed)
 
                 self.windows[key] = dashboard
-                print(f"✅ Đã tạo dashboard cho {employee_name} với bộ lọc: Năm={year}, Tháng={month_code}")
 
             # Hiển thị cửa sổ
             self.windows[key].show()
@@ -288,6 +322,7 @@ class EmployeeListWindow(QMainWindow):
         self.ui.setupUi(self)
         self.setWindowTitle("Employee List - PowerSight Manager")
 
+
         # Disable nút phóng to
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowMaximizeButtonHint)
 
@@ -295,7 +330,7 @@ class EmployeeListWindow(QMainWindow):
         if hasattr(self.ui, 'comboBox_3'):
             self.ui.comboBox_3.hide()
         if hasattr(self.ui, 'label_9'):
-            self.ui.label_9.hide()  # Giả định label Tuần
+            self.ui.label_9.hide()
 
         self.connect_buttons()
         self.initialize_combo_boxes()
@@ -304,13 +339,36 @@ class EmployeeListWindow(QMainWindow):
         # Cập nhật tiêu đề với tên quản lý
         self.setWindowTitle(f"Employee List - {self.controller.display_name}")
 
+        # Khởi tạo danh sách nhân viên
+        self.all_employees = []
+        self.current_display_data = []
+
+        self.ui.lineEdit.setFocus()
+
+    def reload_full_list(self):
+        """Hiển thị lại danh sách đầy đủ"""
+        # Xóa nội dung tìm kiếm
+        self.ui.lineEdit.clear()
+
+        # Áp dụng bộ lọc hiện tại để tải lại dữ liệu
+        self.apply_filters()
+
+        # Hiển thị thông báo
+        QMessageBox.information(self, "Thông báo", "Đã tải lại danh sách nhân viên đầy đủ")
+
     def connect_buttons(self):
         self.ui.pushButton_17.clicked.connect(lambda: self.controller.show_manager_chatbot())
         self.ui.pushButton_9.clicked.connect(lambda: self.controller.show_aggregate_dashboard())
         self.ui.pushButton_8.setEnabled(False)
         self.ui.pushButton_6.clicked.connect(lambda: self.controller.show_home())
+
+        # Kết nối nút tìm kiếm
         if hasattr(self.ui, 'pushButton_15'):
             self.ui.pushButton_15.clicked.connect(self.search_employee)
+
+        # Kết nối Enter trong lineEdit để tìm kiếm
+        if hasattr(self.ui, 'lineEdit'):
+            self.ui.lineEdit.returnPressed.connect(self.search_employee)
 
     def initialize_combo_boxes(self):
         """Khởi tạo ComboBox Năm và Tháng với 4 năm gần nhất"""
@@ -335,34 +393,50 @@ class EmployeeListWindow(QMainWindow):
 
     def apply_filters(self):
         """Hàm nòng cốt: Tính toán lại dựa trên Năm/Tháng được chọn"""
-        y_filter = self.ui.comboBox.currentData()
-        m_filter = self.ui.comboBox_2.currentData()
+        try:
+            y_filter = self.ui.comboBox.currentData()
+            m_filter = self.ui.comboBox_2.currentData()
 
-        # Lấy danh sách nhân viên từ thư mục Saved_file
-        employees = self.get_employee_list_from_folders()
-        processed_data = []
+            # Lấy danh sách nhân viên từ thư mục Saved_file
+            employees = self.get_employee_list_from_folders()
 
-        for emp in employees:
-            # Lấy tên hiển thị từ ID
-            display_name = self.controller.get_display_name_from_id(emp['id'])
+            if not employees:
+                self.show_no_employees_message()
+                return
 
-            # Gọi hàm tính toán thực tế
-            calc = self.recalculate_metrics(emp['id'], y_filter, m_filter)
-            if calc:
-                processed_data.append({
-                    'id': emp['id'],
-                    'name': display_name,
-                    'path': emp['path'],
-                    'has_data': calc['has_data'],
-                    'months_count': calc['months_count'],
-                    'score': calc['overall_score'],
-                    'all_metrics': calc  # Lưu lại để dùng cho Dialog Chi tiết
-                })
+            processed_data = []
 
-        self.initialize_employee_table(processed_data)
+            for emp in employees:
+                # Gọi hàm tính toán thực tế
+                calc = self.recalculate_metrics(emp['id'], y_filter, m_filter)
+                if calc:
+                    processed_data.append({
+                        'id': emp['id'],
+                        'name': emp['name'],
+                        'path': emp.get('path', ''),
+                        'has_data': calc['has_data'],
+                        'months_count': calc['months_count'],
+                        'score': calc['overall_score'],
+                        'all_metrics': calc
+                    })
+
+            if not processed_data:
+                self.show_no_data_message()
+                return
+
+            # Lưu danh sách để tìm kiếm
+            self.all_employees = processed_data.copy()
+            self.current_display_data = processed_data.copy()
+
+            self.initialize_employee_table(processed_data)
+
+        except Exception as e:
+            print(f"❌ Lỗi trong apply_filters: {e}")
+            import traceback
+            traceback.print_exc()
 
     def get_employee_list_from_folders(self):
-        """Lấy danh sách nhân viên từ thư mục Saved_file"""
+        """Lấy danh sách nhân viên từ thư mục Saved_file - CHỈ LẤY NHÂN VIÊN (EM)"""
         employees = []
         base_path = self.controller.base_data_path
 
@@ -370,15 +444,26 @@ class EmployeeListWindow(QMainWindow):
             return employees
 
         # Lấy tất cả thư mục con trong Saved_file
-        for item in os.listdir(base_path):
-            item_path = os.path.join(base_path, item)
-            if os.path.isdir(item_path):
-                # Kiểm tra xem có phải là thư mục nhân viên không (dựa trên prefix)
-                if item.upper().startswith('EM') or item.upper().startswith('NV'):
-                    employees.append({
-                        'id': item,
-                        'path': item_path
-                    })
+        try:
+            items = os.listdir(base_path)
+
+            for item in items:
+                item_path = os.path.join(base_path, item)
+
+                if os.path.isdir(item_path):
+                    # CHỈ LẤY NHÂN VIÊN (bắt đầu bằng EM)
+                    if item.upper().startswith('EM'):
+                        # Lấy tên hiển thị từ ID
+                        display_name = self.controller.get_display_name_from_id(item)
+
+                        employees.append({
+                            'id': item,
+                            'name': display_name,
+                            'path': item_path
+                        })
+
+        except Exception as e:
+            print(f"❌ Lỗi khi đọc thư mục: {e}")
 
         return employees
 
@@ -399,8 +484,10 @@ class EmployeeListWindow(QMainWindow):
         else:
             years_to_check = [str(year)]
 
-        for year_str in years_to_check:
-            for folder_name in os.listdir(emp_folder):
+        try:
+            subfolders = os.listdir(emp_folder)
+
+            for folder_name in subfolders:
                 if "_" not in folder_name:
                     continue
 
@@ -410,7 +497,7 @@ class EmployeeListWindow(QMainWindow):
                     continue
 
                 # Kiểm tra năm
-                if f_year != year_str:
+                if f_year not in years_to_check:
                     continue
 
                 # Kiểm tra tháng
@@ -440,21 +527,22 @@ class EmployeeListWindow(QMainWindow):
                             if 'IsFraud' in df_wl.columns:
                                 total_fraud += len(df_wl[df_wl['IsFraud'] == 1])
                             else:
-                                # Nếu không có cột IsFraud, đếm tất cả
                                 total_fraud += len(df_wl)
                     except Exception as e:
                         print(f"⚠️ Lỗi đọc Work Log {wl_p}: {e}")
 
                 folders_found += 1
 
-        # LOGIC TÍNH ĐIỂM TB (Công thức mẫu để bạn điều chỉnh)
-        # Giả sử 1 tháng mục tiêu doanh thu là 10M
+        except Exception as e:
+            print(f"     ❌ Lỗi khi duyệt thư mục: {e}")
+
+        # LOGIC TÍNH ĐIỂM TB
         if folders_found > 0:
             target_per_month = 10000000  # 10 Triệu
             rev_score = (total_rev / (target_per_month * folders_found)) * 100
             rev_score = min(100, rev_score)
 
-            fraud_penalty = (total_fraud / folders_found) * 20  # Mỗi lỗi/tháng trừ 20đ
+            fraud_penalty = (total_fraud / folders_found) * 20
             overall = max(0, rev_score - fraud_penalty)
         else:
             overall = 0
@@ -470,82 +558,121 @@ class EmployeeListWindow(QMainWindow):
 
     def initialize_employee_table(self, data):
         """VẼ BẢNG: BỎ CỘT ĐƯỜNG DẪN, CHỈ CÒN 5 CỘT"""
-        self.ui.tableWidget.setRowCount(len(data))
-        self.ui.tableWidget.setColumnCount(5)  # Bỏ cột đường dẫn
-        headers = ['Tên nhân viên', 'Có dữ liệu', 'Số tháng', 'Điểm TB', 'Hành động']
-        self.ui.tableWidget.setHorizontalHeaderLabels(headers)
+        try:
+            self.ui.tableWidget.setRowCount(len(data))
+            self.ui.tableWidget.setColumnCount(5)
+            headers = ['Tên nhân viên', 'Có dữ liệu', 'Số tháng', 'Điểm TB', 'Hành động']
+            self.ui.tableWidget.setHorizontalHeaderLabels(headers)
 
-        for i, emp in enumerate(data):
-            # 1. Tên (Flags) - Cột 0
-            name_item = QTableWidgetItem(emp['name'])
-            name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-            self.ui.tableWidget.setItem(i, 0, name_item)
+            for i, emp in enumerate(data):
+                # 1. Tên (Flags) - Cột 0
+                name_item = QTableWidgetItem(emp['name'])
+                name_item.setFlags(name_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.ui.tableWidget.setItem(i, 0, name_item)
 
-            # Thêm tooltip hiển thị mã nhân viên
-            name_item.setToolTip(f"Mã nhân viên: {emp['id']}")
+                # Lưu ID vào item để tìm kiếm
+                name_item.setData(Qt.ItemDataRole.UserRole, emp['id'])
 
-            # 2. Dữ liệu (Màu xanh/đỏ) - Cột 1
-            has_d = "Có" if emp['has_data'] else "Không"
-            data_item = QTableWidgetItem(has_d)
-            data_item.setForeground(QColor("#10b981" if emp['has_data'] else "#ef4444"))
-            data_item.setFlags(name_item.flags())
-            self.ui.tableWidget.setItem(i, 1, data_item)
+                # Thêm tooltip hiển thị mã nhân viên
+                name_item.setToolTip(f"Mã nhân viên: {emp['id']}")
 
-            # 3. Số tháng (Căn lề giữa) - Cột 2
-            m_item = QTableWidgetItem(str(emp['months_count']))
-            m_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.ui.tableWidget.setItem(i, 2, m_item)
+                # 2. Dữ liệu (Màu xanh/đỏ) - Cột 1
+                has_d = "Có" if emp['has_data'] else "Không"
+                data_item = QTableWidgetItem(has_d)
+                data_item.setForeground(QColor("#10b981" if emp['has_data'] else "#ef4444"))
+                data_item.setFlags(name_item.flags())
+                self.ui.tableWidget.setItem(i, 1, data_item)
 
-            # 4. Điểm TB (Màu sắc theo dải điểm) - Cột 3
-            score = emp['score']
-            score_item = QTableWidgetItem(f"{score:.1f}")
-            score_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            if score >= 80:
-                score_item.setForeground(QColor("#10b981"))
-            elif score >= 60:
-                score_item.setForeground(QColor("#f59e0b"))
-            else:
-                score_item.setForeground(QColor("#ef4444"))
-            self.ui.tableWidget.setItem(i, 3, score_item)
+                # 3. Số tháng (Căn lề giữa) - Cột 2
+                m_item = QTableWidgetItem(str(emp['months_count']))
+                m_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.ui.tableWidget.setItem(i, 2, m_item)
 
-            # 5. HÀNH ĐỘNG (GIỮ NGUYÊN NÚT XEM VÀ CHI TIẾT) - Cột 4
-            y_now = self.ui.comboBox.currentData()
-            m_now = self.ui.comboBox_2.currentData()
+                # 4. Điểm TB (Màu sắc theo dải điểm) - Cột 3
+                score = emp['score']
+                score_item = QTableWidgetItem(f"{score:.1f}")
+                score_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                if score >= 80:
+                    score_item.setForeground(QColor("#10b981"))
+                elif score >= 60:
+                    score_item.setForeground(QColor("#f59e0b"))
+                else:
+                    score_item.setForeground(QColor("#ef4444"))
+                self.ui.tableWidget.setItem(i, 3, score_item)
 
-            action_widget = QWidget()
-            layout = QHBoxLayout(action_widget)
-            layout.setContentsMargins(5, 2, 5, 2)
-            layout.setSpacing(5)
+                # 5. HÀNH ĐỘNG - Cột 4
+                y_now = self.ui.comboBox.currentData()
+                m_now = self.ui.comboBox_2.currentData()
 
-            view_btn = QPushButton("Xem")
-            view_btn.setFixedSize(50, 25)
-            view_btn.setStyleSheet("background-color: #3b82f6; color: white; border-radius: 3px; font-size: 11px;")
-            # KHI NHẤN XEM: Truyền filter hiện tại vào
-            view_btn.clicked.connect(lambda chk, n=emp['id'], y=y_now, m=m_now:
-                                     self.controller.show_performance_dashboard(n, y, m))
+                action_widget = QWidget()
+                layout = QHBoxLayout(action_widget)
+                layout.setContentsMargins(5, 2, 5, 2)
+                layout.setSpacing(5)
 
-            detail_btn = QPushButton("Chi tiết")
-            detail_btn.setFixedSize(50, 25)
-            detail_btn.setStyleSheet("background-color: #10b981; color: white; border-radius: 3px; font-size: 11px;")
-            detail_btn.clicked.connect(lambda chk, e=emp: self.show_employee_details(e))
+                view_btn = QPushButton("Xem")
+                view_btn.setFixedSize(50, 25)
+                view_btn.setStyleSheet("background-color: #3b82f6; color: white; border-radius: 3px; font-size: 11px;")
+                view_btn.clicked.connect(lambda chk, n=emp['id'], y=y_now, m=m_now:
+                                         self.controller.show_performance_dashboard(n, y, m))
 
-            layout.addWidget(view_btn)
-            layout.addWidget(detail_btn)
-            layout.addStretch()
-            self.ui.tableWidget.setCellWidget(i, 4, action_widget)
+                detail_btn = QPushButton("Chi tiết")
+                detail_btn.setFixedSize(50, 25)
+                detail_btn.setStyleSheet(
+                    "background-color: #10b981; color: white; border-radius: 3px; font-size: 11px;")
+                detail_btn.clicked.connect(lambda chk, e=emp: self.show_employee_details(e))
 
-        self.ui.tableWidget.resizeColumnsToContents()
-        self.ui.tableWidget.setColumnWidth(4, 120)
+                layout.addWidget(view_btn)
+                layout.addWidget(detail_btn)
+                layout.addStretch()
+                self.ui.tableWidget.setCellWidget(i, 4, action_widget)
+
+            self.ui.tableWidget.resizeColumnsToContents()
+            self.ui.tableWidget.setColumnWidth(4, 120)
+
+        except Exception as e:
+            print(f"❌ Lỗi khởi tạo bảng: {e}")
 
     def search_employee(self):
-        """Giữ nguyên tính năng tìm kiếm"""
-        text = self.ui.lineEdit.text().lower()
-        for i in range(self.ui.tableWidget.rowCount()):
-            name = self.ui.tableWidget.item(i, 0).text().lower()
-            self.ui.tableWidget.setRowHidden(i, text not in name)
+        """Tìm kiếm nhân viên theo ID hoặc tên"""
+        try:
+            search_text = self.ui.lineEdit.text().strip().lower()
+
+            if not search_text:
+                # Nếu không có nội dung tìm kiếm, hiển thị tất cả
+                self.initialize_employee_table(self.all_employees)
+                return
+
+            # Lọc danh sách nhân viên
+            filtered_data = []
+            for emp in self.all_employees:
+                # Tìm trong ID và tên
+                if (search_text in emp['id'].lower() or
+                        search_text in emp['name'].lower()):
+                    filtered_data.append(emp)
+
+            if filtered_data:
+                self.initialize_employee_table(filtered_data)
+            else:
+                # Hiển thị thông báo không tìm thấy
+                self.show_no_search_results_message(search_text)
+
+        except Exception as e:
+            print(f"❌ Lỗi tìm kiếm: {e}")
+
+    def show_no_search_results_message(self, search_text):
+        """Hiển thị thông báo khi không tìm thấy kết quả tìm kiếm"""
+        self.ui.tableWidget.setRowCount(1)
+        self.ui.tableWidget.setColumnCount(1)
+        self.ui.tableWidget.setHorizontalHeaderLabels(['Kết quả tìm kiếm'])
+
+        item = QTableWidgetItem(f"Không tìm thấy nhân viên với từ khóa: '{search_text}'")
+        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        item.setForeground(QColor("#ef4444"))
+        self.ui.tableWidget.setItem(0, 0, item)
+        self.ui.tableWidget.horizontalHeader().setStretchLastSection(True)
 
     def show_employee_details(self, emp_info):
-        """HIỂN THỊ DIALOG CHI TIẾT - BỎ ĐƯỜNG DẪN"""
+        """HIỂN THỊ DIALOG CHI TIẾT"""
         try:
             dialog = QDialog(self)
             dialog.setWindowTitle(f"Chi tiết - {emp_info['name']} ({emp_info['id']})")
@@ -609,6 +736,30 @@ class EmployeeListWindow(QMainWindow):
         else:
             return "Trung bình"
 
+    def show_no_employees_message(self):
+        """Hiển thị thông báo khi không có nhân viên"""
+        self.ui.tableWidget.setRowCount(1)
+        self.ui.tableWidget.setColumnCount(1)
+        self.ui.tableWidget.setHorizontalHeaderLabels(['Thông báo'])
+
+        item = QTableWidgetItem("Không tìm thấy nhân viên trong hệ thống")
+        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        item.setForeground(QColor("#ef4444"))
+        self.ui.tableWidget.setItem(0, 0, item)
+        self.ui.tableWidget.horizontalHeader().setStretchLastSection(True)
+
+    def show_no_data_message(self):
+        """Hiển thị thông báo khi không có dữ liệu"""
+        self.ui.tableWidget.setRowCount(1)
+        self.ui.tableWidget.setColumnCount(1)
+        self.ui.tableWidget.setHorizontalHeaderLabels(['Thông báo'])
+
+        item = QTableWidgetItem("Không có dữ liệu cho các nhân viên hiện tại")
+        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        item.setForeground(QColor("#f59e0b"))
+        self.ui.tableWidget.setItem(0, 0, item)
+        self.ui.tableWidget.horizontalHeader().setStretchLastSection(True)
+
     def update_button_states(self, active_button):
         buttons = {
             'employee_list': self.ui.pushButton_8,
@@ -630,7 +781,7 @@ def main():
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
 
-    # ĐỌC THÔNG TIN TỪ THAM SỐ DÒNG LỆNH (KHÔNG DÙNG FILE TEMP)
+    # ĐỌC THÔNG TIN TỪ THAM SỐ DÒNG LỆNH
     user_id = None
     user_type = None
 
@@ -642,10 +793,7 @@ def main():
             QMessageBox.critical(None, "Lỗi đăng nhập",
                                  f"Bạn không có quyền truy cập vào hệ thống quản lý.\nLoại user: {user_type}")
             sys.exit(1)
-
-        print(f"✅ Đã nhận thông tin từ App.py: {user_id} ({user_type})")
     else:
-        # Fallback: Thử đọc từ file Excel trực tiếp
         print("⚠️ Không có tham số dòng lệnh, thử tìm user từ hệ thống...")
         QMessageBox.critical(None, "Lỗi đăng nhập",
                              "Không tìm thấy thông tin đăng nhập hợp lệ.\nVui lòng chạy App.py để đăng nhập.")
@@ -667,4 +815,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -33,8 +33,8 @@ class GeminiAnalyzer:
 
     # Độ ưu tiên model (cao nhất = 100)
     MODEL_PRIORITY = {
-        "gemini-3-pro-preview": 100,
-        "gemini-3-flash-preview": 95,
+        "gemini-3-flash-preview": 100,
+        "gemini-3-pro-preview": 95,
         "gemini-2.5-flash": 90,
         "gemini-2.5-flash-lite": 85,
         "gemini-2.5-pro": 80,
@@ -172,121 +172,704 @@ class GeminiAnalyzer:
 
     # ------------------------------------------------------------------
     # XAI + Career Coach Prompt (Linh hoạt cho nhiều loại câu hỏi)
+    # Thêm vào class GeminiAnalyzer trong gemini_analyzer.py
 
-    def create_smart_prompt(self, question: str, context_data: Dict) -> str:
-        # Trích xuất insights từ dữ liệu cả năm
-        basic_insights = self.extract_basic_insights(context_data)
+    # Thêm hàm mới để định dạng email đẹp hơn
+    def generate_email_content(self, employees_data, email_type="improvement"):
+        """Tạo nội dung email dựa trên dữ liệu nhân viên bằng Gemini - CẢI THIỆN ĐỊNH DẠNG"""
+        try:
+            # Tạo prompt dựa trên số lượng nhân viên
+            if len(employees_data) == 1:
+                prompt = self._create_single_employee_email_prompt_improved(employees_data[0])
+            else:
+                prompt = self._create_multiple_employees_email_prompt_improved(employees_data)
 
-        # Trích xuất thêm insights từ dữ liệu cả năm nếu có
-        year_insights = self.extract_year_insights(context_data)
+            if self.use_demo_mode or not self.genai_client:
+                return self._get_fallback_email_content_improved(employees_data)
 
-        # Kiểm tra nếu câu hỏi liên quan đến email
-        is_email_request = any(keyword in question.lower() for keyword in [
-            'gửi mail', 'send email', 'gửi email', 'thông báo', 'notify',
-            'thông báo cho', 'inform', 'email cho', 'gửi thư'
-        ])
+            # Gọi Gemini với model hiện tại
+            try:
+                response = self.genai_client.models.generate_content(
+                    model=self.active_model if self.active_model else "gemini-2.0-flash",
+                    contents=prompt
+                )
 
-        # Thêm email guidance nếu cần
-        email_guidance = ""
-        if is_email_request:
-            email_guidance = """
-              🔹 **HƯỚNG DẪN XỬ LÝ YÊU CẦU EMAIL:**
+                if response and response.text:
+                    return self._format_email_response(response.text, employees_data)
+                else:
+                    return self._get_fallback_email_content_improved(employees_data)
 
-              Người dùng muốn gửi email. Bạn nên:
+            except Exception as api_error:
+                print(f"⚠️ Gemini API error: {api_error}")
+                return self._get_fallback_email_content_improved(employees_data)
 
-              1️⃣ **PHÂN TÍCH YÊU CẦU:**
-              - Xác định mục đích: thông báo, cảnh báo, ghi nhận, hay hướng dẫn cải thiện?
-              - Đề xuất nội dung phù hợp dựa trên dữ liệu hiệu suất
+        except Exception as e:
+            print(f"❌ Lỗi tạo email content: {e}")
+            import traceback
+            traceback.print_exc()
+            return self._get_fallback_email_content_improved(employees_data)
 
-              2️⃣ **ĐỀ XUẤT NỘI DUNG:**
-              - Cung cấp mẫu email chuyên nghiệp
-              - Bao gồm các điểm chính cần truyền đạt
-              - Đề xuất timeline và hành động cụ thể
+    def _create_single_employee_email_prompt_improved(self, employee_data):
+        """Tạo prompt cho email 1 nhân viên - Định dạng tốt hơn"""
+        metrics = employee_data.get('metrics', {})
+        strengths = metrics.get('strengths', [])
+        weaknesses = metrics.get('weaknesses', [])
+        emp_name = employee_data.get('name', '')
+        emp_id = employee_data.get('id', '')
 
-              3️⃣ **HƯỚNG DẪN TIẾP THEO:**
-              - Gợi ý sử dụng chức năng gửi email tích hợp trong chatbot
-              - Nhắc kiểm tra nội dung trước khi gửi
+        # Format metrics để hiển thị đẹp
+        metrics_summary = f"""
+    DỮ LIỆU HIỆU SUẤT NHÂN VIÊN:
+    • Tên: {emp_name} (Mã: {emp_id})
+    • Xếp hạng: {metrics.get('rank', 'Chưa xếp hạng')} {metrics.get('rank_emoji', '')}
+    • Điểm tổng thể: {metrics.get('overall_score', 0)}/100
+    • Tổng đơn hàng: {metrics.get('total_orders', 0)}
+    • Đã hoàn thành: {metrics.get('completed_orders', 0)} ({metrics.get('completion_rate', 0)}%)
+    • Doanh thu: {metrics.get('total_revenue', 0):,.0f} VND
+    • Lợi nhuận: {metrics.get('total_profit', 0):,.0f} VND
+    • Sự kiện gian lận: {metrics.get('total_fraud', 0)}
+    • Thời gian làm việc: {metrics.get('working_hours', 0):.1f} giờ
+    """
 
-              📧 **MẪU EMAIL MẪU:**
-              ```
-              Tiêu đề: [Loại thông báo] - [Tên nhân viên/department]
-
-              Kính gửi [Tên nhân viên],
-
-              Dựa trên phân tích hiệu suất [thời gian], chúng tôi nhận thấy:
-
-              📊 KẾT QUẢ CHÍNH:
-              - [Điểm mạnh/Thành tích]
-              - [Điểm cần cải thiện]
-              - [Số liệu cụ thể nếu có]
-
-              🎯 ĐỀ XUẤT HÀNH ĐỘNG:
-              1. [Hành động 1 - cụ thể, đo lường được]
-              2. [Hành động 2 - có timeline rõ ràng]
-              3. [Hỗ trợ cần thiết từ quản lý]
-
-              📅 THỜI GIAN: [X] ngày/tuần
-
-              Chúng tôi tin tưởng vào khả năng cải thiện của bạn.
-
-              Trân trọng,
-              [Tên quản lý]
-              ```
-              """
+        if strengths:
+            metrics_summary += f"• Điểm mạnh: {', '.join(strengths)}\n"
+        if weaknesses:
+            metrics_summary += f"• Điểm cần cải thiện: {', '.join(weaknesses)}\n"
 
         return f"""
-             Bạn là **PowerSight AI** – một **Coach chiến lược, Advisor phân tích dữ liệu và Partner đồng hành phát triển**.
+    Bạn là quản lý trong công ty. Hãy viết một email nhắc nhở công việc cho nhân viên dựa trên dữ liệu hiệu suất.
 
-             {email_guidance}
+    {metrics_summary}
 
-             =============================
-             👤 BỐI CẢNH PHÂN TÍCH
-             =============================
-             - Người dùng: {context_data.get('employee_name', 'Chưa xác định')}
-             - Vai trò: {'Quản lý' if context_data.get('is_manager', False) else 'Nhân viên'}
-             - Thời điểm: {context_data.get('data_timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))}
+    YÊU CẦU VIẾT EMAIL (PHẢI TUÂN THỦ ĐỊNH DẠNG SAU):
+    1. TIÊU ĐỀ EMAIL: Chỉ 1 dòng, không có ký tự đặc biệt, không quá dài
+    2. NỘI DUNG EMAIL: Định dạng rõ ràng, dễ đọc
+       - Dòng 1: Chào hỏi
+       - Dòng 2-4: Đánh giá tích cực (nếu có)
+       - Dòng 5-7: Đề xuất cải thiện (nếu có)
+       - Dòng 8-10: Đề xuất hành động cụ thể
+       - Dòng cuối: Kết thúc lịch sự
+    3. KHÔNG SỬ DỤNG MARKDOWN, CHỈ DÙNG TEXT THUẦN
+    4. MỖI ĐOẠN CÁCH NHAU BẰNG 1 DÒNG TRỐNG
+    5. KHÔNG CÓ KÝ TỰ ĐẶC BIỆT NHƯ *, -, #, **
+    6. DÙNG TIẾNG VIỆT TỰ NHIÊN, CHUYÊN NGHIỆP
 
-             =============================
-             📊 DỮ LIỆU HIỆN CÓ
-             =============================
-             {basic_insights}
+    TRẢ LỜI THEO ĐÚNG ĐỊNH DẠNG SAU (KHÔNG THÊM BẤT KỲ TEXT NÀO KHÁC):
 
-             {year_insights}
+    TIÊU ĐỀ: [tiêu đề email, tối đa 10 từ]
 
-             =============================
-             ❓ CÂU HỎI CỦA NGƯỜI DÙNG
-             =============================
-             "{question}"
+    [nội dung email, mỗi đoạn cách nhau 1 dòng trống, không có bullet points]
+    """
 
-             =============================
-             {'📧 HƯỚNG XỬ LÝ CHO EMAIL' if is_email_request else '🧠 PHÂN TÍCH CHUYÊN SÂU'}
-             =============================
-             {'Nếu đây là yêu cầu gửi email, hãy cung cấp mẫu email chi tiết và hướng dẫn sử dụng tính năng gửi email tự động của hệ thống.' if is_email_request else 'Phân tích dựa trên dữ liệu và đưa ra khuyến nghị thực tế.'}
+    def _create_multiple_employees_email_prompt_improved(self, employees_data):
+        """Tạo prompt cho email nhiều nhân viên - Định dạng tốt hơn"""
+        employees_summary = []
+        for i, emp in enumerate(employees_data):
+            metrics = emp.get('metrics', {})
+            employees_summary.append(f"""
+    Nhân viên {i + 1}: {emp.get('name', '')} (Mã: {emp.get('id', '')})
+    • Xếp hạng: {metrics.get('rank', 'Chưa xếp hạng')} {metrics.get('rank_emoji', '')}
+    • Điểm: {metrics.get('overall_score', 0)}/100
+    • Đơn hàng: {metrics.get('total_orders', 0)}
+    • Hoàn thành: {metrics.get('completion_rate', 0)}%
+    • Doanh thu: {metrics.get('total_revenue', 0):,.0f} VND
+    • Gian lận: {metrics.get('total_fraud', 0)}
+    """)
 
-             =============================
-             📝 CẤU TRÚC TRẢ LỜI
-             =============================
+        # Tính toán thống kê nhóm
+        total_employees = len(employees_data)
+        excellent_count = len([e for e in employees_data if e.get('metrics', {}).get('rank') == 'Xuất sắc'])
+        good_count = len([e for e in employees_data if e.get('metrics', {}).get('rank') in ['Tốt', 'Khá']])
+        need_improvement_count = len(
+            [e for e in employees_data if e.get('metrics', {}).get('rank') in ['Trung bình', 'Cần cải thiện']])
+        avg_score = sum(e.get('metrics', {}).get('overall_score', 0) for e in employees_data) / total_employees
 
-             1️⃣ **TRẢ LỜI TRỰC TIẾP**
-             {'→ Đề xuất nội dung email phù hợp' if is_email_request else '→ 1-2 câu trả lời trọng tâm'}
+        group_stats = f"""
+    THỐNG KÊ NHÓM ({total_employees} nhân viên):
+    • Xuất sắc: {excellent_count} nhân viên
+    • Tốt/Khá: {good_count} nhân viên
+    • Cần cải thiện: {need_improvement_count} nhân viên
+    • Điểm trung bình: {avg_score:.1f}/100
 
-             2️⃣ **PHÂN TÍCH DỮ LIỆU**
-             → Sử dụng dữ liệu thực tế để hỗ trợ đề xuất
+    CHI TIẾT TỪNG NHÂN VIÊN:
+    {''.join(employees_summary)}
+    """
 
-             3️⃣ **ĐỀ XUẤT HÀNH ĐỘNG**
-             {'→ Mẫu email chi tiết + hướng dẫn gửi' if is_email_request else '→ 1-3 hành động cụ thể, khả thi'}
+        return f"""
+    Bạn là quản lý trong công ty. Hãy viết một email nhắc nhở công việc cho một nhóm nhân viên dựa trên dữ liệu hiệu suất.
 
-             {'4️⃣ **HƯỚNG DẪN KỸ THUẬT**\n→ Hướng dẫn sử dụng tính năng gửi email tích hợp trong chatbot' if is_email_request else ''}
+    {group_stats}
 
-             =============================
-             🎙️ VĂN PHONG
-             =============================
-             - Chuyên nghiệp, thân thiện
-             - Tiếng Việt tự nhiên
-             - Tập trung giải pháp
-             - Đồng hành cùng phát triển
-             """
+    YÊU CẦU VIẾT EMAIL (PHẢI TUÂN THỦ ĐỊNH DẠNG SAU):
+    1. TIÊU ĐỀ EMAIL: Chỉ 1 dòng, không có ký tự đặc biệt, tập trung vào nhóm
+    2. NỘI DUNG EMAIL: Định dạng rõ ràng, dễ đọc
+       - Dòng 1: Chào hỏi cả nhóm
+       - Dòng 2-4: Đánh giá chung về nhóm
+       - Dòng 5-7: Điểm tích cực của nhóm
+       - Dòng 8-10: Điểm cần cải thiện của nhóm
+       - Dòng 11-13: Đề xuất hành động cho nhóm
+       - Dòng cuối: Kết thúc lịch sự
+    3. KHÔNG SỬ DỤNG MARKDOWN, CHỈ DÙNG TEXT THUẦN
+    4. MỖI ĐOẠN CÁCH NHAU BẰNG 1 DÒNG TRỐNG
+    5. KHÔNG CÓ KÝ TỰ ĐẶC BIỆT NHƯ *, -, #, **
+    6. KHÔNG LIỆT KÊ TỪNG NHÂN VIÊN TRONG EMAIL
+    7. DÙNG TIẾNG VIỆT TỰ NHIÊN, CHUYÊN NGHIỆP
 
+    TRẢ LỜI THEO ĐÚNG ĐỊNH DẠNG SAU (KHÔNG THÊM BẤT KỲ TEXT NÀO KHÁC):
+
+    TIÊU ĐỀ: [tiêu đề email, tối đa 10 từ]
+
+    [nội dung email, mỗi đoạn cách nhau 1 dòng trống, không có bullet points]
+    """
+
+    def _format_email_response(self, response_text, employees_data):
+        """Định dạng lại phản hồi từ Gemini cho đẹp"""
+        # Loại bỏ các ký tự markdown
+        cleaned_text = response_text.replace('**', '').replace('*', '').replace('#', '').replace('- ', '')
+
+        # Tách các dòng
+        lines = cleaned_text.split('\n')
+
+        # Loại bỏ dòng trống đầu và cuối
+        while lines and lines[0].strip() == '':
+            lines.pop(0)
+        while lines and lines[-1].strip() == '':
+            lines.pop(-1)
+
+        # Chuẩn hóa khoảng trắng
+        formatted_lines = []
+        for line in lines:
+            line = line.strip()
+            if line:  # Chỉ thêm dòng không trống
+                formatted_lines.append(line)
+            elif formatted_lines and formatted_lines[-1] != '':  # Thêm 1 dòng trống giữa các đoạn
+                formatted_lines.append('')
+
+        # Đảm bảo không có 2 dòng trống liên tiếp
+        final_lines = []
+        prev_was_blank = False
+        for line in formatted_lines:
+            if line == '':
+                if not prev_was_blank:
+                    final_lines.append(line)
+                    prev_was_blank = True
+            else:
+                final_lines.append(line)
+                prev_was_blank = False
+
+        # Ghép lại
+        result = '\n'.join(final_lines)
+
+        # Kiểm tra và thêm TIÊU ĐỀ: nếu chưa có
+        if not result.startswith('TIÊU ĐỀ:'):
+            # Tạo tiêu đề mặc định
+            if len(employees_data) == 1:
+                emp_name = employees_data[0].get('name', 'Nhân viên')
+                result = f"TIÊU ĐỀ: Đánh giá hiệu suất - {emp_name}\n\n{result}"
+            else:
+                result = f"TIÊU ĐỀ: Đánh giá hiệu suất nhóm\n\n{result}"
+
+        return result
+
+    def _get_fallback_email_content_improved(self, employees_data):
+        """Nội dung email mặc định khi Gemini lỗi - Định dạng đẹp"""
+        if len(employees_data) == 1:
+            emp = employees_data[0]
+            return f"""TIÊU ĐỀ: Đánh giá hiệu suất công việc
+
+    Kính gửi Anh/Chị {emp.get('name', '')},
+
+    Chúng tôi ghi nhận những đóng góp của bạn trong thời gian qua.
+
+    Dựa trên phân tích hiệu suất, chúng tôi đề xuất một số điểm cải thiện để nâng cao hiệu quả công việc.
+
+    Vui lòng tham gia buổi trao đổi với quản lý để thảo luận chi tiết về kế hoạch phát triển.
+
+    Trân trọng,
+    Quản lý"""
+        else:
+            names = ", ".join([e.get('name', '') for e in employees_data])
+            return f"""TIÊU ĐỀ: Đánh giá hiệu suất nhóm
+
+    Kính gửi các Anh/Chị,
+
+    Chúng tôi xin gửi đánh giá hiệu suất chung cho nhóm.
+
+    Qua phân tích, nhóm đã có những tiến bộ đáng kể. Tuy nhiên, vẫn còn một số điểm cần cải thiện để đạt mục tiêu chung.
+
+    Chúng tôi đề xuất tổ chức buổi họp nhóm để cùng thảo luận giải pháp.
+
+    Trân trọng,
+    Quản lý"""
+
+    def create_smart_prompt(self, question: str, context_data: Dict) -> str:
+        """Tạo prompt thông minh cho nhiều loại câu hỏi"""
+
+        # Trích xuất thông tin cơ bản
+        basic_insights = self.extract_basic_insights(context_data)
+
+        # Trích xuất thông tin cả năm
+        year_insights = self.extract_year_insights(context_data)
+
+        # Lấy thông tin chi tiết nhân viên từ context (nếu có)
+        employees_detail = context_data.get("employees_detail", [])
+        employees_insights = self.format_employees_insights(employees_detail)
+
+        # Xác định loại câu hỏi
+        question_type = self.detect_question_type(question)
+
+        # Tạo prompt dựa trên loại câu hỏi
+        if question_type == "employee_specific":
+            prompt = self._create_employee_specific_prompt(question, context_data, basic_insights, year_insights,
+                                                           employees_insights)
+        elif question_type == "comparison":
+            prompt = self._create_comparison_prompt(question, context_data, basic_insights, year_insights,
+                                                    employees_insights)
+        elif question_type == "ranking":
+            prompt = self._create_ranking_prompt(question, context_data, basic_insights, year_insights,
+                                                 employees_insights)
+        elif question_type == "analysis":
+            prompt = self._create_analysis_prompt(question, context_data, basic_insights, year_insights,
+                                                  employees_insights)
+        else:
+            prompt = self._create_general_prompt(question, context_data, basic_insights, year_insights,
+                                                 employees_insights)
+
+        return prompt
+
+    def detect_question_type(self, question: str) -> str:
+        """Phát hiện loại câu hỏi"""
+        question_lower = question.lower()
+
+        # Câu hỏi về nhân viên cụ thể
+        employee_patterns = ['em001', 'em002', 'em003', 'em004', 'nhân viên', 'của em', 'của nhân viên']
+        if any(pattern in question_lower for pattern in employee_patterns):
+            return "employee_specific"
+
+        # Câu hỏi so sánh
+        comparison_patterns = ['so sánh', 'đối chiếu', 'giữa', 'và', 'cùng lúc', 'nhiều nhân viên']
+        if any(pattern in question_lower for pattern in comparison_patterns):
+            return "comparison"
+
+        # Câu hỏi xếp hạng
+        ranking_patterns = ['cao nhất', 'thấp nhất', 'tốt nhất', 'kém nhất', 'xếp hạng', 'top', 'đứng đầu', 'cuối bảng']
+        if any(pattern in question_lower for pattern in ranking_patterns):
+            return "ranking"
+
+        # Câu hỏi phân tích
+        analysis_patterns = ['phân tích', 'đánh giá', 'khả năng', 'hiệu suất', 'năng lực', 'công việc']
+        if any(pattern in question_lower for pattern in analysis_patterns):
+            return "analysis"
+
+        return "general"
+
+    def _create_employee_specific_prompt(self, question, context_data, basic_insights, year_insights,
+                                         employees_insights):
+        """Prompt cho câu hỏi về nhân viên cụ thể"""
+        # Trích xuất mã nhân viên từ câu hỏi
+        import re
+        emp_pattern = r'EM\d{3}'
+        emp_matches = re.findall(emp_pattern, question.upper())
+
+        emp_info_section = ""
+        if emp_matches:
+            emp_ids = emp_matches
+            emp_info_section = f"\n\n📌 THÔNG TIN NHÂN VIÊN ĐƯỢC HỎI:\n"
+            for emp_id in emp_ids[:3]:  # Giới hạn 3 nhân viên
+                # Tìm nhân viên trong danh sách
+                emp_found = False
+                for emp in context_data.get("employees_detail", []):
+                    if emp.get('id', '').upper() == emp_id:
+                        emp_info_section += f"\n• {emp_id} - {emp.get('name', 'N/A')}:\n"
+                        metrics = emp.get('metrics', {})
+                        if metrics:
+                            emp_info_section += f"  - Xếp hạng: {metrics.get('rank', 'N/A')}\n"
+                            emp_info_section += f"  - Điểm: {metrics.get('overall_score', 0)}/100\n"
+                            emp_info_section += f"  - Đơn hàng: {metrics.get('total_orders', 0)}\n"
+                            emp_info_section += f"  - Hoàn thành: {metrics.get('completion_rate', 0)}%\n"
+                            emp_info_section += f"  - Gian lận: {metrics.get('total_fraud', 0)}\n"
+                        emp_found = True
+                        break
+                if not emp_found:
+                    emp_info_section += f"\n• {emp_id}: Không có trong danh sách hiện tại\n"
+
+        return f"""
+    Bạn là **PowerSight AI** – chuyên gia phân tích hiệu suất nhân viên.
+
+    ====================================
+    📊 DỮ LIỆU HIỆN CÓ
+    ====================================
+    {basic_insights}
+
+    {year_insights}
+
+    {employees_insights}
+    {emp_info_section}
+
+    ====================================
+    ❓ CÂU HỎI CỦA QUẢN LÝ
+    ====================================
+    "{question}"
+
+    ====================================
+    🧠 HƯỚNG DẪN PHÂN TÍCH
+    ====================================
+    Đây là câu hỏi về NHÂN VIÊN CỤ THỂ. Hãy:
+
+    1️⃣ **XÁC ĐỊNH NHÂN VIÊN:** Tìm mã nhân viên trong câu hỏi
+    2️⃣ **PHÂN TÍCH CHI TIẾT:** 
+       - Hiệu suất tổng thể
+       - Điểm mạnh/điểm yếu
+       - Đơn hàng & doanh thu
+       - Gian lận & rủi ro
+    3️⃣ **ĐỀ XUẤT HÀNH ĐỘNG:**
+       - Biện pháp cải thiện (nếu cần)
+       - Kế hoạch phát triển
+    4️⃣ **TRẢ LỜI CỤ THỂ:** Tập trung vào nhân viên được hỏi
+
+    ====================================
+    📝 CẤU TRÚC TRẢ LỜI
+    ====================================
+    **1. THÔNG TIN NHÂN VIÊN**
+    - Mã & tên nhân viên
+    - Vị trí & vai trò
+
+    **2. PHÂN TÍCH HIỆU SUẤT**
+    - Xếp hạng & điểm số
+    - Thành tích nổi bật
+    - Điểm cần cải thiện
+
+    **3. DỮ LIỆU CHI TIẾT**
+    - Số liệu đơn hàng
+    - Tình trạng công việc
+    - Vấn đề phát sinh
+
+    **4. ĐỀ XUẤT & KHUYẾN NGHỊ**
+    - Hành động trước mắt
+    - Kế hoạch dài hạn
+    - Hỗ trợ cần thiết
+
+    ====================================
+    🎯 YÊU CẦU
+    ====================================
+    - Trả lời bằng tiếng Việt tự nhiên
+    - Sử dụng số liệu cụ thể (nếu có)
+    - Đưa ra phân tích thực tế
+    - Có khuyến nghị hành động
+    - Giọng văn chuyên nghiệp, xây dựng
+    """
+
+    def _create_comparison_prompt(self, question, context_data, basic_insights, year_insights, employees_insights):
+        """Prompt cho câu hỏi so sánh"""
+        return f"""
+    Bạn là **PowerSight AI** – chuyên gia so sánh và đánh giá nhân viên.
+
+    ====================================
+    📊 DỮ LIỆU HIỆN CÓ
+    ====================================
+    {basic_insights}
+
+    {year_insights}
+
+    {employees_insights}
+
+    ====================================
+    ❓ CÂU HỎI CỦA QUẢN LÝ
+    ====================================
+    "{question}"
+
+    ====================================
+    🧠 HƯỚNG DẪN PHÂN TÍCH
+    ====================================
+    Đây là câu hỏi SO SÁNH NHÂN VIÊN. Hãy:
+
+    1️⃣ **XÁC ĐỊNH ĐỐI TƯỢNG:** Tìm các nhân viên cần so sánh
+    2️⃣ **THIẾT LẬP TIÊU CHÍ:** 
+       - Hiệu suất tổng thể
+       - Số lượng đơn hàng
+       - Chất lượng công việc
+       - Tuân thủ quy định
+    3️⃣ **SO SÁNH CHI TIẾT:** 
+       - Điểm giống nhau
+       - Điểm khác biệt
+       - Ưu điểm của từng người
+       - Nhược điểm cần cải thiện
+    4️⃣ **ĐÚC KẾT:** 
+       - Ai làm tốt hơn ở lĩnh vực nào
+       - Ai cần hỗ trợ gì
+
+    ====================================
+    📝 CẤU TRÚC TRẢ LỜI
+    ====================================
+    **1. BẢNG SO SÁNH TỔNG QUAN**
+    - Bảng điểm các tiêu chí
+    - Xếp hạng tương đối
+
+    **2. PHÂN TÍCH THEO TIÊU CHÍ**
+    - Hiệu suất làm việc
+    - Chất lượng đầu ra
+    - Thái độ & tuân thủ
+    - Khả năng phát triển
+
+    **3. ĐIỂM MẠNH RIÊNG**
+    - Điểm nổi bật của từng người
+    - Thế mạnh chuyên môn
+
+    **4. ĐIỂM CẦN CẢI THIỆN**
+    - Vấn đề chung
+    - Vấn đề riêng từng người
+
+    **5. KHUYẾN NGHỊ PHÂN CÔNG**
+    - Công việc phù hợp với ai
+    - Đào tạo cần thiết
+
+    ====================================
+    🎯 YÊU CẦU
+    ====================================
+    - Dùng bảng so sánh khi cần
+    - Đưa ra số liệu cụ thể
+    - Phân tích công bằng, khách quan
+    - Có đề xuất thực tế
+    - Trả lời bằng tiếng Việt
+    """
+
+    def _create_ranking_prompt(self, question, context_data, basic_insights, year_insights, employees_insights):
+        """Prompt cho câu hỏi xếp hạng"""
+        return f"""
+    Bạn là **PowerSight AI** – chuyên gia xếp hạng và đánh giá hiệu suất.
+
+    ====================================
+    📊 DỮ LIỆU HIỆN CÓ
+    ====================================
+    {basic_insights}
+
+    {year_insights}
+
+    {employees_insights}
+
+    ====================================
+    ❓ CÂU HỎI CỦA QUẢN LÝ
+    ====================================
+    "{question}"
+
+    ====================================
+    🧠 HƯỚNG DẪN PHÂN TÍCH
+    ====================================
+    Đây là câu hỏi XẾP HẠNG NHÂN VIÊN. Hãy:
+
+    1️⃣ **XÁC ĐỊNH TIÊU CHÍ:** 
+       - Hiệu suất tổng thể
+       - Số đơn hàng
+       - Doanh thu
+       - Tỷ lệ hoàn thành
+       - Tỷ lệ gian lận
+    2️⃣ **THU THẬP DỮ LIỆU:** 
+       - Lấy số liệu của tất cả nhân viên
+       - Tính toán các chỉ số
+    3️⃣ **SẮP XẾP THEO TIÊU CHÍ:** 
+       - Xếp từ cao đến thấp
+       - Phân loại nhóm (Xuất sắc/Tốt/Khá/Trung bình/Yếu)
+    4️⃣ **PHÂN TÍCH KẾT QUẢ:** 
+       - Nhận xét chung
+       - Điểm nổi bật
+       - Vấn đề cần quan tâm
+
+    ====================================
+    📝 CẤU TRÚC TRẢ LỜI
+    ====================================
+    **1. BẢNG XẾP HẠNG CHI TIẾT**
+    - Top 5 cao nhất
+    - Top 5 thấp nhất
+    - Xếp hạng đầy đủ (nếu ít nhân viên)
+
+    **2. PHÂN TÍCH TỪNG NHÓM**
+    - Nhóm xuất sắc: Điểm mạnh & bài học
+    - Nhóm trung bình: Nguyên nhân & giải pháp
+    - Nhóm yếu: Vấn đề & hỗ trợ cần thiết
+
+    **3. NHẬN XÉT TỔNG QUAN**
+    - Xu hướng chung của team
+    - Điểm mạnh tập thể
+    - Điểm yếu cần khắc phục
+
+    **4. KẾ HOẠCH HÀNH ĐỘNG**
+    - Đào tạo cho nhóm yếu
+    - Phát huy nhóm xuất sắc
+    - Mục tiêu cải thiện
+
+    ====================================
+    🎯 YÊU CẦU
+    ====================================
+    - Đưa ra bảng xếp hạng rõ ràng
+    - Giải thích tiêu chí xếp hạng
+    - Có số liệu minh chứng
+    - Đề xuất hành động cụ thể
+    - Trả lời bằng tiếng Việt
+    """
+
+    def _create_analysis_prompt(self, question, context_data, basic_insights, year_insights, employees_insights):
+        """Prompt cho câu hỏi phân tích"""
+        return f"""
+    Bạn là **PowerSight AI** – chuyên gia phân tích dữ liệu và đưa ra chiến lược.
+
+    ====================================
+    📊 DỮ LIỆU HIỆN CÓ
+    ====================================
+    {basic_insights}
+
+    {year_insights}
+
+    {employees_insights}
+
+    ====================================
+    ❓ CÂU HỎI CỦA QUẢN LÝ
+    ====================================
+    "{question}"
+
+    ====================================
+    🧠 HƯỚNG DẪN PHÂN TÍCH
+    ====================================
+    Đây là câu hỏi PHÂN TÍCH CHUYÊN SÂU. Hãy:
+
+    1️⃣ **PHÂN TÍCH ĐA CHIỀU:**
+       - Hiệu suất cá nhân & team
+       - Xu hướng theo thời gian
+       - So sánh với mục tiêu
+       - Đánh giá rủi ro
+    2️⃣ **NHẬN DIỆN VẤN ĐỀ:**
+       - Điểm nghẽn trong quy trình
+       - Nguyên nhân hiệu suất thấp
+       - Rủi ro tiềm ẩn
+    3️⃣ **ĐỀ XUẤT GIẢI PHÁP:**
+       - Giải pháp ngắn hạn
+       - Chiến lược dài hạn
+       - Kế hoạch hành động cụ thể
+
+    ====================================
+    📝 CẤU TRÚC TRẢ LỜI
+    ====================================
+    **1. PHÂN TÍCH HIỆN TRẠNG**
+    - Số liệu thực tế
+    - So với mục tiêu/KPI
+    - Xu hướng biến động
+
+    **2. NHẬN DIỆN VẤN ĐỀ**
+    - Vấn đề chính
+    - Nguyên nhân gốc rễ
+    - Ảnh hưởng đến kinh doanh
+
+    **3. PHÂN TÍCH SWOT**
+    - Điểm mạnh (Strengths)
+    - Điểm yếu (Weaknesses)
+    - Cơ hội (Opportunities)
+    - Thách thức (Threats)
+
+    **4. ĐỀ XUẤT GIẢI PHÁP**
+    - Hành động khẩn cấp
+    - Cải tiến quy trình
+    - Đào tạo & phát triển
+    - Giám sát & đánh giá
+
+    **5. KẾ HOẠCH TRIỂN KHAI**
+    - Timeline thực hiện
+    - Người chịu trách nhiệm
+    - Chỉ số đo lường kết quả
+
+    ====================================
+    🎯 YÊU CẦU
+    ====================================
+    - Phân tích sâu, có chiều sâu
+    - Dùng số liệu thuyết phục
+    - Đề xuất thực tế, khả thi
+    - Có timeline cụ thể
+    - Trả lời bằng tiếng Việt
+    """
+
+    def _create_general_prompt(self, question, context_data, basic_insights, year_insights, employees_insights):
+        """Prompt cho câu hỏi chung"""
+        return f"""
+    Bạn là **PowerSight AI** – trợ lý thông minh cho quản lý.
+
+    ====================================
+    📊 DỮ LIỆU HIỆN CÓ
+    ====================================
+    {basic_insights}
+
+    {year_insights}
+
+    {employees_insights}
+
+    ====================================
+    ❓ CÂU HỎI CỦA QUẢN LÝ
+    ====================================
+    "{question}"
+
+    ====================================
+    🧠 HƯỚNG DẪN TRẢ LỜI
+    ====================================
+    Hãy trả lời câu hỏi dựa trên dữ liệu hiện có:
+
+    1️⃣ **HIỂU CÂU HỎI:** Xác định nhu cầu thực sự
+    2️⃣ **TRUY XUẤT DỮ LIỆU:** Tìm thông tin liên quan
+    3️⃣ **PHÂN TÍCH & XỬ LÝ:** Đưa ra insight có giá trị
+    4️⃣ **TRÌNH BÀY RÕ RÀNG:** Dễ hiểu, có cấu trúc
+
+    ====================================
+    📝 CẤU TRÚC TRẢ LỜI ĐỀ XUẤT
+    ====================================
+    **1. TRẢ LỜI TRỰC TIẾP**
+    - Câu trả lời ngắn gọn
+    - Nội dung chính xác
+
+    **2. CHI TIẾT BỔ SUNG**
+    - Số liệu liên quan
+    - Phân tích chuyên sâu
+    - Ngữ cảnh quan trọng
+
+    **3. KHUYẾN NGHỊ (NẾU CẦN)**
+    - Hành động đề xuất
+    - Tài nguyên tham khảo
+    - Bước tiếp theo
+
+    ====================================
+    🎯 YÊU CẦU
+    ====================================
+    - Trả lời đúng trọng tâm
+    - Sử dụng dữ liệu khi có
+    - Giọng văn chuyên nghiệp
+    - Cấu trúc rõ ràng
+    - Tiếng Việt tự nhiên
+    """
+
+    def format_employees_insights(self, employees_detail):
+        """Định dạng thông tin chi tiết nhân viên"""
+        if not employees_detail:
+            return "📌 **KHÔNG CÓ DỮ LIỆU NHÂN VIÊN CHI TIẾT**"
+
+        insights = ["📌 **THÔNG TIN NHÂN VIÊN CHI TIẾT:**"]
+
+        for emp in employees_detail[:10]:  # Giới hạn 10 nhân viên
+            emp_id = emp.get('id', 'N/A')
+            emp_name = emp.get('name', 'N/A')
+            metrics = emp.get('metrics', {})
+
+            if metrics:
+                insight_line = f"\n• **{emp_id} - {emp_name}**:"
+                insight_line += f"\n  - Xếp hạng: {metrics.get('rank', 'N/A')} {metrics.get('rank_emoji', '')}"
+                insight_line += f"\n  - Điểm: {metrics.get('overall_score', 0)}/100"
+                insight_line += f"\n  - Đơn hàng: {metrics.get('total_orders', 0)}"
+                insight_line += f"\n  - Hoàn thành: {metrics.get('completion_rate', 0)}%"
+                insight_line += f"\n  - Doanh thu: {metrics.get('total_revenue', 0):,.0f} VND"
+                insight_line += f"\n  - Gian lận: {metrics.get('total_fraud', 0)}"
+            else:
+                insight_line = f"\n• **{emp_id} - {emp_name}**: Không có dữ liệu hiệu suất"
+
+            insights.append(insight_line)
+
+        if len(employees_detail) > 10:
+            insights.append(f"\n... và {len(employees_detail) - 10} nhân viên khác")
+
+        return "\n".join(insights)
     def prepare_employee_list(self, employees: list) -> str:
         """Chuẩn bị danh sách nhân viên cho prompt"""
         if not employees:

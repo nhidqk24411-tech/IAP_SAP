@@ -31,7 +31,7 @@ except ImportError as e:
     # Tạo config mặc định
     class Config:
         BASE_DATA_PATH = r"C:\Users\legal\PycharmProjects\PythonProject\Saved_file"
-        DEFAULT_EMPLOYEE_NAME = "MG001"
+        DEFAULT_EMPLOYEE_NAME = "EM001"
     config_available = False
 
 
@@ -1014,6 +1014,10 @@ class PerformanceDashboard(QWidget):
             sap_sheets = self.year_data.get('sap_data', {}).get('sheets', {})
             work_log_sheets = self.year_data.get('work_log', {}).get('sheets', {})
 
+            # Debug: In thông tin về các sheet có trong dữ liệu
+            print(f"📊 Sheets trong work_log: {list(work_log_sheets.keys())}")
+            print(f"📊 Sheets trong sap_data: {list(sap_sheets.keys())}")
+
             # Xác định phạm vi tháng dựa trên bộ lọc
             if self.filter_year and self.filter_month:
                 # Chỉ lấy dữ liệu của tháng được chọn
@@ -1022,42 +1026,106 @@ class PerformanceDashboard(QWidget):
             else:
                 # Lấy tất cả các tháng có trong dữ liệu
                 months_range = range(1, 13)
+
+            print(f"📊 Phạm vi tháng được xử lý: {list(months_range)}")
+
             # 1. Tổng hợp dữ liệu orders
             orders_df = pd.DataFrame()
             if 'Orders' in sap_sheets and sap_sheets['Orders'] is not None:
                 orders_df = sap_sheets['Orders']
+                print(f"📊 Dữ liệu Orders: {len(orders_df)} dòng")
+                if not orders_df.empty and 'Month' in orders_df.columns:
+                    print(f"   Các tháng trong Orders: {sorted(orders_df['Month'].unique())}")
 
             # 2. Tổng hợp dữ liệu daily performance
             daily_df = pd.DataFrame()
             if 'Daily_Performance' in sap_sheets and sap_sheets['Daily_Performance'] is not None:
                 daily_df = sap_sheets['Daily_Performance']
+                print(f"📊 Dữ liệu Daily_Performance: {len(daily_df)} dòng")
 
             # 3. Tổng hợp dữ liệu fraud events
             fraud_df = pd.DataFrame()
             if 'Fraud_Events' in work_log_sheets and work_log_sheets['Fraud_Events'] is not None:
                 fraud_df = work_log_sheets['Fraud_Events']
+                print(f"📊 Dữ liệu Fraud_Events: {len(fraud_df)} dòng")
 
-            # 4. Tổng hợp dữ liệu browser sessions
+            # 4. Tổng hợp dữ liệu browser sessions - ƯU TIÊN Browser_Sessions
             browser_df = pd.DataFrame()
             if 'Browser_Sessions' in work_log_sheets and work_log_sheets['Browser_Sessions'] is not None:
                 browser_df = work_log_sheets['Browser_Sessions']
+                print(f"📊 Dữ liệu Browser_Sessions: {len(browser_df)} dòng")
+                if not browser_df.empty:
+                    print(f"   Các cột trong Browser_Sessions: {list(browser_df.columns)}")
+                    if 'Month' in browser_df.columns:
+                        print(f"   Các tháng trong Browser_Sessions: {sorted(browser_df['Month'].unique())}")
             elif 'Browser_Time' in work_log_sheets and work_log_sheets['Browser_Time'] is not None:
                 browser_df = work_log_sheets['Browser_Time']
+                print(f"📊 Dữ liệu Browser_Time: {len(browser_df)} dòng")
 
             # 5. Tính toán các chỉ số
             # Tổng đơn hàng cả năm
             total_orders = len(orders_df) if not orders_df.empty else 0
             avg_monthly_orders = total_orders / 12 if total_orders > 0 else 0
 
-            # Tổng thời gian làm việc cả năm
+            # Tổng thời gian làm việc cả năm - CẬP NHẬT LOGIC
             total_work_hours = 0
             if not browser_df.empty:
-                if 'Total_Seconds' in browser_df.columns:
-                    total_work_hours = browser_df['Total_Seconds'].sum() / 3600
-                elif 'Duration_Seconds' in browser_df.columns:
-                    total_work_hours = browser_df['Duration_Seconds'].sum() / 3600
-                elif 'Hours' in browser_df.columns:
-                    total_work_hours = browser_df['Hours'].sum()
+                print(f"📊 Tính tổng thời gian làm việc từ browser_df...")
+
+                # Tìm tất cả các cột có thể chứa thời gian
+                time_columns = []
+                for col in browser_df.columns:
+                    col_str = str(col).lower()
+                    if any(keyword in col_str for keyword in ['second', 'hour', 'time', 'duration', 'total', 'work']):
+                        time_columns.append(col)
+
+                print(f"📊 Cột thời gian tìm thấy: {time_columns}")
+
+                for time_col in time_columns:
+                    try:
+                        col_name = str(time_col)
+                        if 'second' in col_name.lower():
+                            total_seconds = browser_df[time_col].sum()
+                            total_work_hours += total_seconds / 3600
+                            print(f"📊 Tổng giây từ {time_col}: {total_seconds} = {total_seconds / 3600:.1f} giờ")
+                        elif 'hour' in col_name.lower():
+                            total_hours = browser_df[time_col].sum()
+                            total_work_hours += total_hours
+                            print(f"📊 Tổng giờ từ {time_col}: {total_hours:.1f} giờ")
+                        elif any(x in col_name.lower() for x in ['time', 'duration', 'total']):
+                            # Xử lý định dạng thời gian
+                            def parse_time(val):
+                                try:
+                                    if pd.isna(val):
+                                        return 0
+                                    if isinstance(val, str):
+                                        if ':' in val:
+                                            parts = val.replace('h', ':').replace('m', ':').replace('s', '').split(':')
+                                            total_seconds = 0
+                                            if len(parts) >= 1:
+                                                total_seconds += int(parts[0]) * 3600  # Giờ
+                                            if len(parts) >= 2:
+                                                total_seconds += int(parts[1]) * 60  # Phút
+                                            if len(parts) >= 3:
+                                                total_seconds += int(parts[2])  # Giây
+                                            return total_seconds / 3600
+                                    # Nếu là số, giả định là giờ
+                                    return float(val)
+                                except:
+                                    return 0
+
+                            total_hours = browser_df[time_col].apply(parse_time).sum()
+                            total_work_hours += total_hours
+                            print(f"📊 Tổng thời gian từ {time_col}: {total_hours:.1f} giờ")
+                    except Exception as e:
+                        print(f"⚠️ Không thể xử lý cột {time_col}: {e}")
+
+            # Nếu không có dữ liệu từ browser, thử từ daily performance
+            if total_work_hours == 0 and not daily_df.empty:
+                daily_time_cols = [col for col in daily_df.columns if 'hour' in col.lower()]
+                if daily_time_cols:
+                    total_work_hours = daily_df[daily_time_cols[0]].sum()
+                    print(f"📊 Tổng giờ từ daily performance: {total_work_hours:.1f} giờ")
 
             avg_monthly_hours = total_work_hours / 12 if total_work_hours > 0 else 0
 
@@ -1066,6 +1134,7 @@ class PerformanceDashboard(QWidget):
 
             # Tỷ lệ hoàn thành
             completion_rate = 0
+            completed_orders = 0
             if not orders_df.empty and 'Status' in orders_df.columns:
                 completed_orders = len(orders_df[orders_df['Status'] == 'Completed'])
                 completion_rate = (completed_orders / total_orders * 100) if total_orders > 0 else 0
@@ -1102,12 +1171,14 @@ class PerformanceDashboard(QWidget):
             }
 
             # 6. Tính toán dữ liệu cho biểu đồ theo tháng
+            print("📊 Bắt đầu tính toán dữ liệu biểu đồ theo tháng...")
             self.calculate_monthly_chart_data(orders_df, fraud_df, browser_df, daily_df)
 
             print(f"📊 Đã tính toán metrics từ dữ liệu cả năm")
+            print(f"   - Tổng giờ làm việc: {total_work_hours:.1f}")
+            print(f"   - Trung bình/tháng: {avg_monthly_hours:.1f}")
             # Cập nhật tiêu đề biểu đồ dựa trên bộ lọc
             self.update_chart_titles()
-
 
         except Exception as e:
             print(f"❌ Lỗi tính toán metrics dashboard: {e}")
@@ -1231,139 +1302,128 @@ class PerformanceDashboard(QWidget):
             }
 
     def _calculate_working_hours_monthly(self, browser_df, daily_df):
-        """Tính toán thời gian làm việc theo tháng"""
+        """Tính toán thời gian làm việc theo tháng - FIX HIỂN THỊ THEO THÁNG"""
         try:
             # Xác định số tháng cần hiển thị dựa trên bộ lọc
-            if self.filter_month:
+            if self.filter_year and self.filter_month:
                 # Nếu lọc theo tháng cụ thể, chỉ hiển thị tháng đó
                 month_idx = int(self.filter_month) - 1
                 month_names = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12']
                 months = [month_names[month_idx]]
-                month_indices = [month_idx]
+            elif self.filter_year:
+                # Nếu lọc theo năm, hiển thị tất cả 12 tháng
+                month_names = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12']
+                months = month_names
             else:
                 # Nếu không lọc, hiển thị từ đầu năm đến tháng hiện tại
                 current_month = datetime.now().month
                 month_names = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12']
                 months = [month_names[i] for i in range(current_month)]
-                month_indices = list(range(current_month))
 
             hours = [0] * len(months)
 
-            # Tổng hợp thời gian làm việc
-            total_hours = 0
+            # Debug: In thông tin về dữ liệu browser
+            print(f"📊 Dữ liệu browser_df có {len(browser_df)} dòng")
+            if not browser_df.empty:
+                print(f"   Cột trong browser_df: {list(browser_df.columns)}")
+                if 'Month' in browser_df.columns:
+                    print(f"   Các tháng có trong browser_df: {sorted(browser_df['Month'].unique())}")
 
-            # 1. Ưu tiên dữ liệu từ browser sessions
+            # Xử lý dữ liệu từ browser sessions
             if not browser_df.empty and 'Month' in browser_df.columns:
-                # Xác định cột chứa thời gian
-                time_columns = ['Total_Seconds', 'Duration_Seconds', 'Total_Time', 'Hours', 'Work_Hours', 'Time_Spent']
-                time_col = None
+                # Tìm tất cả các cột có thể chứa thời gian
+                time_columns = []
+                for col in browser_df.columns:
+                    col_lower = str(col).lower()
+                    if any(keyword in col_lower for keyword in
+                           ['second', 'hour', 'time', 'duration', 'total', 'work']):
+                        time_columns.append(col)
 
-                for col in time_columns:
-                    if col in browser_df.columns:
-                        time_col = col
-                        break
+                print(f"📊 Cột thời gian tìm thấy: {time_columns}")
 
-                if time_col:
-                    # Lọc theo tháng nếu có bộ lọc
-                    filtered_browser_df = browser_df.copy()
-                    if self.filter_month:
-                        filter_month_int = int(self.filter_month)
-                        filtered_browser_df = browser_df[browser_df['Month'] == filter_month_int]
-                    elif self.filter_year:
-                        # Nếu có lọc năm, lấy tất cả tháng trong năm
-                        pass
-                    else:
-                        # Nếu không lọc, chỉ lấy đến tháng hiện tại
-                        current_month_num = datetime.now().month
-                        filtered_browser_df = browser_df[browser_df['Month'] <= current_month_num]
+                # Tính giờ cho từng tháng
+                for month_idx, month_name in enumerate(months):
+                    month_num = month_idx + 1  # Tháng T1 = 1, T2 = 2, ...
 
-                    if not filtered_browser_df.empty:
-                        # Tính tổng thời gian
-                        if time_col in ['Total_Seconds', 'Duration_Seconds']:
-                            total_seconds = filtered_browser_df[time_col].sum()
-                            total_hours = total_seconds / 3600
-                        elif time_col in ['Hours', 'Work_Hours']:
-                            total_hours = filtered_browser_df[time_col].sum()
-                        elif time_col == 'Total_Time':
-                            # Xử lý định dạng thời gian HH:MM:SS
-                            def parse_time_to_hours(time_val):
-                                try:
-                                    if pd.isna(time_val):
-                                        return 0
-                                    if isinstance(time_val, str):
-                                        # Định dạng HH:MM:SS
-                                        if ':' in time_val:
-                                            parts = time_val.split(':')
-                                            if len(parts) == 3:
-                                                h, m, s = map(int, parts)
-                                                return h + m / 60 + s / 3600
-                                            elif len(parts) == 2:
-                                                h, m = map(int, parts)
-                                                return h + m / 60
-                                    # Nếu là số, giả định là giờ
-                                    return float(time_val)
-                                except:
-                                    return 0
+                    # Lọc dữ liệu theo tháng
+                    month_data = browser_df[browser_df['Month'] == month_num]
 
-                            total_hours = filtered_browser_df[time_col].apply(parse_time_to_hours).sum()
+                    if not month_data.empty:
+                        month_hours = 0
 
-                        # Phân bổ theo tháng nếu có nhiều tháng
-                        if len(months) > 1:
-                            for month_idx in month_indices:
-                                month_num = month_idx + 1
-                                month_data = browser_df[browser_df['Month'] == month_num]
-                                if not month_data.empty:
-                                    if time_col in ['Total_Seconds', 'Duration_Seconds']:
-                                        hours[month_idx] = month_data[time_col].sum() / 3600
-                                    elif time_col in ['Hours', 'Work_Hours']:
-                                        hours[month_idx] = month_data[time_col].sum()
-                                    elif time_col == 'Total_Time':
-                                        hours[month_idx] = month_data[time_col].apply(parse_time_to_hours).sum()
-                        else:
-                            # Nếu chỉ có 1 tháng, gán toàn bộ vào tháng đó
-                            hours[0] = total_hours
+                        # Tính tổng thời gian từ tất cả các cột thời gian
+                        for time_col in time_columns:
+                            try:
+                                col_name = str(time_col)
+                                if 'second' in col_name.lower():
+                                    # Cột giây
+                                    month_hours += month_data[time_col].sum() / 3600
+                                elif 'hour' in col_name.lower():
+                                    # Cột giờ
+                                    month_hours += month_data[time_col].sum()
+                                elif any(x in col_name.lower() for x in ['time', 'duration', 'total']):
+                                    # Xử lý định dạng thời gian
+                                    def parse_time(val):
+                                        try:
+                                            if pd.isna(val):
+                                                return 0
+                                            if isinstance(val, str):
+                                                if ':' in val:
+                                                    parts = val.replace('h', ':').replace('m', ':').replace('s',
+                                                                                                            '').split(
+                                                        ':')
+                                                    total_seconds = 0
+                                                    if len(parts) >= 1:
+                                                        total_seconds += int(parts[0]) * 3600  # Giờ
+                                                    if len(parts) >= 2:
+                                                        total_seconds += int(parts[1]) * 60  # Phút
+                                                    if len(parts) >= 3:
+                                                        total_seconds += int(parts[2])  # Giây
+                                                    return total_seconds / 3600
+                                            # Nếu là số, giả định là giờ
+                                            return float(val)
+                                        except:
+                                            return 0
 
-            # 2. Nếu không có browser data, thử từ daily performance
-            if total_hours == 0 and not daily_df.empty and 'Working_Hours' in daily_df.columns:
-                # Lọc theo tháng nếu có bộ lọc
-                filtered_daily_df = daily_df.copy()
-                if self.filter_month:
-                    filter_month_int = int(self.filter_month)
-                    filtered_daily_df = daily_df[daily_df['Month'] == filter_month_int]
-                elif self.filter_year:
-                    # Nếu có lọc năm, lấy tất cả tháng trong năm
-                    pass
-                else:
-                    # Nếu không lọc, chỉ lấy đến tháng hiện tại
-                    current_month_num = datetime.now().month
-                    filtered_daily_df = daily_df[daily_df['Month'] <= current_month_num]
+                                    month_hours += month_data[time_col].apply(parse_time).sum()
+                            except Exception as e:
+                                print(f"⚠️ Không thể tính cột {time_col} tháng {month_num}: {e}")
 
-                if not filtered_daily_df.empty:
-                    total_hours = filtered_daily_df['Working_Hours'].sum()
+                        hours[month_idx] = month_hours
+                        print(f"📊 Tháng {month_num} ({month_name}): {month_hours:.1f} giờ")
 
-                    # Phân bổ theo tháng nếu có nhiều tháng
-                    if len(months) > 1:
-                        for month_idx in month_indices:
-                            month_num = month_idx + 1
-                            month_data = daily_df[daily_df['Month'] == month_num]
-                            if not month_data.empty:
-                                hours[month_idx] = month_data['Working_Hours'].sum()
-                    else:
-                        # Nếu chỉ có 1 tháng, gán toàn bộ vào tháng đó
-                        hours[0] = total_hours
+            # Nếu không có dữ liệu từ browser, thử từ daily performance
+            if all(h == 0 for h in hours) and not daily_df.empty and 'Month' in daily_df.columns:
+                print("📊 Sử dụng dữ liệu từ daily performance...")
+                # Tìm cột thời gian trong daily_df
+                daily_time_cols = [col for col in daily_df.columns if 'hour' in col.lower()]
+
+                for month_idx, month_name in enumerate(months):
+                    month_num = month_idx + 1
+                    month_data = daily_df[daily_df['Month'] == month_num]
+
+                    if not month_data.empty and daily_time_cols:
+                        month_hours = month_data[daily_time_cols[0]].sum()
+                        hours[month_idx] = month_hours
+                        print(f"📊 Tháng {month_num} ({month_name}) từ daily: {month_hours:.1f} giờ")
 
             # 3. Nếu vẫn không có dữ liệu, sử dụng ước tính dựa trên số ngày làm việc
-            if total_hours == 0:
+            if all(h == 0 for h in hours):
+                print("📊 Sử dụng dữ liệu ước tính...")
                 # Ước tính: 8 giờ/ngày, 22 ngày/tháng
                 estimated_hours_per_month = 176  # 8 * 22
 
-                if self.filter_month:
-                    # Nếu lọc theo tháng, ước tính cho tháng đó
-                    hours[0] = estimated_hours_per_month
-                else:
-                    # Ước tính cho từng tháng từ đầu năm
-                    for month_idx in month_indices:
-                        hours[month_idx] = estimated_hours_per_month
+                for month_idx in range(len(months)):
+                    hours[month_idx] = estimated_hours_per_month
+                    print(
+                        f"📊 Tháng {month_idx + 1} ({months[month_idx]}) ước tính: {estimated_hours_per_month:.1f} giờ")
+
+            # Debug log cuối cùng
+            print(f"📊 Kết quả tính giờ làm việc:")
+            print(f"   - Số tháng: {len(months)}")
+            print(f"   - Tháng: {months}")
+            print(f"   - Giờ: {hours}")
+            print(f"   - Tổng giờ: {sum(hours):.1f}")
 
             return {
                 'months': months,
@@ -1376,17 +1436,23 @@ class PerformanceDashboard(QWidget):
             import traceback
             traceback.print_exc()
 
-            # Trả về giá trị mặc định
-            if self.filter_month:
+            # Trả về giá trị mặc định với đúng số tháng
+            if self.filter_year and self.filter_month:
                 months = [f"T{self.filter_month}"]
+            elif self.filter_year:
+                months = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12']
             else:
                 current_month = datetime.now().month
                 months = [f"T{i}" for i in range(1, current_month + 1)]
 
+            # Giá trị ước tính
+            estimated_hours = 176.0
+            hours = [estimated_hours] * len(months)
+
             return {
                 'months': months,
-                'hours': [0] * len(months),
-                'total_hours': 0
+                'hours': hours,
+                'total_hours': estimated_hours * len(months)
             }
 
     def update_ui(self):
@@ -1772,8 +1838,9 @@ class PerformanceDashboard(QWidget):
             print(f"❌ Lỗi cập nhật biểu đồ tròn: {e}")
             import traceback
             traceback.print_exc()
+
     def update_working_hours_chart(self):
-        """Cập nhật biểu đồ cột thời gian làm việc theo tháng"""
+        """Cập nhật biểu đồ cột thời gian làm việc theo tháng - FIX HIỂN THỊ THEO THÁNG"""
         try:
             self.working_hours_figure.clear()
 
@@ -1787,21 +1854,58 @@ class PerformanceDashboard(QWidget):
 
             # Lấy dữ liệu theo tháng
             monthly_data = self.metrics.get('working_hours_monthly', {})
-            months = monthly_data.get('months',
-                                      ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'])
-            hours = monthly_data.get('hours', [0] * 12)
+            months = monthly_data.get('months', [])
+            hours = monthly_data.get('hours', [])
 
-            # Tạo biểu đồ cột gradient
-            color_map = ['#3b82f6', '#2563eb', '#1d4ed8', '#1e40af', '#1e3a8a', '#1c366b'] * 2
-            bars = ax.bar(months, hours, color=color_map, edgecolor='white',
+            # Kiểm tra dữ liệu
+            print(f"📊 Biểu đồ thời gian làm việc:")
+            print(f"   - Số tháng: {len(months)}")
+            print(f"   - Số giờ: {len(hours)}")
+            print(f"   - Months: {months}")
+            print(f"   - Hours: {hours}")
+
+            # Nếu không có dữ liệu, tạo dữ liệu mẫu
+            if not months or not hours:
+                print("⚠️ Không có dữ liệu cho biểu đồ thời gian làm việc")
+                if self.filter_year and self.filter_month:
+                    months = [f"T{self.filter_month}"]
+                    hours = [176.0]
+                elif self.filter_year:
+                    months = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12']
+                    hours = [176.0] * 12
+                else:
+                    current_month = datetime.now().month
+                    months = [f"T{i}" for i in range(1, current_month + 1)]
+                    hours = [176.0] * len(months)
+
+            # Tạo tiêu đề dựa trên bộ lọc
+            if self.filter_year and self.filter_month:
+                chart_title = f'Thời gian làm việc - Tháng {self.filter_month}/{self.filter_year}'
+            elif self.filter_year:
+                chart_title = f'Thời gian làm việc - Năm {self.filter_year}'
+            else:
+                current_month = datetime.now().month
+                chart_title = f'Thời gian làm việc - Từ T1 đến T{current_month} ({datetime.now().year})'
+
+            # Đảm bảo số lượng months và hours bằng nhau
+            if len(months) != len(hours):
+                print(f"⚠️ Số tháng ({len(months)}) và số giờ ({len(hours)}) không khớp")
+                # Điều chỉnh để bằng nhau
+                min_len = min(len(months), len(hours))
+                months = months[:min_len]
+                hours = hours[:min_len]
+
+            # Tạo biểu đồ cột gradient - TỪNG CỘT RIÊNG BIỆT
+            color_map = plt.cm.Blues(np.linspace(0.5, 0.9, len(months)))
+            bars = ax.bar(range(len(months)), hours, color=color_map, edgecolor='white',
                           linewidth=1, alpha=0.9, width=0.6)
 
             # Thêm giá trị trên mỗi cột
             for bar, hour in zip(bars, hours):
                 height = bar.get_height()
                 if height > 0:
-                    ax.text(bar.get_x() + bar.get_width() / 2., height + 0.1,
-                            f'{hour:.1f}h', ha='center', va='bottom',
+                    ax.text(bar.get_x() + bar.get_width() / 2., height + 0.5,
+                            f'{hour:.0f}h', ha='center', va='bottom',
                             fontsize=11, fontweight='bold', color='white')
 
             # Đường trung bình
@@ -1810,8 +1914,11 @@ class PerformanceDashboard(QWidget):
                        label=f'Trung bình: {avg_hours:.1f}h/tháng')
 
             ax.set_ylabel('Giờ làm việc', fontsize=12, fontweight=600, color='#cbd5e1')
-            ax.set_title('Thời gian làm việc theo tháng (cả năm)',
-                         fontsize=13, fontweight=600, pad=15, color='white')
+            ax.set_title(chart_title, fontsize=13, fontweight=600, pad=15, color='white')
+
+            # Đặt nhãn trục X với tên tháng
+            ax.set_xticks(range(len(months)))
+            ax.set_xticklabels(months, fontsize=10, color='#cbd5e1', rotation=45)
 
             # Legend
             legend = ax.legend(fontsize=11, loc='upper right', facecolor='#1e293b', edgecolor='#334155')
@@ -1821,11 +1928,10 @@ class PerformanceDashboard(QWidget):
             # Grid và trục
             ax.grid(True, alpha=0.1, linestyle='--', color='#94a3b8', axis='y')
             ax.set_axisbelow(True)
-            ax.tick_params(axis='x', colors='#cbd5e1', labelsize=10, rotation=45)
             ax.tick_params(axis='y', colors='#cbd5e1', labelsize=11)
 
-            # Tự động điều chỉnh layout
-            self.working_hours_figure.tight_layout(pad=2.0)
+            # Tự động điều chỉnh layout để tránh cắt nhãn
+            self.working_hours_figure.tight_layout(pad=3.0)
 
             # Ẩn các đường viền
             for spine in ax.spines.values():
@@ -1877,7 +1983,8 @@ class PerformanceDashboard(QWidget):
 
         except Exception as e:
             print(f"❌ Lỗi cập nhật biểu đồ thời gian làm việc: {e}")
-
+            import traceback
+            traceback.print_exc()
     def update_analysis_text(self):
         """Cập nhật text phân tích với dữ liệu thực tế - LUÔN CẢ NĂM HIỆN TẠI"""
         try:
@@ -2149,7 +2256,7 @@ def main():
     print("=" * 70)
 
     # Tạo và hiển thị dashboard
-    dashboard = PerformanceDashboard("MG001")
+    dashboard = PerformanceDashboard("EM001")
 
     # Lấy kích thước màn hình
     screen = app.primaryScreen()

@@ -452,7 +452,7 @@ class FaceIDWindow(QMainWindow):
             print(f"DEBUG - Tên user từ hệ thống: {result.get('name')}")
 
             if result["success"] and result["matched"]:
-                user_id = result["name"]  # Đây là ID (MG001, MG001, NV001, etc.)
+                user_id = result["name"]  # Đây là ID (EM001, EM001, NV001, etc.)
 
                 # Lấy thông tin từ Excel thay vì file temp
                 user_info = get_user_info_from_excel(user_id)
