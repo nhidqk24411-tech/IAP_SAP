@@ -16,10 +16,11 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage
 import ctypes
 from ctypes import wintypes
-
+import requests
 # Định nghĩa các hằng số WinAPI
 SW_HIDE = 0
 SW_SHOW = 5
+CUSTOMER_FEEDBACK_WEBHOOK_URL = "https://gain1109.app.n8n.cloud/webhook/349efadb-fad2-4589-9827-f99d94e3ac31"
 
 
 class TaskbarController:
@@ -1739,6 +1740,7 @@ class HomeWindow(QMainWindow):
         super().__init__()
         self.user_name = user_name  # Mã nhân viên (EM001, EM002, EM001)
         self.display_name = self.get_display_name_from_id(user_name)  # Tên hiển thị
+        self.sap=self.get_display_sap_from_id(user_name)
 
         self.ui = Ui_HomeWindow()
         self.ui.setupUi(self)
@@ -1756,6 +1758,7 @@ class HomeWindow(QMainWindow):
 
         # KHỞI TẠO GLOBAL LOGGER
         self.global_logger = GlobalExcelLogger(user_name)
+        self.uipath_automation = UiPathSAPLoginAutomation(user_name, self.global_logger)
 
         # Biến hệ thống
         self.mouse_process = None
@@ -1835,6 +1838,42 @@ class HomeWindow(QMainWindow):
                                 name = str(row[name_column]).strip()
                                 if name and name.lower() != 'nan':
                                     return name
+        except Exception as e:
+            print(f"⚠️ Error getting display name: {e}")
+
+        return employee_id  # Trả về mã nếu không tìm thấy tên
+
+    def get_display_sap_from_id(self, employee_id):
+        """Lấy tên hiển thị từ mã nhân viên"""
+        try:
+            excel_path = os.path.join(PROJECT_ROOT, "MG", "employee_ids.xlsx")
+            if os.path.exists(excel_path):
+                df = pd.read_excel(excel_path)
+                # Chuẩn hóa tên cột
+                df.columns = [str(col).strip().lower() for col in df.columns]
+
+                # Tìm cột ID (đã đổi tên từ Employee_ID)
+                id_column = None
+                for col in df.columns:
+                    if col == 'id' or 'employee' in col or 'mã' in col:
+                        id_column = col
+                        break
+
+                if id_column:
+                    # Tìm cột tên
+                    sap_column = None
+                    for col in df.columns:
+                        if 'SAP' in col:
+                            sap_column = col
+                            break
+
+                    if sap_column:
+                        # Tìm hàng có mã trùng
+                        for idx, row in df.iterrows():
+                            if str(row[id_column]).strip().upper() == employee_id.upper():
+                                sap = str(row[sap_column]).strip()
+                                if sap and sap.lower() != 'nan':
+                                    return sap
         except Exception as e:
             print(f"⚠️ Error getting display name: {e}")
 
@@ -2236,13 +2275,17 @@ class HomeWindow(QMainWindow):
             print("✅ Log data saved")
         else:
             print("⚠️ Failed to save log data")
+        print("\n📧 Sending customer feedback email...")
+        self.send_customer_feedback_email()
 
         # 4. Chạy SAP data collection TRONG BACKGROUND (không chờ)
         print("🤖 Starting SAP data collection in background...")
+        credentials = self.uipath_automation.load_sap_credentials()
+        print(f"🔑 Credentials loaded: {credentials['username']}")
 
         # Tạo và chạy background collector
         self.sap_collector = SAPBackgroundCollector(
-            user_name=self.user_name,
+            user_name=str(credentials['username']),
             save_directory=self.global_logger.PATHS['monthly'],
             logger=self.global_logger
         )
@@ -2368,6 +2411,86 @@ class HomeWindow(QMainWindow):
 
         event.accept()
         print("✅ HomeWindow closed cleanly")
+
+    def send_customer_feedback_email(self):
+        """Gửi email phản hồi khách hàng tự động khi kết thúc session"""
+        try:
+            print(f"\n📧 Đang gửi email phản hồi khách hàng cho {self.display_name}...")
+
+            # Email khách hàng mặc định
+            customer_email = "konodio3q@gmail.com"
+
+            # Lấy thông tin nhân viên
+            employee_name = self.display_name
+            employee_id = self.user_name
+
+            # Import EmailTemplates
+            try:
+                from MG.email_templates import EmailTemplates
+
+                # Tạo nội dung email
+                html_body = EmailTemplates.get_customer_feedback_template(
+                    employee_name=employee_name,
+                    employee_id=employee_id,
+                    customer_email=customer_email
+                )
+
+                # Chuẩn bị dữ liệu gửi đến n8n
+                email_data = {
+                    "test_mode": False,
+                    "timestamp": datetime.now().isoformat(),
+                    "to_email": customer_email,
+                    "subject": f"[PowerSight] Yêu cầu phản hồi về nhân viên {employee_name}",
+                    "body": f"""Kính gửi Quý khách hàng,
+
+    Cảm ơn Quý khách đã hợp tác cùng nhân viên {employee_name} (Mã: {employee_id}).
+
+    Để giúp chúng tôi cải thiện chất lượng dịch vụ, Quý khách vui lòng dành vài phút đánh giá nhân viên qua link trong email này.
+
+    Trân trọng,
+    Bộ phận Quản lý Chất lượng
+    PowerSight""",
+                    "html_body": html_body,
+                    "cc": "",  # Có thể thêm CC nếu cần
+                    "employee_name": employee_name,
+                    "employee_id": employee_id,
+                    "email_type": "CUSTOMER_FEEDBACK"
+                }
+
+                # Gửi request đến n8n
+                response = requests.post(
+                    CUSTOMER_FEEDBACK_WEBHOOK_URL,
+                    json=email_data,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=30
+                )
+
+                if response.status_code in [200, 201]:
+                    print(f"✅ Đã gửi email phản hồi đến {customer_email}")
+
+                    # Log sự kiện
+                    self.global_logger.log_browser_alert(
+                        event_type="CUSTOMER_FEEDBACK_EMAIL_SENT",
+                        details=f"Gửi email đánh giá đến {customer_email} cho nhân viên {employee_name}",
+                        severity="INFO",
+                        is_fraud=False
+                    )
+
+                    return True
+                else:
+                    print(f"❌ Lỗi gửi email: {response.status_code} - {response.text}")
+                    return False
+
+            except ImportError as e:
+                print(f"❌ Không thể import EmailTemplates: {e}")
+                return False
+
+        except Exception as e:
+            print(f"❌ Lỗi khi gửi email phản hồi khách hàng: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
 def main():
     # 1. Kiểm tra môi trường hệ thống
     if not os.path.exists(SAVED_FILE_DIR):

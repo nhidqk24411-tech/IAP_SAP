@@ -6,145 +6,131 @@ load_dotenv()
 
 
 class SAPDataCollector:
-    """Thu thập dữ liệu từ SAP GUI"""
-
     def __init__(self, user_name="", save_directory=""):
+        # user_name ở đây sẽ đóng vai trò là mã nhân viên (VD: LEARN-717)
         self.user_name = user_name
         self.save_directory = save_directory
-        self.sap_logon_path = r"C:\Program Files (x86)\SAP\FrontEnd\SapGui\saplogon.exe"
+        self.sap_logon_path = r"C:\Program Files (x86)\SAP\FrontEnd\SAPgui\saplogon.exe"
         self.session = None
         self.connection = None
 
-    def quick_collect(self):
-        """Thu thập dữ liệu nhanh và lưu vào thư mục chỉ định"""
+    def quick_collect(self):  # Không cần truyền filter_value vào nữa
         try:
             print(f"\n🤖 SAP Data Collection Starting...")
-            print(f"   User: {self.user_name}")
-            print(f"   Save to: {self.save_directory}")
+            # Sử dụng self.user_name làm giá trị tìm kiếm
+            print(f"   Searching for User ID: {self.user_name}")
 
-            # Tạo thư mục nếu chưa tồn tại
             os.makedirs(self.save_directory, exist_ok=True)
-
-            # Đường dẫn file đầy đủ
             save_path = os.path.join(self.save_directory, "sap_data.xlsx")
-            print(f"   File: {save_path}")
 
             # 1. Mở SAP Logon
             print("   Step 1: Opening SAP Logon...")
             subprocess.Popen(self.sap_logon_path)
-            time.sleep(5)
+            time.sleep(8)
 
             # 2. Kết nối SAP
             print("   Step 2: Connecting to SAP...")
-            SapGuiAuto = win32com.client.GetObject('SAPGUI')
-            if not SapGuiAuto:
-                print("❌ Cannot connect to SAP GUI")
+            sap_gui_auto = None
+            for attempt in range(3):
+                try:
+                    sap_gui_auto = win32com.client.GetObject("SAPGUI")
+                    if sap_gui_auto: break
+                except:
+                    try:
+                        sap_gui_auto = win32com.client.Dispatch("Sapgui.Component")
+                        if sap_gui_auto: break
+                    except:
+                        time.sleep(5)
+
+            if not sap_gui_auto:
+                print("❌ Lỗi: Không thể kết nối SAP GUI.")
                 return None
 
-            application = SapGuiAuto.GetScriptingEngine
-            self.connection = application.OpenConnection("S36 [S36Z]", True)
+            application = sap_gui_auto.GetScriptingEngine
+            connection_name = "S36 [S36Z]"
 
-            if not self.connection:
-                print("❌ Cannot open SAP connection")
-                return None
+            try:
+                self.connection = application.OpenConnection(connection_name, True)
+            except:
+                conn_string = "/H/saprouter.hcc.in.tum.de/S/3298/H/S36Z/S/3200"
+                self.connection = application.OpenConnection(conn_string, True)
 
-            connection1 = self.connection.Children(0)
-            self.session = connection1.Children(0)
+            start_wait = time.time()
+            while self.connection.Children.Count == 0:
+                time.sleep(1)
+                if time.time() - start_wait > 20: return None
 
-            # 3. Maximize cửa sổ
+            self.session = self.connection.Children(0)
             self.session.findById("wnd[0]").maximize()
 
-            # 4. Đăng nhập với credentials từ .env
+            # 3. Đăng nhập
             print("   Step 3: Logging in...")
-            self.session.findById("wnd[0]/usr/txtRSYST-MANDT").text = os.getenv("SAP_CLIENT")
-            self.session.findById("wnd[0]/usr/txtRSYST-BNAME").text = os.getenv("SAP_USER")
-            self.session.findById("wnd[0]/usr/pwdRSYST-BCODE").text = os.getenv("SAP_PASSWORD")
-            self.session.findById("wnd[0]/usr/txtRSYST-LANGU").text = os.getenv("SAP_LANGUAGE")
-            self.session.findById("wnd[0]").sendVKey(0)
-            time.sleep(2)
+            # Lấy thông tin tài khoản SAP từ .env hoặc dùng mặc định
+            sap_user = os.getenv("SAP_USER") or "NHIDQ-24411"
+            sap_pass = os.getenv("SAP_PASSWORD") or "IPASAP2025"
 
-            # 5. Thực hiện query
+            try:
+                self.session.findById("wnd[0]/usr/txtRSYST-BNAME").text = str(sap_user)
+                self.session.findById("wnd[0]/usr/pwdRSYST-BCODE").text = str(sap_pass)
+                self.session.findById("wnd[0]/usr/txtRSYST-MANDT").text = os.getenv("SAP_CLIENT") or "312"
+                self.session.findById("wnd[0]").sendVKey(0)
+                time.sleep(3)
+
+                if self.session.Children.Count > 1:
+                    try:
+                        self.session.findById("wnd[1]/usr/radMULTI_LOGON_OPT2").select()
+                        self.session.findById("wnd[1]/tbar[0]/btn[0]").press()
+                    except:
+                        pass
+            except:
+                print("   ⚠️ Đã đăng nhập sẵn hoặc dùng SSO.")
+
+            # 4. Thực hiện Query SQVI
             print("   Step 4: Running query...")
-
-            self.session.findById("wnd[0]/tbar[0]/okcd").text = "sqvi"
-            self.session.findById("wnd[0]").sendVKey(0)
+            self.session.startTransaction("sqvi")
+            time.sleep(2)
 
             self.session.findById("wnd[0]/usr/ctxtRS38R-QNUM").text = "ZSALE_TEST3"
-            self.session.findById("wnd[0]/usr/ctxtRS38R-QNUM").caretPosition = 11
-            self.session.findById("wnd[0]/usr/btnP1").press()
-            self.session.findById("wnd[0]/usr/txtSP$00001-LOW").text = "LEARN-717"
-            self.session.findById("wnd[0]/usr/txtSP$00001-LOW").caretPosition = 9
-            self.session.findById("wnd[0]/tbar[1]/btn[8]").press()
+            self.session.findById("wnd[0]").sendVKey(8)
             time.sleep(2)
 
-            # 6. Export dữ liệu
+            # --- SỬ DỤNG self.user_name Ở ĐÂY ---
+            print(f"   Entering Filter Criteria: {self.user_name}")
+
+            # Điền mã nhân viên được truyền từ lúc khởi tạo class
+            self.session.findById("wnd[0]/usr/txtSP$00001-LOW").text = self.user_name
+            self.session.findById("wnd[0]").sendVKey(8)
+            time.sleep(5)
+
+            # 5. Export dữ liệu
             print("   Step 5: Exporting to Excel...")
-            self.session.findById("wnd[0]/usr/cntlCONTAINER/shellcont/shell").pressToolbarContextButton("&MB_EXPORT")
-            self.session.findById("wnd[0]/usr/cntlCONTAINER/shellcont/shell").selectContextMenuItem("&XXL")
+            shell = self.session.findById("wnd[0]/usr/cntlCONTAINER/shellcont/shell")
+            shell.pressToolbarContextButton("&MB_EXPORT")
+            shell.selectContextMenuItem("&XXL")
             time.sleep(2)
 
-            # 7. Lưu file - SỬA LỖI CHÍNH Ở ĐÂY
-            print("   Step 6: Saving file...")
-            self.session.findById("wnd[1]/tbar[0]/btn[20]").press()
-
-
-
-
-
-            # Thiết lập đường dẫn và tên file
-            self.session.findById("wnd[1]/usr/ctxtDY_PATH").text = self.save_directory
-            self.session.findById("wnd[1]/usr/ctxtDY_FILENAME").text = "sap_data.xlsx"
-            self.session.findById("wnd[1]/usr/ctxtDY_FILENAME").caretPosition = 13
-
-            # Kiểm tra nếu file đã tồn tại
-            if os.path.exists(save_path):
-                print("   ⚠️ File exists, will replace...")
-                # Nhấn Save (sẽ hiện dialog replace)
-                self.session.findById("wnd[1]/tbar[0]/btn[0]").press()
-                time.sleep(1)
-                # Xác nhận replace nếu có dialog
-                try:
-                    self.session.findById("wnd[1]/tbar[0]/btn[11]").press()
-                    print("   ✅ File replaced")
-                except:
-                    pass
-            else:
-                # Nhấn Save bình thường
-                self.session.findById("wnd[1]/tbar[0]/btn[0]").press()
-                print("   ✅ File saved")
-
+            self.session.findById("wnd[1]").sendVKey(0)
             time.sleep(3)
 
-            # 8. Đóng kết nối
-            print("   Step 7: Closing SAP connection...")
-            try:
-                self.connection.CloseSession("ses[0]")
-            except:
-                pass
+            # 6. Lưu file
+            print("   Step 6: Saving file...")
+            self.session.findById("wnd[1]/usr/ctxtDY_PATH").text = self.save_directory
+            self.session.findById("wnd[1]/usr/ctxtDY_FILENAME").text = "sap_data.xlsx"
 
-            print(f"✅ SAP data collected: {save_path}")
+            if os.path.exists(save_path):
+                try:
+                    os.remove(save_path)
+                except:
+                    pass
+
+            self.session.findById("wnd[1]").sendVKey(0)
+            print("   ✅ File saved")
+
+            print(f"✅ Thành công! File lưu tại: {save_path}")
             return save_path
 
         except Exception as e:
-            print(f"❌ SAP collection error: {e}")
-            import traceback
-            traceback.print_exc()
-
-            # Đảm bảo đóng kết nối nếu có lỗi
-            try:
-                if self.connection:
-                    self.connection.CloseSession("ses[0]")
-            except:
-                pass
-
+            print(f"❌ Lỗi: {e}")
             return None
 
 
-# Dùng để chạy độc lập (test)
-if __name__ == "__main__":
-    collector = SAPDataCollector(
-        user_name="TEST",
-        save_directory=os.path.join(os.path.expanduser("~"), "Downloads")
-    )
-    result = collector.quick_collect()
-    print(f"Result: {result}")
