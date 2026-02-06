@@ -5,14 +5,97 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="af2765fa-5722-4e4b-b348-4caae5d6a0eb" name="Changes" comment="start">
+      <change afterPath="$PROJECT_DIR$/Chatbot/employee_email_dialog.py" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/SAP/.env" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Sample.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/MG/email_templates.py" beforeDir="false" afterPath="$PROJECT_DIR$/MG/email_templates.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chatbot/.env" beforeDir="false" afterPath="$PROJECT_DIR$/Chatbot/.env" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chatbot/dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/Chatbot/dashboard.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chatbot/employee_chatbot.py" beforeDir="false" afterPath="$PROJECT_DIR$/Chatbot/employee_chatbot.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Chatbot/gemini_analyzer.py" beforeDir="false" afterPath="$PROJECT_DIR$/Chatbot/gemini_analyzer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MG/data_processor.py" beforeDir="false" afterPath="$PROJECT_DIR$/MG/data_processor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MG/employee_ids.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/MG/employee_ids.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MG/manager_chatbot.py" beforeDir="false" afterPath="$PROJECT_DIR$/MG/manager_chatbot.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MainApp/Run/App.py" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/Run/App.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/MainApp/Run/main_emp.py" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/Run/main_emp.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MainApp/Run/main_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/Run/main_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MainApp/UI/UI_LOGIN.py" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/UI_LOGIN.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MainApp/UI/UI_LOGIN.ui" beforeDir="false" afterPath="$PROJECT_DIR$/MainApp/UI/UI_LOGIN.ui" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/SAP/SAP_automation.py" beforeDir="false" afterPath="$PROJECT_DIR$/SAP/SAP_automation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_01/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_01/sap_data.xlsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_01/work_logs_EM001_2026_01.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_01/work_logs_EM001_2026_01.xlsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_02/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_02/sap_data.xlsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_02/work_logs_EM001_2026_02.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_02/work_logs_EM001_2026_02.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_03/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_03/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_03/work_logs_EM001_2026_03.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_03/work_logs_EM001_2026_03.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_04/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_04/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_04/work_logs_EM001_2026_04.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_04/work_logs_EM001_2026_04.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_05/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_05/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_05/work_logs_EM001_2026_05.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_05/work_logs_EM001_2026_05.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_06/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_06/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_06/work_logs_EM001_2026_06.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_06/work_logs_EM001_2026_06.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_07/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_07/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_07/work_logs_EM001_2026_07.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_07/work_logs_EM001_2026_07.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_08/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_08/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_08/work_logs_EM001_2026_08.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_08/work_logs_EM001_2026_08.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_09/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_09/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_09/work_logs_EM001_2026_09.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_09/work_logs_EM001_2026_09.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_10/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_10/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_10/work_logs_EM001_2026_10.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_10/work_logs_EM001_2026_10.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_11/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_11/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_11/work_logs_EM001_2026_11.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_11/work_logs_EM001_2026_11.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_12/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_12/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM001/2026_12/work_logs_EM001_2026_12.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM001/2026_12/work_logs_EM001_2026_12.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_01/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_01/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_01/work_logs_EM002_2026_01.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_01/work_logs_EM002_2026_01.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_02/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_02/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_02/work_logs_EM002_2026_02.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_02/work_logs_EM002_2026_02.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_03/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_03/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_03/work_logs_EM002_2026_03.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_03/work_logs_EM002_2026_03.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_04/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_04/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_04/work_logs_EM002_2026_04.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_04/work_logs_EM002_2026_04.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_05/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_05/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_05/work_logs_EM002_2026_05.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_05/work_logs_EM002_2026_05.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_06/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_06/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_06/work_logs_EM002_2026_06.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_06/work_logs_EM002_2026_06.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_07/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_07/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_07/work_logs_EM002_2026_07.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_07/work_logs_EM002_2026_07.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_08/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_08/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_08/work_logs_EM002_2026_08.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_08/work_logs_EM002_2026_08.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_09/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_09/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_09/work_logs_EM002_2026_09.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_09/work_logs_EM002_2026_09.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_10/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_10/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_10/work_logs_EM002_2026_10.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_10/work_logs_EM002_2026_10.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_11/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_11/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_11/work_logs_EM002_2026_11.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_11/work_logs_EM002_2026_11.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_12/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_12/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM002/2026_12/work_logs_EM002_2026_12.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM002/2026_12/work_logs_EM002_2026_12.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_01/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_01/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_01/work_logs_EM003_2026_01.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_01/work_logs_EM003_2026_01.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_02/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_02/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_02/work_logs_EM003_2026_02.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_02/work_logs_EM003_2026_02.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_03/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_03/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_03/work_logs_EM003_2026_03.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_03/work_logs_EM003_2026_03.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_04/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_04/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_04/work_logs_EM003_2026_04.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_04/work_logs_EM003_2026_04.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_05/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_05/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_05/work_logs_EM003_2026_05.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_05/work_logs_EM003_2026_05.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_06/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_06/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_06/work_logs_EM003_2026_06.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_06/work_logs_EM003_2026_06.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_07/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_07/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_07/work_logs_EM003_2026_07.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_07/work_logs_EM003_2026_07.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_08/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_08/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_08/work_logs_EM003_2026_08.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_08/work_logs_EM003_2026_08.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_09/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_09/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_09/work_logs_EM003_2026_09.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_09/work_logs_EM003_2026_09.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_10/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_10/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_10/work_logs_EM003_2026_10.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_10/work_logs_EM003_2026_10.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_11/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_11/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_11/work_logs_EM003_2026_11.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_11/work_logs_EM003_2026_11.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_12/sap_data.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_12/sap_data.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/EM003/2026_12/work_logs_EM003_2026_12.xlsx" beforeDir="false" afterPath="$PROJECT_DIR$/Saved_file/EM003/2026_12/work_logs_EM003_2026_12.xlsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Saved_file/summary_report_2026.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/test.py" beforeDir="false" afterPath="$PROJECT_DIR$/test.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -60,6 +143,7 @@
     &quot;Python tests.Python tests in face_engine.py.executor&quot;: &quot;Run&quot;,
     &quot;Python tests.Python tests in tets.py.executor&quot;: &quot;Run&quot;,
     &quot;Python.App (1).executor&quot;: &quot;Run&quot;,
+    &quot;Python.App.executor&quot;: &quot;Run&quot;,
     &quot;Python.Launcher (1).executor&quot;: &quot;Run&quot;,
     &quot;Python.Main (1).executor&quot;: &quot;Run&quot;,
     &quot;Python.Main.executor&quot;: &quot;Run&quot;,
@@ -70,6 +154,7 @@
     &quot;Python.SAP_Gen.executor&quot;: &quot;Run&quot;,
     &quot;Python.SAP_automation (1).executor&quot;: &quot;Run&quot;,
     &quot;Python.SafeWorkingBrowser.executor&quot;: &quot;Run&quot;,
+    &quot;Python.Sample.executor&quot;: &quot;Run&quot;,
     &quot;Python.Session_launcher.executor&quot;: &quot;Run&quot;,
     &quot;Python.UI_Home_empEX.executor&quot;: &quot;Run&quot;,
     &quot;Python.aggregate_dashboard.executor&quot;: &quot;Run&quot;,
@@ -79,6 +164,7 @@
     &quot;Python.dashboard.executor&quot;: &quot;Run&quot;,
     &quot;Python.data_processor.executor&quot;: &quot;Run&quot;,
     &quot;Python.employee_chatbot.executor&quot;: &quot;Run&quot;,
+    &quot;Python.employee_email_dialog.executor&quot;: &quot;Run&quot;,
     &quot;Python.face_login.executor&quot;: &quot;Run&quot;,
     &quot;Python.hehe.executor&quot;: &quot;Run&quot;,
     &quot;Python.main.executor&quot;: &quot;Run&quot;,
@@ -123,8 +209,8 @@
       <recent name="C:\Users\legal\PycharmProjects\PythonProject\Saved_file\Giang\Mouse\2025_12" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.App (1)">
-    <configuration name="App (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.employee_email_dialog">
+    <configuration name="App" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PythonProject" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -146,7 +232,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="SAP_automation (1)" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="Sample" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PythonProject" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -155,11 +241,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/SAP" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/SAP/SAP_automation.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Sample.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -168,7 +254,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="main_emp" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="employee_chatbot" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PythonProject" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -177,11 +263,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/MainApp/Run" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Chatbot" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/MainApp/Run/main_emp.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Chatbot/employee_chatbot.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -190,7 +276,7 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="retrieve" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+    <configuration name="employee_email_dialog" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="PythonProject" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -199,11 +285,11 @@
         <env name="PYTHONUNBUFFERED" value="1" />
       </envs>
       <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Face" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/Chatbot" />
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Face/retrieve.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Chatbot/employee_email_dialog.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -212,17 +298,35 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="Unnamed" type="VBScriptRunConfiguration" temporary="true">
-      <option name="scriptName" value="$USER_HOME$/Downloads/Script1.vbs" />
+    <configuration name="manager_chatbot" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="PythonProject" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/MG" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/MG/manager_chatbot.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.App (1)" />
-        <item itemvalue="Python.SAP_automation (1)" />
-        <item itemvalue="VBScript.Unnamed" />
-        <item itemvalue="Python.main_emp" />
-        <item itemvalue="Python.retrieve" />
+        <item itemvalue="Python.employee_email_dialog" />
+        <item itemvalue="Python.manager_chatbot" />
+        <item itemvalue="Python.App" />
+        <item itemvalue="Python.employee_chatbot" />
+        <item itemvalue="Python.Sample" />
       </list>
     </recent_temporary>
   </component>
@@ -369,7 +473,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769688990499</updated>
     </task>
-    <option name="localTasksCounter" value="17" />
+    <task id="LOCAL-00017" summary="start">
+      <option name="closed" value="true" />
+      <created>1769964911397</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1769964911397</updated>
+    </task>
+    <option name="localTasksCounter" value="18" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">

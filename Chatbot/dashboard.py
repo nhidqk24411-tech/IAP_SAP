@@ -6,6 +6,8 @@ Performance Dashboard - Enhanced version with diverse charts and hover tooltip
 
 import sys
 import os
+import traceback
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
@@ -130,206 +132,215 @@ class ChartDialog(QDialog):
 
 
 class PerformanceDashboard(QWidget):
-    """Dashboard displaying employee performance - Enhanced version with monthly data"""
-
     def __init__(self, user_name, parent_window=None):
         super().__init__()
-        self.user_name = user_name
-        self.parent_window = parent_window  # Store parent window reference
+        self.user_name = str(user_name)
+        self.parent_window = parent_window
         self.metrics = {}
-        self.tooltip_annotations = []
-        self.data_processor = None
+        self.raw_data_original = {}  # Lưu bản gốc
         self.year_data = None
+        self.data_processor = None
+        self.metric_labels = []
 
-        try:
-            from config import Config
-            self.config = Config
-            print(f"✅ Config loaded for {user_name}")
-        except ImportError as e:
-            print(f"❌ Cannot import config: {e}")
-            QMessageBox.critical(None, "Error", "Cannot load configuration from config.py")
-            self.config = None
-
+        # 1. Khởi tạo giao diện trước
         self.init_ui()
-        self.load_data()
+
+        # 2. Tải dữ liệu sau (Để tránh lỗi widgets chưa tồn tại)
+        QTimer.singleShot(100, self.load_data)
 
     def init_ui(self):
-        """Initialize UI with scrollbar - ADDED HOME BUTTON"""
-        self.setWindowTitle(f"📊 PERFORMANCE DASHBOARD - {self.user_name}")
-
+        self.setWindowTitle(f"Performance Dashboard - {self.user_name}")
+        # Giữ nguyên StyleSheet cũ của bạn
         self.setStyleSheet("""
-            QWidget {
-                background-color: #0f172a;
-                font-family: 'Segoe UI', 'Inter', Arial, sans-serif;
-            }
-            QLabel {
-                color: #e2e8f0;
-            }
-            QGroupBox {
-                font-weight: 600;
-                font-size: 14px;
-                border: 1px solid #334155;
-                border-radius: 8px;
-                margin-top: 15px;
-                padding-top: 15px;
-                background-color: #1e293b;
-                color: #cbd5e1;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 15px;
-                padding: 0 10px 0 10px;
-                color: #60a5fa;
-                font-size: 14px;
-                font-weight: 600;
-            }
-            QPushButton {
-                background-color: #3b82f6;
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 6px;
-                font-weight: 500;
-                font-size: 13px;
-            }
-            QPushButton:hover {
-                background-color: #2563eb;
-            }
-            QTextEdit {
-                background-color: #1e293b;
-                border: 1px solid #334155;
-                border-radius: 8px;
-                padding: 15px;
-                font-size: 13px;
-                line-height: 1.5;
-                color: #cbd5e1;
-            }
-            QFrame {
-                background-color: #1e293b;
-                border-radius: 8px;
-                border: 1px solid #334155;
-            }
-            QScrollArea {
-                border: none;
-                background-color: transparent;
-            }
+            QWidget { background-color: #0f172a; font-family: 'Segoe UI'; }
+            QLabel { color: #e2e8f0; }
+            QGroupBox { font-weight: 600; border: 1px solid #334155; border-radius: 8px; margin-top: 15px; background-color: #1e293b; color: #cbd5e1; }
+            QPushButton { background-color: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; }
+            QComboBox { background-color: #1e293b; color: white; border: 1px solid #334155; padding: 4px; border-radius: 4px; }
         """)
 
-        # Main scroll area
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        # Layout chính của cả Widget
+        self.main_vbox = QVBoxLayout(self)
+        self.main_vbox.setContentsMargins(0, 0, 0, 0)
 
-        # Content widget
-        content_widget = QWidget()
-        content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(20, 20, 20, 20)
-        content_layout.setSpacing(15)
+        # --- THANH HEADER ---
+        header_frame = QFrame()
+        header_frame.setFixedHeight(60)
+        header_frame.setStyleSheet("background-color: #1e293b; border-bottom: 1px solid #334155;")
+        header_layout = QHBoxLayout(header_frame)
 
-        # Header - MODIFIED TO INCLUDE HOME BUTTON
-        header_widget = QWidget()
-        header_layout = QHBoxLayout(header_widget)
-        header_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Home button - ADDED
         self.home_btn = QPushButton("🏠 Home")
-        self.home_btn.setFixedSize(80, 35)
+        self.home_btn.setFixedSize(90, 35)
         self.home_btn.clicked.connect(self.go_back_to_home)
-        self.home_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3b82f6;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                font-size: 13px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #2563eb;
-            }
-        """)
+        header_layout.addWidget(self.home_btn)
 
-        title_label = QLabel(f"Employee Performance Overview - {self.user_name} (Annual Data)")
-        title_label.setStyleSheet("""
-            font-size: 24px;
-            font-weight: 700;
-            color: #ffffff;
-            padding: 10px 0;
-        """)
+        header_layout.addStretch()
+
+        # LOGIC: Chỉ hiện bộ lọc cho nhân viên (không bắt đầu bằng MG)
+        if not self.user_name.startswith("MG"):
+            header_layout.addWidget(QLabel("Year:"))
+            self.year_combo = QComboBox()
+            self.year_combo.addItems(["2024", "2025", "2026"])
+            self.year_combo.setCurrentText(str(datetime.now().year))
+            header_layout.addWidget(self.year_combo)
+
+            header_layout.addWidget(QLabel("Month:"))
+            self.month_combo = QComboBox()
+            self.month_combo.addItems(["All", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"])
+            header_layout.addWidget(self.month_combo)
+
+            self.filter_btn = QPushButton("🔍 Filter")
+            self.filter_btn.setFixedSize(80, 35)
+            self.filter_btn.clicked.connect(self.apply_filter)
+            header_layout.addWidget(self.filter_btn)
 
         self.refresh_btn = QPushButton("🔄 Reload")
+        self.refresh_btn.setFixedSize(90, 35)
         self.refresh_btn.clicked.connect(self.load_data)
-        self.refresh_btn.setFixedSize(100, 35)
-
-        header_layout.addWidget(self.home_btn)
-        header_layout.addWidget(title_label)
-        header_layout.addStretch()
         header_layout.addWidget(self.refresh_btn)
 
-        content_layout.addWidget(header_widget)
+        self.main_vbox.addWidget(header_frame)
 
-        # Metrics grid - 4 metric cards top row
-        metrics_grid = self.create_metrics_grid()
-        content_layout.addWidget(metrics_grid)
+        # --- VÙNG NỘI DUNG CUỘN ---
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setStyleSheet("border: none;")
 
-        # Charts section - 2 charts on top
-        charts_container = QWidget()
-        charts_layout = QHBoxLayout(charts_container)
-        charts_layout.setSpacing(20)
-        charts_layout.setContentsMargins(0, 0, 0, 0)
+        self.content_widget = QWidget()
+        self.content_layout = QVBoxLayout(self.content_widget)
+        self.content_layout.setContentsMargins(20, 20, 20, 20)
 
-        fraud_chart = self.create_fraud_chart_widget()
-        charts_layout.addWidget(fraud_chart)
+        # Thêm các thành phần biểu đồ (Dùng các hàm tạo widget cũ của bạn)
+        self.content_layout.addWidget(self.create_metrics_grid())
 
-        revenue_chart = self.create_revenue_chart_widget()
-        charts_layout.addWidget(revenue_chart)
+        row1 = QHBoxLayout()
+        row1.addWidget(self.create_fraud_chart_widget())
+        row1.addWidget(self.create_revenue_chart_widget())
+        self.content_layout.addLayout(row1)
 
-        content_layout.addWidget(charts_container)
+        row2 = QHBoxLayout()
+        row2.addWidget(self.create_completion_chart_widget())
+        row2.addWidget(self.create_working_hours_chart_widget())
+        self.content_layout.addLayout(row2)
 
-        # Two more charts section - 2 bottom charts
-        charts_container2 = QWidget()
-        charts_layout2 = QHBoxLayout(charts_container2)
-        charts_layout2.setSpacing(20)
-        charts_layout2.setContentsMargins(0, 0, 0, 0)
+        self.content_layout.addWidget(self.create_analysis_widget())
 
-        completion_chart = self.create_completion_chart_widget()
-        charts_layout2.addWidget(completion_chart)
+        self.scroll_area.setWidget(self.content_widget)
+        self.main_vbox.addWidget(self.scroll_area)
 
-        working_hours_chart = self.create_working_hours_chart_widget()
-        charts_layout2.addWidget(working_hours_chart)
+    def load_data(self):
+        """Tải dữ liệu an toàn"""
+        try:
+            from data_processor import DataProcessor
+            self.data_processor = DataProcessor(self.user_name)
+            if not self.data_processor.load_all_data():
+                return
 
-        content_layout.addWidget(charts_container2)
+            self.year_data = self.data_processor.get_dashboard_data()
 
-        # Analysis section
-        analysis_widget = self.create_analysis_widget()
-        content_layout.addWidget(analysis_widget)
+            # Trích xuất để lưu bản gốc phục vụ Filter
+            sap_sheets = self.year_data.get('sap_data', {}).get('sheets', {})
+            work_log_sheets = self.year_data.get('work_log', {}).get('sheets', {})
 
-        # Footer
-        footer_label = QLabel(
-            f"Data from SAP system and work logs. Last updated: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
-        footer_label.setStyleSheet("""
-            font-size: 11px;
-            color: #94a3b8;
-            font-style: italic;
-            padding: 8px;
-            background-color: #1e293b;
-            border-radius: 5px;
-            border: 1px solid #334155;
-        """)
-        footer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        content_layout.addWidget(footer_label)
+            self.raw_data_original = {
+                'orders': sap_sheets.get('Orders', pd.DataFrame()).copy(),
+                'fraud': work_log_sheets.get('Fraud_Events', pd.DataFrame()).copy(),
+                'browser': work_log_sheets.get('Browser_Sessions', pd.DataFrame()).copy()
+            }
 
-        content_layout.addStretch(1)
+            if self.user_name.startswith("MG"):
+                self.calculate_dashboard_metrics()
+                self.update_ui()
+            else:
+                self.apply_filter()  # Tự động lọc lần đầu cho nhân viên
 
-        scroll_area.setWidget(content_widget)
+        except Exception as e:
+            print(f"❌ Load Data Error: {e}")
 
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-        main_layout.addWidget(scroll_area)
+    def apply_filter(self):
+        """Lọc dữ liệu và cập nhật toàn bộ giao diện"""
+        if not self.raw_data_original: return
 
-        self.setMinimumSize(1200, 700)
+        try:
+            year = int(self.year_combo.currentText())
+            month_text = self.month_combo.currentText()
+
+            # Lọc bản sao
+            df_o = self.raw_data_original['orders'].copy()
+            df_f = self.raw_data_original['fraud'].copy()
+
+            if not df_o.empty and 'Year' in df_o.columns:
+                df_o = df_o[df_o['Year'] == year]
+                if month_text != "All":
+                    df_o = df_o[df_o['Month'] == int(month_text)]
+
+            if not df_f.empty:
+                df_f['Timestamp'] = pd.to_datetime(df_f['Timestamp'])
+                df_f = df_f[df_f['Timestamp'].dt.year == year]
+                if month_text != "All":
+                    df_f = df_f[df_f['Timestamp'].dt.month == int(month_text)]
+
+            # Ghi đè dữ liệu lọc vào biến mà các hàm cũ của bạn sử dụng
+            self.year_data['sap_data']['sheets']['Orders'] = df_o
+            self.year_data['work_log']['sheets']['Fraud_Events'] = df_f
+
+            # Chạy lại tính toán và vẽ lại UI
+            self.calculate_dashboard_metrics()
+            self.update_ui()
+            print(f"✅ Dashboard updated for {month_text}/{year}")
+
+        except Exception as e:
+            print(f"⚠️ Filter logic error: {e}")
+
+    def keyPressEvent(self, event):
+        """LỐI THOÁT KHẨN CẤP: Nhấn ESC để đóng Dashboard nếu bị treo"""
+        if event.key() == Qt.Key.Key_Escape:
+            self.go_back_to_home()
+    def apply_filter(self):
+        """Lọc tất cả dữ liệu theo Tháng/Năm và cập nhật toàn bộ Dashboard"""
+        if not hasattr(self, 'raw_data_original'): return
+
+        try:
+            year = int(self.year_combo.currentText())
+            month_text = self.month_combo.currentText()
+
+            # 1. Lọc bảng Orders (Ảnh hưởng đến KPI Orders, Doanh thu, Tỷ lệ hoàn thành)
+            df_o = self.raw_data_original['orders'].copy()
+            if not df_o.empty and 'Year' in df_o.columns:
+                df_o = df_o[df_o['Year'] == year]
+                if month_text != "All":
+                    df_o = df_o[df_o['Month'] == int(month_text)]
+
+            # 2. Lọc bảng Fraud (Ảnh hưởng đến KPI Cảnh báo và Biểu đồ gian lận)
+            df_f = self.raw_data_original['fraud'].copy()
+            if not df_f.empty:
+                if 'Timestamp' in df_f.columns:
+                    df_f['Timestamp'] = pd.to_datetime(df_f['Timestamp'])
+                    df_f = df_f[df_f['Timestamp'].dt.year == year]
+                    if month_text != "All":
+                        df_f = df_f[df_f['Timestamp'].dt.month == int(month_text)]
+
+            # 3. Lọc bảng Browser/Daily (Ảnh hưởng đến KPI Thời gian và Biểu đồ giờ làm)
+            df_b = self.raw_data_original['browser'].copy()
+            if not df_b.empty and 'Month' in df_b.columns:
+                if month_text != "All":
+                    df_b = df_b[df_b['Month'] == int(month_text)]
+
+            # 4. GHI ĐÈ DỮ LIỆU ĐÃ LỌC VÀO year_data
+            # Đây là bước then chốt để các hàm tính toán cũ hoạt động đúng
+            self.year_data['sap_data']['sheets']['Orders'] = df_o
+            self.year_data['work_log']['sheets']['Fraud_Events'] = df_f
+            self.year_data['work_log']['sheets']['Browser_Sessions'] = df_b
+
+            # 5. CHẠY LẠI TOÀN BỘ LOGIC CẬP NHẬT
+            self.calculate_dashboard_metrics()  # Tính toán lại các con số
+            self.update_ui()  # Vẽ lại tất cả biểu đồ và chữ phân tích
+
+            print(f"✅ Dashboard updated for: {month_text}/{year}")
+
+        except Exception as e:
+            print(f"⚠️ Filter failed: {e}")
+            traceback.print_exc()
 
     def go_back_to_home(self):
         """Go back to HomeWindow"""
@@ -550,47 +561,7 @@ class PerformanceDashboard(QWidget):
         except Exception as e:
             print(f"❌ Error opening chart dialog: {e}")
 
-    def load_data(self):
-        """Load data from DataProcessor for entire year"""
-        try:
-            print(f"\n{'=' * 70}")
-            print(f"📊 LOADING DATA FOR {self.user_name} (ANNUAL)")
-            print(f"{'=' * 70}")
 
-            if not self.config:
-                print("❌ No config to load data")
-                QMessageBox.warning(self, "Error", "Cannot load system configuration")
-                return
-
-            from data_processor import DataProcessor
-            self.data_processor = DataProcessor(self.user_name)
-
-            success = self.data_processor.load_all_data()
-
-            if not success:
-                print("❌ Cannot load data from DataProcessor")
-                QMessageBox.warning(self, "Error", "Cannot load data from system")
-                return
-
-            all_data = self.data_processor.get_all_data()
-            self.year_data = self.data_processor.get_dashboard_data()
-
-            if not all_data or not self.year_data:
-                print("❌ No data from DataProcessor")
-                QMessageBox.warning(self, "Error", "No data to display")
-                return
-
-            summary_data = self.data_processor.get_summary_data()
-            self.calculate_dashboard_metrics()
-            self.update_ui()
-
-            print(f"✅ Annual data loading completed!")
-
-        except Exception as e:
-            print(f"❌ Error loading data: {e}")
-            import traceback
-            traceback.print_exc()
-            QMessageBox.critical(self, "Error", f"Cannot load data:\n{str(e)}")
 
     def calculate_dashboard_metrics(self):
         """Calculate dashboard indicators from annual data"""

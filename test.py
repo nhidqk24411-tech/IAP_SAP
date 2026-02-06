@@ -1,6 +1,6 @@
 """
 generate_complete_data.py
-Tạo dữ liệu HOÀN CHỈNH cho hệ thống PowerSight - 3 nhân viên, 12 tháng
+Tạo dữ liệu HOÀN CHỈNH cho hệ thống PowerSight - 4 nhân viên, 12 tháng
 """
 
 import os
@@ -13,15 +13,16 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # ============================================
-# CẤU HÌNH CHÍNH
+# CẤU HÌNH CHÍNH - ĐÃ BỔ SUNG EM004
 # ============================================
 BASE_DIR = r"C:\Users\legal\PycharmProjects\PythonProject\Saved_file"
 
-# 3 nhân viên với cấp độ khác nhau
+# 4 nhân viên với cấp độ khác nhau
 EMPLOYEES_CONFIG = {
     "EM001": {"level": "HIGH", "color": "🟢"},
+    "EM002": {"level": "LOW", "color": "🔴"},
     "EM003": {"level": "MEDIUM", "color": "🟡"},
-    "EM002": {"level": "LOW", "color": "🔴"}
+    "EM004": {"level": "MEDIUM", "color": "🟡"}
 }
 
 YEARS = [2026]
@@ -66,7 +67,7 @@ def setup_directories():
                 face_dir = os.path.join(month_dir, "face_captures")
                 os.makedirs(face_dir, exist_ok=True)
 
-    print("✅ Đã tạo xong thư mục cho 3 nhân viên")
+    print("✅ Đã tạo xong thư mục cho 4 nhân viên")
 
 
 def get_employee_config(employee):
@@ -75,17 +76,17 @@ def get_employee_config(employee):
 
     if level == "HIGH":  # EM001 - Xuất sắc
         return {
-            "orders_per_month": 120,  # Nhiều đơn
+            "orders_per_month": 120,
             "revenue_range": (30000000, 60000000),
             "profit_margin": (0.25, 0.35),
             "completion_rate": 0.75,
             "fraud_events_range": (5, 10),
-            "work_sessions": 22,  # 22 ngày làm việc
+            "work_sessions": 22,
             "hours_per_day": (7, 9),
             "efficiency": (90, 100),
             "mouse_anomaly_score": (0.05, 0.25)
         }
-    elif level == "MEDIUM":  # EM004 - Trung bình
+    elif level == "MEDIUM":  # EM003 và EM004 - Trung bình
         return {
             "orders_per_month": 90,
             "revenue_range": (15000000, 40000000),
@@ -128,22 +129,19 @@ def generate_orders_data(employee, year, month):
     customer_ids = [f"CUST{random.randint(1000, 9999)}" for _ in range(50)]
 
     for i in range(config["orders_per_month"]):
-        # Ngày ngẫu nhiên trong tháng
         day_offset = random.randint(0, (end_date - start_date).days)
         order_date = start_date + timedelta(days=day_offset)
 
-        # Doanh thu và lợi nhuận theo cấp độ
         revenue = random.randint(*config["revenue_range"])
         profit_margin = random.uniform(*config["profit_margin"])
         profit = int(revenue * profit_margin)
 
-        # Trạng thái đơn hàng
         if random.random() < config["completion_rate"]:
             status = "Completed"
-            processing_time = random.randint(10, 60)  # Nhanh
+            processing_time = random.randint(10, 60)
         else:
             status = random.choice(["Processing", "Pending", "Review"])
-            processing_time = random.randint(60, 180)  # Chậm
+            processing_time = random.randint(60, 180)
 
         order = {
             "Order_ID": f"ORD{month:02d}{i + 1:04d}",
@@ -169,7 +167,6 @@ def generate_daily_performance_data(employee, year, month):
     config = get_employee_config(employee)
     daily_data = []
 
-    # Số ngày trong tháng
     if month == 12:
         num_days = 31
     else:
@@ -179,9 +176,8 @@ def generate_daily_performance_data(employee, year, month):
         date = datetime(year, month, day)
         is_weekend = date.weekday() >= 5
 
-        # Hiệu suất theo cấp độ
         if is_weekend:
-            if random.random() < 0.3:  # 30% làm cuối tuần
+            if random.random() < 0.3:
                 efficiency = random.uniform(config["efficiency"][0] - 10, config["efficiency"][1] - 5)
                 tasks = random.randint(1, 3)
             else:
@@ -191,7 +187,6 @@ def generate_daily_performance_data(employee, year, month):
             efficiency = random.uniform(*config["efficiency"])
             tasks = random.randint(2, 5)
 
-        # Doanh thu và lợi nhuận
         if tasks > 0:
             revenue_per_task = random.randint(1000000, 5000000)
             total_revenue = tasks * revenue_per_task * (efficiency / 100)
@@ -213,7 +208,7 @@ def generate_daily_performance_data(employee, year, month):
 
 
 # ============================================
-# TẠO DỮ LIỆU WORK_LOGS
+# TẠO DỮ LIỆU WORK_LOGS - ĐÃ BỔ SUNG BROWSER_SESSIONS
 # ============================================
 def generate_fraud_events_data(employee, year, month):
     """Tạo sheet Fraud_Events"""
@@ -223,25 +218,21 @@ def generate_fraud_events_data(employee, year, month):
     num_events = random.randint(*config["fraud_events_range"])
 
     for i in range(num_events):
-        # Ngày ngẫu nhiên trong tháng
         day = random.randint(1, 28)
         hour = random.randint(8, 20)
         minute = random.randint(0, 59)
 
         timestamp = datetime(year, month, day, hour, minute, random.randint(0, 59))
-
-        # Chọn module ngẫu nhiên
         module = random.choice(MODULES)
         event_type = random.choice(EVENT_TYPES[module])
 
-        # Tạo details
         if module == "Mouse":
             details = f"Mouse anomaly detected - Score: {random.uniform(0.7, 0.95):.3f}"
             severity = "CRITICAL"
         elif module == "Face":
             details = f"Face verification failed - Similarity: {random.uniform(0.2, 0.5):.3f}"
             severity = "WARNING"
-        else:  # Browser
+        else:
             details = f"Browser suspicious activity detected"
             severity = random.choice(["WARNING", "CRITICAL"])
 
@@ -249,7 +240,7 @@ def generate_fraud_events_data(employee, year, month):
             "Timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"),
             "Event_Type": event_type,
             "Details": details,
-            "User": employee,
+            "User": employee,  # Sử dụng mã nhân viên thay vì tên
             "Session_ID": f"SESS_{year}{month:02d}{day:02d}_{i:03d}",
             "Severity": severity,
             "IsFraud": 1,
@@ -267,22 +258,20 @@ def generate_mouse_details_data(employee, year, month):
     config = get_employee_config(employee)
     mouse_details = []
 
-    # Số phiên chuột: 3-5 phiên/ngày làm việc
     work_days = config["work_sessions"]
     sessions_per_day = random.randint(3, 5)
     total_sessions = work_days * sessions_per_day
 
     session_counter = 0
 
-    for day in range(1, 29):  # Duyệt qua tất cả ngày
+    for day in range(1, 29):
         date = datetime(year, month, day)
-        if date.weekday() >= 5 and random.random() > 0.3:  # Bỏ qua cuối tuần (70%)
+        if date.weekday() >= 5 and random.random() > 0.3:
             continue
 
         if session_counter >= total_sessions:
             break
 
-        # Tạo 3-5 phiên mỗi ngày làm việc
         for session in range(sessions_per_day):
             if session_counter >= total_sessions:
                 break
@@ -291,8 +280,7 @@ def generate_mouse_details_data(employee, year, month):
             minute = random.randint(0, 59)
             timestamp = datetime(year, month, day, hour, minute, random.randint(0, 59))
 
-            # Anomaly score theo cấp độ
-            if random.random() < 0.1:  # 10% là fraud
+            if random.random() < 0.1:
                 is_fraud = 1
                 anomaly_score = random.uniform(0.8, 0.95)
                 severity = "CRITICAL"
@@ -301,7 +289,6 @@ def generate_mouse_details_data(employee, year, month):
                 anomaly_score = random.uniform(*config["mouse_anomaly_score"])
                 severity = "INFO"
 
-            # Metrics
             total_events = random.randint(5000, 30000)
             total_distance = random.uniform(5000, 40000)
             x_distance = total_distance * 0.6
@@ -312,7 +299,7 @@ def generate_mouse_details_data(employee, year, month):
                 "Timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"),
                 "Event_Type": "MOUSE_SESSION",
                 "Details": f"Mouse session - Score: {anomaly_score:.3f}",
-                "User": employee,
+                "User": employee,  # Sử dụng mã nhân viên thay vì tên
                 "Session_ID": f"MOUSE_{year}{month:02d}{day:02d}_{session:03d}",
                 "Severity": severity,
                 "IsFraud": is_fraud,
@@ -350,37 +337,31 @@ def generate_browser_sessions_data(employee, year, month):
     work_days = config["work_sessions"]
     sessions_counter = 0
 
-    # Tạo dữ liệu cho các ngày làm việc
     for day in range(1, 29):
         date = datetime(year, month, day)
-        if date.weekday() >= 5:  # Cuối tuần
+        if date.weekday() >= 5:
             continue
 
         if sessions_counter >= work_days:
             break
 
-        # Mỗi ngày có 1-2 phiên làm việc
         num_sessions_today = random.randint(1, 2)
 
         for session_num in range(num_sessions_today):
-            # Giờ bắt đầu
             start_hour = random.randint(8, 15)
             start_minute = random.randint(0, 59)
             start_time = datetime(year, month, day, start_hour, start_minute, 0)
 
-            # Thời gian làm việc theo cấp độ
             hours_worked = random.uniform(*config["hours_per_day"]) / num_sessions_today
             total_seconds = int(hours_worked * 3600)
 
             end_time = start_time + timedelta(seconds=total_seconds)
-
-            # Định dạng thời gian
             hours = int(hours_worked)
             minutes = int((hours_worked - hours) * 60)
 
             browser_session = {
                 "Session_ID": f"BROWSER_{year}{month:02d}{day:02d}_{session_num:02d}",
-                "User": employee,
+                "User": employee,  # Sử dụng mã nhân viên thay vì tên
                 "Session_Start": start_time.strftime("%Y-%m-%d %H:%M:%S"),
                 "Session_End": end_time.strftime("%Y-%m-%d %H:%M:%S"),
                 "Total_Seconds": total_seconds,
@@ -403,13 +384,11 @@ def generate_complete_data():
     print("=" * 70)
     print("🚀 TẠO DỮ LIỆU HOÀN CHỈNH - POWER SIGHT SYSTEM")
     print("=" * 70)
-    print("👥 Nhân viên: EM001 (Xuất sắc), EM004 (Trung bình), EM002 (Cần cải thiện)")
+    print("👥 Nhân viên: EM001 (Xuất sắc), EM002 (Cần cải thiện), EM003, EM004 (Trung bình)")
     print("📅 Thời gian: 12 tháng năm 2026")
     print("=" * 70)
 
-    # Tạo thư mục
     setup_directories()
-
     total_files = 0
 
     for employee, config in EMPLOYEES_CONFIG.items():
@@ -423,33 +402,23 @@ def generate_complete_data():
                 print(f"  📅 Tháng {year}-{month:02d}", end=" ")
 
                 try:
-                    # Tạo đường dẫn
                     month_dir = os.path.join(BASE_DIR, employee, f"{year}_{month:02d}")
 
                     # ==================== TẠO SAP_DATA.XLSX ====================
-                    # Sheet 1: Orders
                     orders_df = generate_orders_data(employee, year, month)
-
-                    # Sheet 2: Daily_Performance
                     daily_df = generate_daily_performance_data(employee, year, month)
 
-                    # Lưu file sap_data.xlsx
                     sap_file = os.path.join(month_dir, "sap_data.xlsx")
                     with pd.ExcelWriter(sap_file, engine='openpyxl') as writer:
                         orders_df.to_excel(writer, sheet_name='Orders', index=False)
                         daily_df.to_excel(writer, sheet_name='Daily_Performance', index=False)
 
                     # ==================== TẠO WORK_LOGS.XLSX ====================
-                    # Sheet 1: Fraud_Events
                     fraud_df = generate_fraud_events_data(employee, year, month)
-
-                    # Sheet 2: Mouse_Details
                     mouse_df = generate_mouse_details_data(employee, year, month)
-
-                    # Sheet 3: Browser_Sessions
                     browser_df = generate_browser_sessions_data(employee, year, month)
 
-                    # Lưu file work_logs
+                    # Tên file work_logs thống nhất
                     work_logs_file = os.path.join(month_dir, f"work_logs_{employee}_{year}_{month:02d}.xlsx")
                     with pd.ExcelWriter(work_logs_file, engine='openpyxl') as writer:
                         fraud_df.to_excel(writer, sheet_name='Fraud_Events', index=False)
@@ -467,9 +436,7 @@ def generate_complete_data():
     print(f"🎉 HOÀN THÀNH! Đã tạo {total_files} file")
     print(f"📁 Vị trí: {BASE_DIR}")
 
-    # Tạo báo cáo tổng hợp
     create_summary_report()
-
     return total_files
 
 
@@ -482,7 +449,6 @@ def create_summary_report():
     for employee, config in EMPLOYEES_CONFIG.items():
         level = config["level"]
 
-        # Tính tổng các chỉ số (giả định)
         if level == "HIGH":
             total_orders = 120 * 12
             total_revenue = total_orders * 45000000
@@ -516,60 +482,24 @@ def create_summary_report():
             "Đánh giá": rating
         })
 
-    # Tạo DataFrame
     summary_df = pd.DataFrame(summary_data)
-
-    # Lưu báo cáo
     report_file = os.path.join(BASE_DIR, "summary_report_2026.xlsx")
 
     with pd.ExcelWriter(report_file, engine='openpyxl') as writer:
         summary_df.to_excel(writer, sheet_name='Tổng quan', index=False)
 
-        # Thêm sheet so sánh
         comparison_data = {
             'Chỉ số': ['Doanh thu trung bình/đơn', 'Tỷ lệ hoàn thành', 'Lợi nhuận biên',
                        'Sự kiện gian lận/tháng', 'Giờ làm việc/tháng', 'Hiệu suất làm việc'],
             'EM001 (Xuất sắc)': ['$35-60M', '75%', '25-35%', '20-40', '~176 giờ', '90-100%'],
-            'EM004 (Trung bình)': ['$15-40M', '60%', '15-25%', '40-70', '~108 giờ', '75-90%'],
-            'EM002 (Cần cải thiện)': ['$8-25M', '45%', '10-20%', '70-100', '~68 giờ', '60-80%']
+            'EM002 (Cần cải thiện)': ['$8-25M', '45%', '10-20%', '70-100', '~68 giờ', '60-80%'],
+            'EM003 & EM004 (Trung bình)': ['$15-40M', '60%', '15-25%', '40-70', '~108 giờ', '75-90%']
         }
 
         comparison_df = pd.DataFrame(comparison_data)
         comparison_df.to_excel(writer, sheet_name='So sánh', index=False)
 
-        # Thêm sheet hướng dẫn
-        instructions = [
-            "📁 CẤU TRÚC DỮ LIỆU ĐÃ TẠO:",
-            f"Thư mục gốc: {BASE_DIR}",
-            "",
-            "Mỗi nhân viên có thư mục riêng:",
-            "├── EM001/",
-            "│   ├── 2026_01/",
-            "│   │   ├── sap_data.xlsx",
-            "│   │   │   ├── Orders (đơn hàng)",
-            "│   │   │   └── Daily_Performance (hiệu suất)",
-            "│   │   ├── work_logs_Giang_2026_01.xlsx",
-            "│   │   │   ├── Fraud_Events (gian lận)",
-            "│   │   │   ├── Mouse_Details (chuột)",
-            "│   │   │   └── Browser_Sessions (thời gian làm việc)",
-            "│   │   └── face_captures/ (ảnh face)",
-            "│   ├── 2026_02/",
-            "│   └── ... (12 tháng)",
-            "├── EM004/ (tương tự)",
-            "└── EM002/ (tương tự)",
-            "",
-            "📊 KHÁC BIỆT GIỮA NHÂN VIÊN:",
-            "• EM001 (Xuất sắc): Nhiều đơn, doanh thu cao, ít gian lận, hiệu suất cao",
-            "• EM004 (Trung bình): Trung bình, doanh thu ổn, gian lận vừa phải",
-            "• EM002 (Cần cải thiện): Ít đơn, doanh thu thấp, nhiều gian lận, hiệu suất thấp"
-        ]
-
-        instructions_df = pd.DataFrame({"Hướng dẫn": instructions})
-        instructions_df.to_excel(writer, sheet_name='Hướng dẫn', index=False)
-
     print(f"✅ Đã lưu báo cáo: {report_file}")
-
-    # Hiển thị báo cáo
     print("\n" + "=" * 70)
     print("BÁO CÁO TỔNG HỢP DỮ LIỆU 2026")
     print("=" * 70)
@@ -581,15 +511,12 @@ def verify_data():
     """Kiểm tra dữ liệu đã tạo"""
     print("\n🔍 KIỂM TRA DỮ LIỆU...")
 
-    verification_results = []
-
     for employee in EMPLOYEES_CONFIG.keys():
         print(f"\n{EMPLOYEES_CONFIG[employee]['color']} {employee}:")
 
-        for month in [1, 6, 12]:  # Kiểm tra 3 tháng
+        for month in [1, 6, 12]:
             month_dir = os.path.join(BASE_DIR, employee, f"2026_{month:02d}")
 
-            # Kiểm tra file sap_data.xlsx
             sap_file = os.path.join(month_dir, "sap_data.xlsx")
             if os.path.exists(sap_file):
                 try:
@@ -602,7 +529,6 @@ def verify_data():
             else:
                 print(f"  Tháng {month}: sap_data.xlsx ❌ KHÔNG TỒN TẠI")
 
-            # Kiểm tra file work_logs
             work_file = os.path.join(month_dir, f"work_logs_{employee}_2026_{month:02d}.xlsx")
             if os.path.exists(work_file):
                 try:
@@ -610,8 +536,7 @@ def verify_data():
                     fraud_count = len(pd.read_excel(work_xls, sheet_name='Fraud_Events'))
                     mouse_count = len(pd.read_excel(work_xls, sheet_name='Mouse_Details'))
                     browser_count = len(pd.read_excel(work_xls, sheet_name='Browser_Sessions'))
-                    print(
-                        f"  Tháng {month}: work_logs.xlsx ✅ ({fraud_count} fraud, {mouse_count} chuột, {browser_count} phiên)")
+                    print(f"  Tháng {month}: work_logs.xlsx ✅ ({fraud_count} fraud, {mouse_count} chuột, {browser_count} phiên)")
                 except:
                     print(f"  Tháng {month}: work_logs.xlsx ❌")
             else:
@@ -628,40 +553,33 @@ if __name__ == "__main__":
     print("POWER SIGHT - CÔNG CỤ TẠO DỮ LIỆU HOÀN CHỈNH")
     print("=" * 70)
 
-    # Kiểm tra thư viện
     try:
         import openpyxl
-
         print("✅ openpyxl: ĐÃ SẴN SÀNG")
     except:
         print("❌ openpyxl: CHƯA CÓ. Cài đặt: pip install openpyxl")
         exit(1)
 
-    # Xác nhận
     print(f"\n⚠️  Bạn sắp tạo dữ liệu cho:")
-    print(f"   • 3 nhân viên: EM001, EM004, EM002")
+    print(f"   • 4 nhân viên: EM001, EM002, EM003, EM004")
     print(f"   • 12 tháng năm 2026")
-    print(f"   • Tổng số file: 72 file Excel")
+    print(f"   • Tổng số file: 96 file Excel")
     print(f"\n📁 Vị trí lưu: {BASE_DIR}")
 
     confirm = input("\n⚠️  Tiếp tục? (yes/no): ")
 
     if confirm.lower() == 'yes':
-        # Tạo dữ liệu
         total_files = generate_complete_data()
-
-        # Kiểm tra
         verify_data()
 
         print(f"\n{'=' * 70}")
         print("🎉 TẤT CẢ ĐÃ HOÀN THÀNH!")
         print(f"📊 Tổng số file đã tạo: {total_files}")
-        print(f"👥 3 nhân viên với 3 cấp độ khác nhau")
+        print(f"👥 4 nhân viên với 3 cấp độ khác nhau")
         print(f"📅 12 tháng dữ liệu năm 2026")
         print(f"📁 Kiểm tra thư mục: {BASE_DIR}")
         print("=" * 70)
 
-        # Mở thư mục
         try:
             os.startfile(BASE_DIR)
             print("📂 Đã mở thư mục chứa dữ liệu")

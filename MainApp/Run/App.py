@@ -152,6 +152,143 @@ def get_user_info_from_excel(user_id):
         return None
 
 
+def get_user_info_from_password(password):
+    """Lấy thông tin user từ mật khẩu (cột LogPass)"""
+    try:
+        excel_path = os.path.join(PROJECT_ROOT, "MG", "employee_ids.xlsx")
+        if os.path.exists(excel_path):
+            df = pd.read_excel(excel_path)
+            # Chuẩn hóa tên cột
+            df.columns = [str(col).strip().lower() for col in df.columns]
+
+            # Tìm cột LogPass
+            logpass_column = None
+            for col in df.columns:
+                if 'logpass' in col or 'password' in col or 'pass' in col:
+                    logpass_column = col
+                    break
+
+            if logpass_column:
+                # Tìm user theo mật khẩu
+                df[logpass_column] = df[logpass_column].astype(str).str.strip()
+                user_row = df[df[logpass_column] == password]
+
+                if not user_row.empty:
+                    row = user_row.iloc[0]
+
+                    # Lấy ID
+                    id_column = None
+                    for col in df.columns:
+                        if col == 'id' or 'employee' in col or 'mã' in col:
+                            id_column = col
+                            break
+
+                    if id_column:
+                        user_id = str(row[id_column]).strip()
+                        user_id_upper = user_id.upper()
+
+                        # Lấy thông tin
+                        info = {
+                            'id': user_id,
+                            'type': None,
+                            'display_name': None
+                        }
+
+                        # Phân loại dựa trên prefix
+                        if user_id_upper.startswith('MG'):
+                            info['type'] = 'manager'
+                        elif user_id_upper.startswith('EM') or user_id_upper.startswith('NV'):
+                            info['type'] = 'employee'
+                        else:
+                            info['type'] = 'employee'  # Mặc định
+
+                        # Lấy tên hiển thị
+                        name_column = None
+                        for col in df.columns:
+                            if 'full' in col or 'name' in col:
+                                name_column = col
+                                break
+
+                        if name_column:
+                            name = str(row[name_column]).strip()
+                            if name and name.lower() != 'nan':
+                                info['display_name'] = name
+                        else:
+                            info['display_name'] = user_id
+
+                        print(f"✅ Đăng nhập bằng mật khẩu: {info['display_name']} ({info['type']})")
+                        return info
+
+        print(f"⚠️ Không tìm thấy user với mật khẩu: {password}")
+        return None
+
+    except Exception as e:
+        print(f"❌ Lỗi đọc Excel: {e}")
+        return None
+
+
+def launch_application(user_type, user_id, display_name):
+    """Khởi chạy ứng dụng phù hợp"""
+    try:
+        if user_type == "manager":
+            print(f"👨‍💼 Khởi chạy ứng dụng quản lý cho: {display_name} ({user_id})")
+            # Tìm ứng dụng quản lý
+            possible_paths = [
+                os.path.join(PROJECT_ROOT, "MainApp","Run", "main_manager.py"),
+                os.path.join(PROJECT_ROOT, "MG", "main_manager.py"),
+                os.path.join(BASE_DIR, "MG", "main_manager.py"),
+            ]
+
+            manager_app = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    manager_app = path
+                    print(f"✅ Tìm thấy ứng dụng quản lý tại: {manager_app}")
+                    break
+
+            if not manager_app:
+                print(f"❌ Không tìm thấy ứng dụng quản lý")
+                return False
+
+            # Khởi chạy với tham số
+            python_exe = sys.executable
+            subprocess.Popen([python_exe, manager_app, user_id, "manager"],
+                             cwd=PROJECT_ROOT)
+            print("✅ Đã khởi chạy ứng dụng quản lý")
+            return True
+        else:
+            print(f"👤 Khởi chạy ứng dụng nhân viên cho: {display_name} ({user_id})")
+            # Tìm ứng dụng nhân viên
+            possible_paths = [
+                os.path.join(PROJECT_ROOT, "MainApp", "Run", "main_emp.py"),
+                os.path.join(PROJECT_ROOT, "main_emp.py"),
+                os.path.join(BASE_DIR, "Run", "main_emp.py"),
+            ]
+
+            employee_app = None
+            for path in possible_paths:
+                if os.path.exists(path):
+                    employee_app = path
+                    print(f"✅ Tìm thấy ứng dụng nhân viên tại: {employee_app}")
+                    break
+
+            if not employee_app:
+                print(f"❌ Không tìm thấy ứng dụng nhân viên")
+                return False
+
+            # Khởi chạy với tham số
+            python_exe = sys.executable
+            subprocess.Popen([python_exe, employee_app, user_id, "employee"],
+                             cwd=PROJECT_ROOT)
+            print("✅ Đã khởi chạy ứng dụng nhân viên")
+            return True
+
+    except Exception as e:
+        print(f"❌ Lỗi khi khởi chạy ứng dụng: {e}")
+        traceback.print_exc()
+        return False
+
+
 # =========================
 # LOGIN WINDOW - CỬA SỐ ĐẦU TIÊN
 # =========================
@@ -211,7 +348,7 @@ class LoginWindow(QMainWindow):
                 icon_pixmap = QPixmap(icon_path)
                 if not icon_pixmap.isNull():
                     # Resize icon cho vừa với nút
-                    icon_pixmap = icon_pixmap.scaled(60, 60, Qt.AspectRatioMode.KeepAspectRatio,
+                    icon_pixmap = icon_pixmap.scaled(35, 35, Qt.AspectRatioMode.KeepAspectRatio,
                                                      Qt.TransformationMode.SmoothTransformation)
                     self.ui.pushButton_faceid.setIcon(QIcon(icon_pixmap))
                     self.ui.pushButton_faceid.setIconSize(QSize(60, 60))
@@ -224,6 +361,9 @@ class LoginWindow(QMainWindow):
             print("❌ KHÔNG TÌM THẤY NÚT pushButton_faceid trong UI!")
             self.create_fallback_button()
 
+        # Thiết lập đăng nhập bằng mật khẩu
+        self.setup_password_login()
+
         print("🚀 Login Window đã sẵn sàng!")
 
     def create_fallback_button(self):
@@ -233,6 +373,138 @@ class LoginWindow(QMainWindow):
         fallback_btn.clicked.connect(self.open_faceid)
         fallback_btn.show()
         print("⚠️ Đã tạo nút FaceID fallback")
+
+    def setup_password_login(self):
+        """Thiết lập chức năng đăng nhập bằng mật khẩu"""
+        try:
+            # Tìm lineEdit để nhập mật khẩu (giả sử tên là lineEdit)
+            password_input = None
+            if hasattr(self.ui, 'lineEdit'):
+                password_input = self.ui.lineEdit
+                print("✅ Found password input field")
+            elif hasattr(self.ui, 'lineEdit_password'):
+                password_input = self.ui.lineEdit_password
+                print("✅ Found password input field (lineEdit_password)")
+            else:
+                # Tìm tất cả lineEdit trong UI
+                for widget in self.findChildren(QLineEdit):
+                    if widget.objectName():
+                        print(f"Found QLineEdit: {widget.objectName()}")
+                        password_input = widget
+                        break
+
+            # Tìm nút login (giả sử tên là pushButton_login)
+            login_button = None
+            if hasattr(self.ui, 'pushButton_login'):
+                login_button = self.ui.pushButton_login
+                print("✅ Found login button")
+            elif hasattr(self.ui, 'pushButton'):
+                login_button = self.ui.pushButton
+                print("✅ Found login button (pushButton)")
+            else:
+                # Tìm tất cả pushButton trong UI
+                for widget in self.findChildren(QPushButton):
+                    text = widget.text().lower()
+                    if 'login' in text or 'đăng nhập' in text:
+                        print(f"Found login button: {widget.text()}")
+                        login_button = widget
+                        break
+
+            # Thiết lập sự kiện
+            if password_input:
+                # Xóa placeholder nếu có (cho rõ ràng)
+                password_input.setPlaceholderText("Nhập mật khẩu...")
+                # Chế độ password
+                password_input.setEchoMode(QLineEdit.EchoMode.Password)
+                # Kết nối sự kiện Enter
+                password_input.returnPressed.connect(self.login_with_password)
+                print("✅ Connected Enter key for password login")
+
+            if login_button:
+                login_button.clicked.connect(self.login_with_password)
+                print("✅ Connected login button")
+
+            # Tạo fallback nếu không tìm thấy
+            if not password_input or not login_button:
+                self.create_password_login_fallback()
+
+        except Exception as e:
+            print(f"❌ Error setting up password login: {e}")
+            traceback.print_exc()
+            self.create_password_login_fallback()
+
+    def create_password_login_fallback(self):
+        """Tạo giao diện đăng nhập bằng mật khẩu fallback"""
+        print("⚠️ Tạo giao diện đăng nhập mật khẩu fallback")
+
+        # Tạo widget chứa
+        container = QWidget(self)
+        container.setGeometry(100, 200, 300, 150)
+
+        layout = QVBoxLayout(container)
+
+        # Label
+        label = QLabel("Đăng nhập bằng mật khẩu:")
+        layout.addWidget(label)
+
+        # Input password
+        self.password_input_fallback = QLineEdit()
+        self.password_input_fallback.setPlaceholderText("Nhập mật khẩu...")
+        self.password_input_fallback.setEchoMode(QLineEdit.EchoMode.Password)
+        layout.addWidget(self.password_input_fallback)
+
+        # Nút login
+        login_btn = QPushButton("Đăng nhập")
+        login_btn.clicked.connect(self.login_with_password)
+        layout.addWidget(login_btn)
+
+        container.setLayout(layout)
+        container.show()
+
+    def login_with_password(self):
+        """Xử lý đăng nhập bằng mật khẩu"""
+        try:
+            # Lấy mật khẩu từ input
+            password = ""
+            if hasattr(self, 'password_input_fallback'):
+                password = self.password_input_fallback.text().strip()
+            else:
+                # Tìm lineEdit trong UI
+                for widget in self.findChildren(QLineEdit):
+                    if widget.echoMode() == QLineEdit.EchoMode.Password:
+                        password = widget.text().strip()
+                        break
+
+            if not password:
+                QMessageBox.warning(self, "Lỗi đăng nhập", "Vui lòng nhập mật khẩu!")
+                return
+
+            # Lấy thông tin user từ mật khẩu
+            user_info = get_user_info_from_password(password)
+
+            if not user_info:
+                QMessageBox.warning(self, "Lỗi đăng nhập",
+                                    "Mật khẩu không đúng hoặc không tìm thấy người dùng!")
+                return
+
+            # Đóng cửa sổ login
+            self.hide()
+
+            # Khởi chạy ứng dụng phù hợp
+            success = launch_application(
+                user_info['type'],
+                user_info['id'],
+                user_info['display_name']
+            )
+
+            if not success:
+                QMessageBox.critical(self, "Lỗi", "Không thể khởi chạy ứng dụng!")
+                self.show()
+
+        except Exception as e:
+            print(f"❌ Lỗi đăng nhập bằng mật khẩu: {e}")
+            traceback.print_exc()
+            QMessageBox.critical(self, "Lỗi", f"Lỗi đăng nhập: {str(e)}")
 
     def open_faceid(self):
         """Mở cửa sổ FaceID"""
@@ -469,7 +741,7 @@ class FaceIDWindow(QMainWindow):
                     self.recognition_complete = True
 
                     # Chạy ứng dụng phù hợp (TRUYỀN THAM SỐ TRỰC TIẾP)
-                    self.launch_app(user_type, user_id, display_name)
+                    launch_application(user_type, user_id, display_name)
 
                     # Đóng cửa sổ sau 0.5 giây
                     QTimer.singleShot(500, self.close)
@@ -505,97 +777,6 @@ class FaceIDWindow(QMainWindow):
             self.ui.label_2.setText(f"FACE VERIFICATION FAILED - {remaining} ATTEMPT(S) REMAINING")
             self.recognition_started = False
             self.start_time = datetime.now()
-
-    def launch_app(self, user_type, user_id, display_name):
-        """Khởi chạy ứng dụng phù hợp - TRUYỀN THAM SỐ TRỰC TIẾP"""
-        try:
-            if user_type == "manager":
-                print(f"👨‍💼 Khởi chạy ứng dụng quản lý cho: {display_name} ({user_id})")
-                self.run_manager_app(user_id, display_name)
-            else:
-                print(f"👤 Khởi chạy ứng dụng nhân viên cho: {display_name} ({user_id})")
-                self.run_employee_app(user_id, display_name)
-        except Exception as e:
-            print(f"❌ Lỗi khi khởi chạy ứng dụng: {e}")
-            traceback.print_exc()
-            QMessageBox.critical(self, "Lỗi hệ thống",
-                                 f"Không thể khởi chạy ứng dụng:\n{str(e)}")
-
-    def run_manager_app(self, user_id, display_name):
-        """Chạy ứng dụng quản lý - TRUYỀN THAM SỐ"""
-        # Thử các đường dẫn khác nhau cho main_manager.py
-        possible_paths = [
-            os.path.join(PROJECT_ROOT, "MainApp", "Run", "main_manager.py"),
-            os.path.join(PROJECT_ROOT, "main_manager.py"),
-            os.path.join(BASE_DIR, "Run", "main_manager.py"),
-        ]
-
-        manager_app = None
-        for path in possible_paths:
-            if os.path.exists(path):
-                manager_app = path
-                print(f"✅ Tìm thấy ứng dụng quản lý tại: {manager_app}")
-                break
-
-        if not manager_app:
-            QMessageBox.critical(self, "Lỗi",
-                                 "Không tìm thấy ứng dụng quản lý!\n"
-                                 f"Đã tìm tại:\n- {possible_paths[0]}\n- {possible_paths[1]}")
-            return
-
-        print(f"🚀 Khởi chạy ứng dụng quản lý cho user: {display_name} ({user_id})")
-
-        # Khởi chạy ứng dụng quản lý VỚI THAM SỐ
-        try:
-            python_exe = sys.executable
-            print(f"🐍 Python executable: {python_exe}")
-
-            # Tạo process mới VỚI 2 THAM SỐ: user_id và user_type
-            subprocess.Popen([python_exe, manager_app, user_id, "manager"],
-                             cwd=PROJECT_ROOT)
-            print("✅ Đã khởi chạy ứng dụng quản lý")
-        except Exception as e:
-            print(f"❌ Lỗi khi chạy ứng dụng quản lý: {e}")
-            traceback.print_exc()
-            QMessageBox.critical(self, "Lỗi", f"Không thể chạy ứng dụng quản lý:\n{str(e)}")
-
-    def run_employee_app(self, user_id, display_name):
-        """Chạy ứng dụng nhân viên - TRUYỀN THAM SỐ"""
-        # Thử các đường dẫn khác nhau cho main_emp.py
-        possible_paths = [
-            os.path.join(PROJECT_ROOT, "MainApp", "Run", "main_emp.py"),
-            os.path.join(PROJECT_ROOT, "main_emp.py"),
-            os.path.join(BASE_DIR, "Run", "main_emp.py"),
-        ]
-
-        employee_app = None
-        for path in possible_paths:
-            if os.path.exists(path):
-                employee_app = path
-                print(f"✅ Tìm thấy ứng dụng nhân viên tại: {employee_app}")
-                break
-
-        if not employee_app:
-            QMessageBox.critical(self, "Lỗi",
-                                 "Không tìm thấy ứng dụng nhân viên!\n"
-                                 f"Đã tìm tại:\n- {possible_paths[0]}\n- {possible_paths[1]}")
-            return
-
-        print(f"🚀 Khởi chạy ứng dụng nhân viên cho user: {display_name} ({user_id})")
-
-        # Khởi chạy ứng dụng nhân viên VỚI THAM SỐ
-        try:
-            python_exe = sys.executable
-            print(f"🐍 Python executable: {python_exe}")
-
-            # Tạo process mới VỚI 2 THAM SỐ: user_id và user_type
-            subprocess.Popen([python_exe, employee_app, user_id, "employee"],
-                             cwd=PROJECT_ROOT)
-            print("✅ Đã khởi chạy ứng dụng nhân viên")
-        except Exception as e:
-            print(f"❌ Lỗi khi chạy ứng dụng nhân viên: {e}")
-            traceback.print_exc()
-            QMessageBox.critical(self, "Lỗi", f"Không thể chạy ứng dụng nhân viên: {str(e)}")
 
     def cleanup_camera(self):
         """Dọn dẹp camera an toàn"""

@@ -17,12 +17,12 @@ class GeminiAnalyzer:
     # ------------------------------------------------------------------
     # Danh sách model được ưu tiên (hiện đại nhất trước)
     VALID_MODELS = [
+        "gemini-2.5-flash-lite",
         "gemini-3-flash-preview",
         "gemini-3-pro-preview",  # Có thể dùng nếu muốn test tính năng mới nhất
 
         # Gemini 2.5 Series (Stable & Production Ready)
-        "gemini-2.5-flash",  # Cân bằng tốt nhất giữa tốc độ/giá/trí tuệ
-        "gemini-2.5-flash-lite",  # Tối ưu chi phí cực thấp
+        "gemini-2.5-flash",  # Cân bằng tốt nhất giữa tốc độ/giá/trí tuệ # Tối ưu chi phí cực thấp
         "gemini-2.5-pro",  # Bản ổn định cho các tác vụ suy luận logic
 
         # Gemini 2.0 Series (Legacy / LTS)
@@ -33,10 +33,10 @@ class GeminiAnalyzer:
 
     # Độ ưu tiên model (cao nhất = 100)
     MODEL_PRIORITY = {
-        "gemini-3-flash-preview": 100,
-        "gemini-3-pro-preview": 95,
-        "gemini-2.5-flash": 90,
-        "gemini-2.5-flash-lite": 85,
+        "gemini-2.5-flash-lite": 100,
+        "gemini-3-flash-preview": 95,
+        "gemini-3-pro-preview": 90,
+        "gemini-2.5-flash": 85,
         "gemini-2.5-pro": 80,
         "gemini-2.0-flash": 75,
         "gemini-2.0-flash-lite": 70,
@@ -1087,7 +1087,253 @@ class GeminiAnalyzer:
             "- KPIs đo lường tiến bộ\n"
             "- Tư vấn phát triển nghề nghiệp dựa trên xu hướng",
             question
+
         )
+
+    # Thêm vào class GeminiAnalyzer trong gemini_analyzer.py
+
+    def generate_custom_email_content(self, employees_data, custom_request, email_type="custom", year=None, month=None):
+        """Tạo nội dung email tùy chỉnh dựa trên yêu cầu VÀ THỜI GIAN"""
+        try:
+            if self.use_demo_mode or not self.genai_client:
+                return self._get_fallback_custom_email(employees_data, custom_request, email_type, year, month)
+
+            prompt = self._create_custom_email_prompt(employees_data, custom_request, email_type, year, month)
+
+            response = self.genai_client.models.generate_content(
+                model=self.active_model if self.active_model else "gemini-2.0-flash",
+                contents=prompt
+            )
+
+            if response and response.text:
+                return self._format_email_response(response.text, employees_data)
+            else:
+                return self._get_fallback_custom_email(employees_data, custom_request, email_type, year, month)
+
+        except Exception as e:
+            print(f"❌ Lỗi tạo email tùy chỉnh: {e}")
+            import traceback
+            traceback.print_exc()
+            return self._get_fallback_custom_email(employees_data, custom_request, email_type, year, month)
+
+    def _create_custom_email_prompt(self, employees_data, custom_request, email_type="custom", year=None, month=None):
+        """Tạo prompt cho email tùy chỉnh VỚI THỜI GIAN"""
+        if len(employees_data) == 1:
+            return self._create_single_custom_email_prompt(employees_data[0], custom_request, email_type, year, month)
+        else:
+            return self._create_multiple_custom_email_prompt(employees_data, custom_request, email_type, year, month)
+    def _create_single_custom_email_prompt(self, employee_data, custom_request, email_type, year, month):
+        """Tạo prompt cho email tùy chỉnh 1 nhân viên VỚI THỜI GIAN"""
+        emp_name = employee_data.get('name', '')
+        emp_id = employee_data.get('id', '')
+        metrics = employee_data.get('metrics', {})
+
+        # Thông tin thời gian
+        time_info = ""
+        if year and month:
+            time_info = f"THỜI GIAN: Tháng {month}/{year}\n"
+        elif year:
+            time_info = f"THỜI GIAN: Năm {year}\n"
+
+        # Thông tin hiệu suất nếu có
+        perf_info = ""
+        if metrics:
+            perf_info = f"""
+    THÔNG TIN HIỆU SUẤT:
+    • Điểm tổng thể: {metrics.get('overall_score', 0)}/100
+    • Xếp hạng: {metrics.get('rank', 'N/A')}
+    • Đơn hàng: {metrics.get('total_orders', 0)}
+    • Doanh thu: {metrics.get('total_revenue', 0):,.0f} VND
+    • Gian lận: {metrics.get('total_fraud', 0)}
+    """
+
+        return f"""
+    Bạn là quản lý trong công ty. Hãy viết một email {email_type.upper()} gửi đến nhân viên.
+
+    THÔNG TIN NHÂN VIÊN:
+    • Tên: {emp_name}
+    • Mã: {emp_id}
+
+    {time_info}
+    {perf_info}
+
+    YÊU CẦU CỤ THỂ: "{custom_request}"
+
+    LOẠI EMAIL: {email_type.upper()}
+
+    YÊU CẦU VIẾT EMAIL (PHẢI TUÂN THỦ):
+    1. TIÊU ĐỀ: Phù hợp với loại email {email_type} và yêu cầu
+    2. NỘI DUNG: 
+       - Ngữ điệu phù hợp với loại email ({email_type})
+       - Chuyên nghiệp nhưng phù hợp với ngữ cảnh
+       - Đề cập đến thông tin thời gian nếu có
+       - Có thể kèm số liệu hiệu suất nếu liên quan
+    3. ĐỊNH DẠNG: Không markdown, chỉ text thuần, đoạn cách nhau 1 dòng trống
+
+    TRẢ LỜI THEO ĐỊNH DẠNG:
+
+    TIÊU ĐỀ: [tiêu đề email]
+
+    [nội dung email]
+    """
+
+    def _get_fallback_custom_email(self, employees_data, custom_request, email_type, year, month):
+        """Email tùy chỉnh mặc định khi AI lỗi - CÓ THỜI GIAN"""
+        if len(employees_data) == 1:
+            emp = employees_data[0]
+
+            # Thông tin thời gian
+            time_ref = ""
+            if year and month:
+                time_ref = f" (Tháng {month}/{year})"
+            elif year:
+                time_ref = f" (Năm {year})"
+
+            subject = f"{email_type.upper()}: {custom_request[:30]}..."
+            body = f"""Kính gửi Anh/Chị {emp.get('name', '')},
+
+    Đây là email {email_type} dựa trên yêu cầu: "{custom_request}"
+
+    Thông tin tham khảo{time_ref}:
+    - Mã nhân viên: {emp.get('id', '')}
+    - Thời gian: {datetime.now().strftime('%d/%m/%Y')}
+
+    Nội dung chi tiết sẽ được trao đổi trong buổi họp sắp tới.
+
+    Trân trọng,
+    Quản lý"""
+
+            return f"TIÊU ĐỀ: {subject}\n\n{body}"
+        else:
+            names = ", ".join([e.get('name', '') for e in employees_data])
+            time_ref = ""
+            if year and month:
+                time_ref = f" (Tháng {month}/{year})"
+            elif year:
+                time_ref = f" (Năm {year})"
+
+            subject = f"{email_type.upper()}: Thông báo cho nhóm"
+            body = f"""Kính gửi các Anh/Chị,
+
+    Đây là email {email_type} dựa trên yêu cầu: "{custom_request}"
+
+    Thông tin tham khảo{time_ref}:
+    - Gửi đến: {names}
+    - Thời gian: {datetime.now().strftime('%d/%m/%Y')}
+
+    Nội dung chi tiết sẽ được trao đổi trong buổi họp sắp tới.
+
+    Trân trọng,
+    Quản lý"""
+
+            return f"TIÊU ĐỀ: {subject}\n\n{body}"
+
+    def _create_multiple_custom_email_prompt(self, employees_data, custom_request, email_type="custom", year=None,
+                                             month=None):
+        """Tạo prompt cho email tùy chỉnh nhiều nhân viên VỚI THỜI GIAN"""
+        employees_list = "\n".join([f"• {e.get('name', '')} (Mã: {e.get('id', '')})" for e in employees_data])
+
+        # Thông tin thời gian
+        time_info = ""
+        if year and month:
+            time_info = f"THỜI GIAN: Tháng {month}/{year}\n"
+        elif year:
+            time_info = f"THỜI GIAN: Năm {year}\n"
+
+        return f"""
+        Bạn là quản lý trong công ty. Hãy viết một email {email_type.upper()} dựa trên yêu cầu cụ thể sau:
+
+        YÊU CẦU: "{custom_request}"
+
+        DANH SÁCH NHÂN VIÊN NHẬN:
+        {employees_list}
+
+        {time_info}
+        LOẠI EMAIL: {email_type.upper()}
+
+        YÊU CẦU VIẾT EMAIL (PHẢI TUÂN THỦ ĐỊNH DẠNG SAU):
+        1. TIÊU ĐỀ EMAIL: Chỉ 1 dòng, phù hợp với yêu cầu và loại email {email_type}
+        2. NỘI DUNG EMAIL: Định dạng rõ ràng, chuyên nghiệp, gửi đến tất cả nhân viên
+        3. KHÔNG SỬ DỤNG MARKDOWN, CHỈ DÙNG TEXT THUẦN
+        4. MỖI ĐOẠN CÁCH NHAU BẰNG 1 DÒNG TRỐNG
+        5. DÙNG TIẾNG VIỆT TỰ NHIÊN, CHUYÊN NGHIỆP
+
+        TRẢ LỜI THEO ĐÚNG ĐỊNH DẠNG SAU (KHÔNG THÊM BẤT KỲ TEXT NÀO KHÁC):
+
+        TIÊU ĐỀ: [tiêu đề email, tối đa 10 từ]
+
+        [nội dung email, mỗi đoạn cách nhau 1 dòng trống]
+        """
+    def generate_employee_complaint_email(self, employee_name, issue_description, email_type, manager_email):
+        """Tạo email khiếu nại/đề xuất từ nhân viên"""
+        try:
+            if self.use_demo_mode or not self.genai_client:
+                return self._get_fallback_employee_complaint_email(employee_name, issue_description, email_type)
+
+            prompt = self._create_employee_complaint_prompt(employee_name, issue_description, email_type,
+                                                            manager_email)
+
+            response = self.genai_client.models.generate_content(
+                model=self.active_model if self.active_model else "gemini-2.0-flash",
+                contents=prompt
+            )
+
+            if response and response.text:
+                return self._format_email_response(response.text, [{'name': employee_name}])
+            else:
+                return self._get_fallback_employee_complaint_email(employee_name, issue_description, email_type)
+
+        except Exception as e:
+            print(f"❌ Lỗi tạo email khiếu nại: {e}")
+            return self._get_fallback_employee_complaint_email(employee_name, issue_description, email_type)
+
+    def _create_employee_complaint_prompt(self, employee_name, issue_description, email_type, manager_email):
+        """Tạo prompt cho email khiếu nại từ nhân viên"""
+        return f"""
+        Bạn là nhân viên {employee_name}. Hãy viết một email {email_type} gửi đến quản lý ({manager_email}).
+
+        NỘI DUNG {email_type.upper()}: 
+        {issue_description}
+
+        YÊU CẦU VIẾT EMAIL (PHẢI TUÂN THỦ ĐỊNH DẠNG SAU):
+        1. TIÊU ĐỀ EMAIL: Chỉ 1 dòng, phù hợp với nội dung {email_type}
+        2. NỘI DUNG EMAIL: 
+           - Lời chào lịch sự
+           - Giới thiệu bản thân
+           - Trình bày {email_type} rõ ràng, chi tiết
+           - Đề xuất giải pháp (nếu có)
+           - Lời kết lịch sự
+        3. KHÔNG SỬ DỤNG MARKDOWN, CHỈ DÙNG TEXT THUẦN
+        4. MỖI ĐOẠN CÁCH NHAU BẰNG 1 DÒNG TRỐNG
+        5. DÙNG TIẾNG VIỆT TỰ NHIÊN, TRANG TRỌNG
+        6. KÝ TÊN: {employee_name}
+
+        TRẢ LỜI THEO ĐÚNG ĐỊNH DẠNG SAU (KHÔNG THÊM BẤT KỲ TEXT NÀO KHÁC):
+
+        TIÊU ĐỀ: [tiêu đề email, tối đa 10 từ]
+
+        [nội dung email, mỗi đoạn cách nhau 1 dòng trống]
+        """
+
+    def _get_fallback_employee_complaint_email(self, employee_name, issue_description, email_type):
+        """Email khiếu nại mặc định khi AI lỗi"""
+        current_time = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+        subject = f"{email_type.upper()} từ nhân viên {employee_name}"
+        body = f"""Kính gửi Quản lý,
+
+Tôi là {employee_name}, xin gửi {email_type} sau:
+
+{issue_description}
+
+Thời gian: {current_time}
+
+Mong nhận được phản hồi từ Quản lý.
+
+Trân trọng,
+{employee_name}"""
+
+        return f"TIÊU ĐỀ: {subject}\n\n{body}"
 
     # ------------------------------------------------------------------
     # Tiện ích bổ sung

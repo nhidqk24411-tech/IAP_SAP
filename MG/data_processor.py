@@ -634,7 +634,7 @@ class DataProcessor:
                 return None
 
             # Tính toán metrics (sử dụng logic từ _calculate_employee_metrics)
-            return self._calculate_single_employee_metrics(emp_data, employee_id, year, month)
+            return self.calculate_single_employee_metrics(emp_data, employee_id, year, month)
 
         except Exception as e:
             print(f"❌ Lỗi lấy metrics cho {employee_id}: {e}")
@@ -642,7 +642,7 @@ class DataProcessor:
             traceback.print_exc()
             return None
 
-    def _calculate_single_employee_metrics(self, emp_data, employee_id, year, month):
+    def calculate_single_employee_metrics(self, emp_data, employee_id, year, month):
         """Tính toán metrics cho một nhân viên - tối ưu hóa từ _calculate_employee_metrics"""
         try:
             sap_sheets = emp_data.get('sap_data', {}).get('sheets', {})

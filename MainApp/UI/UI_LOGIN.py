@@ -37,17 +37,6 @@ class Ui_MainWindow(object):
 "border-radius: 0px;\n"
 "border: 2px solid rgb(31, 92, 171);")
         self.gridFrame_6.setObjectName("gridFrame_6")
-        self.lineEdit = QtWidgets.QLineEdit(parent=self.gridFrame_6)
-        self.lineEdit.setGeometry(QtCore.QRect(30, 150, 171, 31))
-        font = QtGui.QFont()
-        font.setPointSize(10)
-        self.lineEdit.setFont(font)
-        self.lineEdit.setStyleSheet("border-radius: 0px;\n"
-"border: 0px solid rgb(31, 92, 171);\n"
-"background-color: rgb(234, 241, 251);")
-        self.lineEdit.setText("")
-        self.lineEdit.setEchoMode(QtWidgets.QLineEdit.EchoMode.NoEcho)
-        self.lineEdit.setObjectName("lineEdit")
         self.pushButton_faceid = QtWidgets.QPushButton(parent=self.gridFrame_6)
         self.pushButton_faceid.setGeometry(QtCore.QRect(200, 150, 41, 31))
         self.pushButton_faceid.setStyleSheet("background-color: rgb(255, 255, 255);\n"
@@ -76,6 +65,14 @@ class Ui_MainWindow(object):
         self.label_6.setStyleSheet("border: 0px solid rgb(31, 92, 171);\n"
 "color: rgb(31, 92, 171);")
         self.label_6.setObjectName("label_6")
+        self.lineEdit = QtWidgets.QLineEdit(parent=self.gridFrame_6)
+        self.lineEdit.setGeometry(QtCore.QRect(30, 150, 161, 22))
+        self.lineEdit.setEchoMode(QtWidgets.QLineEdit.EchoMode.Password)
+        self.lineEdit.setClearButtonEnabled(True)
+        self.lineEdit.setObjectName("lineEdit")
+        self.pushButton = QtWidgets.QPushButton(parent=self.gridFrame_6)
+        self.pushButton.setGeometry(QtCore.QRect(30, 180, 41, 21))
+        self.pushButton.setObjectName("pushButton")
         self.label_3 = QtWidgets.QLabel(parent=self.centralwidget)
         self.label_3.setGeometry(QtCore.QRect(0, 0, 800, 471))
         self.label_3.setStyleSheet("border: 2px solid rgb(31, 92, 171);")
@@ -104,6 +101,7 @@ class Ui_MainWindow(object):
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.label_2.setText(_translate("MainWindow", "<html><head/><body><p align=\"center\"><span style=\" font-size:26pt; font-weight:600;\">PowerSight</span></p></body></html>"))
         self.label_4.setText(_translate("MainWindow", "<html><head/><body><p align=\"center\"><span style=\" font-size:14pt;\">The best to both enterprises and employees</span></p></body></html>"))
-        self.lineEdit.setPlaceholderText(_translate("MainWindow", "Your Employee ID"))
         self.label_5.setText(_translate("MainWindow", "<html><head/><body><p align=\"center\"><span style=\" font-size:22pt; font-weight:600;\">Welcome!</span></p></body></html>"))
         self.label_6.setText(_translate("MainWindow", "<html><head/><body><p align=\"center\"><span style=\" font-size:12pt;\">Log in to your Account</span></p></body></html>"))
+        self.lineEdit.setPlaceholderText(_translate("MainWindow", "Enter your password"))
+        self.pushButton.setText(_translate("MainWindow", "Login"))

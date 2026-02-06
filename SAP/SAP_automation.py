@@ -122,6 +122,7 @@ class SAPDataCollector:
                     os.remove(save_path)
                 except:
                     pass
+            time.sleep(15)
 
             self.session.findById("wnd[1]").sendVKey(0)
             print("   ✅ File saved")

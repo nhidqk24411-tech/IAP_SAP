@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 """
 Employee Chatbot - PowerSight Employee Assistant
-Giao diện giống manager_chatbot nhưng tính năng cho nhân viên
+Giao diện đồng bộ hóa hoàn toàn với manager_chatbot
 """
 
-import random
 import sys
 import os
+import re  # Thêm import re để trích xuất thông tin
 from pathlib import Path
 from datetime import datetime
-
-# Add path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import traceback
 
 from PyQt6.QtWidgets import *
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
+from PyQt6.QtCore import QTimer, pyqtSignal, Qt
 
 # Import modules with try-except
 try:
     from config import Config
+
     config_available = True
 except ImportError:
     print("⚠️ Cannot import config.py")
@@ -28,6 +28,7 @@ except ImportError:
 
 try:
     from gemini_analyzer import GeminiAnalyzer
+
     gemini_available = True
 except ImportError as e:
     print(f"⚠️ Cannot import gemini_analyzer: {e}")
@@ -35,66 +36,84 @@ except ImportError as e:
 
 try:
     from data_processor import DataProcessor
+
     dataprocessor_available = True
 except ImportError as e:
     print(f"⚠️ Cannot import data_processor: {e}")
     dataprocessor_available = False
 
+try:
+    from employee_email_dialog import EmployeeEmailDialog
+    email_dialog_available = True
+except ImportError as e:
+    print(f"⚠️ Cannot import employee_email_dialog: {e}")
+    email_dialog_available = False
+
 
 class EmployeeChatbotGUI(QMainWindow):
-    """Employee Chatbot với giao diện giống manager_chatbot"""
+    """Employee Chatbot với giao diện đồng bộ hóa với Manager version"""
 
     def __init__(self, user_name=None, parent=None):
         super().__init__(parent)
+        self.parent_window = parent
+
+        # Set to maximize
+        self.setWindowState(Qt.WindowState.WindowMaximized)
 
         # Initialize with Config
         if config_available and Config:
-            if user_name:
-                self.employee_name = user_name
-            else:
-                self.employee_name = Config.DEFAULT_EMPLOYEE_NAME
+            self.employee_name = user_name if user_name else Config.DEFAULT_EMPLOYEE_NAME
             app_name = Config.APP_NAME
         else:
             self.employee_name = user_name if user_name else "EM001"
-            app_name = "PowerSight Employee Assistant"
+            app_name = "PowerSight Assistant"
 
         print(f"🤖 Khởi tạo chatbot cho: {self.employee_name}")
 
-        # Store parent window for going back
-        self.parent_window = parent
-
         # Initialize AI
-        self.gemini = None
-        if gemini_available:
-            try:
-                self.gemini = GeminiAnalyzer()
-            except Exception as e:
-                print(f"⚠️ Gemini initialization error: {e}")
-        else:
-            print("⚠️ Gemini không khả dụng, sử dụng chế độ DEMO")
+        self.gemini = self.initialize_gemini()
 
         # Initialize Data Processor
-        self.data_processor = None
-        if dataprocessor_available:
-            try:
-                self.data_processor = DataProcessor(self.employee_name)
-            except Exception as e:
-                print(f"⚠️ DataProcessor initialization error: {e}")
-        else:
-            print("⚠️ DataProcessor không khả dụng")
+        self.data_processor = self.initialize_data_processor()
 
-        # Initialize UI với giao diện giống manager_chatbot
+        # Biến cho email system
+        self.email_request_state = {
+            'waiting_confirmation': False,
+            'original_command': '',
+            'email_type': 'complaint'
+        }
+        self.current_email_description = ""
+
+        # Initialize UI
         self.init_ui(app_name)
 
-        # Show welcome message
-        self.show_welcome_message()
+        # Show welcome messages
+        self.show_welcome_sequence()
 
-        # Auto load data
+        # Load initial data
         QTimer.singleShot(1000, self.load_initial_data)
 
+    def initialize_gemini(self):
+        """Khởi tạo Gemini Analyzer"""
+        if gemini_available:
+            try:
+                return GeminiAnalyzer()
+            except Exception as e:
+                print(f"⚠️ Error initializing Gemini: {e}")
+        return None
+
+    def initialize_data_processor(self):
+        """Khởi tạo Data Processor cho nhân viên cụ thể"""
+        if dataprocessor_available:
+            try:
+                return DataProcessor(self.employee_name)
+            except Exception as e:
+                print(f"⚠️ Error initializing Data Processor: {e}")
+        return None
+
     def init_ui(self, app_name):
-        """Khởi tạo giao diện giống manager_chatbot"""
-        self.setWindowTitle(f"💬 {app_name} - Chat Assistant")
+        """Khởi tạo giao diện đồng bộ hoàn toàn với manager_chatbot"""
+        self.setWindowTitle(f"💬 {app_name} - Employee Chat")
         self.setGeometry(200, 200, 700, 600)
 
         # Central widget
@@ -106,28 +125,10 @@ class EmployeeChatbotGUI(QMainWindow):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(10)
 
-        # Header
+        # --- HEADER ---
         header_widget = QWidget()
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Home button
-        self.home_btn = QPushButton("🏠 Home")
-        self.home_btn.setFixedSize(80, 35)
-        self.home_btn.clicked.connect(self.go_back_to_home)
-        self.home_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3b82f6;
-                color: white;
-                border: none;
-                border-radius: 6px;
-                font-size: 12px;
-                font-weight: 500;
-            }
-            QPushButton:hover {
-                background-color: #2563eb;
-            }
-        """)
 
         # Status indicator
         self.status_indicator = QLabel("●" if self.gemini else "○")
@@ -139,7 +140,7 @@ class EmployeeChatbotGUI(QMainWindow):
             }}
         """)
 
-        title_label = QLabel(f"💬 CHATBOT HỖ TRỢ NHÂN VIÊN - {app_name}")
+        title_label = QLabel(f"💬 EMPLOYEE SUPPORT CHATBOT - {app_name}")
         title_label.setStyleSheet("""
             QLabel {
                 font-size: 16px;
@@ -148,14 +149,32 @@ class EmployeeChatbotGUI(QMainWindow):
             }
         """)
 
-        header_layout.addWidget(self.home_btn)
+        # Home button
+        home_btn = QPushButton("Home")
+        home_btn.setFixedSize(100, 35)
+        home_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3b82f6;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-weight: 500;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: #2563eb;
+            }
+        """)
+        home_btn.clicked.connect(self.go_back_to_home)
+
         header_layout.addWidget(self.status_indicator)
         header_layout.addWidget(title_label)
         header_layout.addStretch()
+        header_layout.addWidget(home_btn)
 
         layout.addWidget(header_widget)
 
-        # Chat display
+        # --- CHAT DISPLAY ---
         self.chat_display = QTextEdit()
         self.chat_display.setReadOnly(True)
         self.chat_display.setStyleSheet("""
@@ -170,14 +189,14 @@ class EmployeeChatbotGUI(QMainWindow):
         """)
         layout.addWidget(self.chat_display, 1)
 
-        # Input area
+        # --- INPUT AREA ---
         input_widget = QWidget()
         input_layout = QHBoxLayout(input_widget)
         input_layout.setContentsMargins(0, 0, 0, 0)
         input_layout.setSpacing(10)
 
         self.input_field = QLineEdit()
-        self.input_field.setPlaceholderText("Nhập câu hỏi về hiệu suất, phát triển, doanh thu...")
+        self.input_field.setPlaceholderText("Nhập câu hỏi về hiệu suất cá nhân, doanh thu, mục tiêu phát triển...")
         self.input_field.setStyleSheet("""
             QLineEdit {
                 padding: 12px;
@@ -218,18 +237,19 @@ class EmployeeChatbotGUI(QMainWindow):
 
         layout.addWidget(input_widget)
 
-        # Quick actions - Employee specific
+        # --- QUICK ACTIONS ---
         quick_actions_widget = QWidget()
         quick_layout = QHBoxLayout(quick_actions_widget)
         quick_layout.setContentsMargins(0, 0, 0, 0)
         quick_layout.setSpacing(10)
 
         quick_buttons = [
-            ("📊 Phân tích hiệu suất", "phân tích hiệu suất làm việc của tôi"),
-            ("🎯 Mục tiêu phát triển", "mục tiêu phát triển của tôi là gì"),
-            ("📚 Đề xuất đào tạo", "khóa học nào phù hợp với tôi"),
-            ("⚠️ Vấn đề cần sửa", "những lỗi nào tôi đang mắc phải"),
-            ("💰 Tối ưu doanh thu", "làm thế nào để tăng doanh thu"),
+            ("📊 Hiệu suất của tôi", "phân tích hiệu suất làm việc của tôi"),
+            ("🎯 Mục tiêu tháng", "mục tiêu phát triển của tôi trong tháng này là gì"),
+            ("📚 Khóa học đề xuất", "những khóa học nào phù hợp để tôi cải thiện kỹ năng"),
+            ("💰 Doanh thu cá nhân", "tổng hợp doanh thu của tôi tháng này"),
+            ("📧 Gửi khiếu nại", self.open_complaint_email),
+            ("⚠️ Cảnh báo lỗi", "tôi có những lỗi Work Log hay vấn đề gì cần sửa không"),
             ("🔄 Tải lại dữ liệu", self.load_initial_data)
         ]
 
@@ -256,7 +276,7 @@ class EmployeeChatbotGUI(QMainWindow):
 
         layout.addWidget(quick_actions_widget)
 
-        # Status bar
+        # --- STATUS BAR ---
         self.status_bar = QLabel(f"Trạng thái: Đang khởi tạo...")
         self.status_bar.setStyleSheet("""
             QLabel {
@@ -271,337 +291,380 @@ class EmployeeChatbotGUI(QMainWindow):
         self.status_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.status_bar)
 
-        # Show welcome message in UI
-        self.show_welcome_ui()
-
-    def show_welcome_ui(self):
-        """Hiển thị thông báo chào mừng trong UI"""
-        self.add_bot_message(f"Xin chào {self.employee_name}! Tôi là chatbot hỗ trợ nhân viên.")
-        self.add_bot_message("Tôi có thể giúp bạn với:")
-        self.add_bot_message("• Phân tích hiệu suất làm việc")
-        self.add_bot_message("• Mục tiêu phát triển cá nhân")
-        self.add_bot_message("• Đề xuất khóa học phù hợp")
-        self.add_bot_message("• Tối ưu doanh thu và hiệu suất")
+    def show_welcome_sequence(self):
+        """Hiển thị chuỗi tin nhắn chào mừng đẹp mắt"""
+        self.add_bot_message(f"Xin chào **{self.employee_name}**! Tôi là AI Assistant hỗ trợ riêng cho bạn.")
+        self.add_bot_message("Tôi có thể giúp bạn các vấn đề sau:")
+        self.add_bot_message("• Phân tích hiệu suất làm việc và doanh thu\n"
+                             "• Theo dõi trạng thái đơn hàng SAP\n"
+                             "• Cảnh báo các lỗi tuân thủ Work Log\n"
+                             "• Đề xuất lộ trình phát triển và đào tạo")
+        self.add_bot_message("• Gửi khiếu nại/đề xuất đến quản lý (gõ 'gửi email' hoặc nhấn nút 📧)")
 
         if not self.gemini:
-            self.add_bot_message(
-                "⚠️ **Lưu ý**: Gemini AI chưa khả dụng. Đang sử dụng chế độ DEMO.")
+            self.add_bot_message("⚠️ **Lưu ý**: Hệ thống đang chạy ở chế độ **DEMO** (AI chưa kết nối).")
 
     def go_back_to_home(self):
-        """Quay về HomeWindow"""
+        """Quay lại màn hình Home"""
         if self.parent_window:
-            try:
-                self.parent_window.showNormal()
-                self.parent_window.raise_()
-                self.parent_window.activateWindow()
-                if hasattr(self.parent_window, 'on_chatbot_closed'):
-                    self.parent_window.on_chatbot_closed()
-            except Exception as e:
-                print(f"Lỗi khi khôi phục home window: {e}")
+            self.parent_window.show()
         self.close()
 
-    def show_welcome_message(self):
-        """Hiển thị thông báo chào mừng (backend)"""
-        ai_status = "✓ Khả dụng" if self.gemini else "✗ CHẾ ĐỘ DEMO"
-        data_status = "✓ Khả dụng" if self.data_processor else "✗ Không khả dụng"
+    def add_bot_message(self, message):
+        """Thêm tin nhắn từ bot (Style đồng bộ Manager)"""
+        timestamp = datetime.now().strftime("%H:%M")
+        formatted_message = message.replace('\n', '<br>')
+        self.chat_display.append(
+            f"<div style='margin: 5px 0; padding: 10px; background-color: #f1f5f9; border-radius: 8px;'>"
+            f"<b>🤖 PowerSight AI:</b> {formatted_message}<br>"
+            f"<small style='color: #64748b;'>{timestamp}</small></div>")
+        self.scroll_to_bottom()
 
-        welcome = f"""**CHÀO MỪNG ĐẾN POWER SIGHT AI ASSISTANT**
+    def add_user_message(self, message):
+        """Thêm tin nhắn từ người dùng (Style đồng bộ Manager)"""
+        timestamp = datetime.now().strftime("%H:%M")
+        formatted_message = message.replace('\n', '<br>')
+        self.chat_display.append(
+            f"<div style='margin: 5px 0; padding: 10px; background-color: #dbeafe; border-radius: 8px; text-align: right;'>"
+            f"<b>👤 {self.employee_name}:</b> {formatted_message}<br>"
+            f"<small style='color: #64748b;'>{timestamp}</small></div>")
+        self.scroll_to_bottom()
 
-**👤 Nhân viên:** {self.employee_name}
-**📅 Ngày:** {datetime.now().strftime('%d/%m/%Y')}
+    def scroll_to_bottom(self):
+        """Cuộn xuống cuối chat"""
+        scrollbar = self.chat_display.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
-**🛠️ TRẠNG THÁI HỆ THỐNG:**
-• AI Assistant: {ai_status}
-• Data Processor: {data_status}
-
-**🤖 TÔI CÓ THỂ GIÚP BẠN:**
-• Phân tích hiệu suất làm việc hàng năm
-• Đề xuất cải thiện và phát triển hàng tháng
-• Cảnh báo vấn đề cần sửa
-• Tư vấn chiến lược doanh thu
-• Đề xuất khóa học phù hợp
-
-**🚀 HÀNH ĐỘNG NHANH:**
-- Sử dụng các nút bên dưới cho câu hỏi nhanh
-- Chat tự nhiên bằng tiếng Việt/Anh
-- **Nhấn "🏠 Home" để quay về menu chính**
-
-**⏳ Đang tải dữ liệu từ hệ thống...**"""
-
-        self.add_bot_message(welcome)
+    def quick_command(self, command):
+        """Xử lý các câu lệnh nhanh"""
+        self.input_field.setText(command)
+        self.send_message()
 
     def load_initial_data(self):
-        """Tải dữ liệu ban đầu"""
+        """Tải dữ liệu ban đầu từ DataProcessor"""
         self.status_indicator.setText("🔄")
-        self.status_bar.setText("📂 Đang đọc dữ liệu từ hệ thống...")
+        self.status_bar.setText("📂 Đang tải dữ liệu cá nhân...")
         self.send_button.setEnabled(False)
 
         try:
             if not self.data_processor:
-                self.status_indicator.setText("○")
-                self.status_bar.setText("❌ Module DataProcessor không khả dụng")
+                self.status_bar.setText("❌ Không có bộ xử lý dữ liệu")
                 self.send_button.setEnabled(True)
-                self.add_bot_message("⚠️ Không thể tải dữ liệu. DataProcessor không khả dụng.")
                 return
 
             success = self.data_processor.load_all_data()
-
             if success:
-                data = self.data_processor.get_summary_data()
-                work_log_data = data.get('work_log', {})
-                sap_data = data.get('sap', {})
-                metrics = data.get('metrics', {})
-
                 self.status_indicator.setText("●")
-                self.status_indicator.setStyleSheet("""
-                    QLabel {
-                        color: #10b981;
-                        font-size: 20px;
-                        font-weight: bold;
-                    }
-                """)
-
-                fraud_count = work_log_data.get('fraud_count', 0)
-                warning_count = work_log_data.get('warning_count', 0)
-                sap_orders = sap_data.get('total_orders', 0)
-                pending_orders = sap_data.get('pending_orders', 0)
-
-                year_summary = self.data_processor.get_year_summary()
-                if year_summary:
-                    total_orders_year = year_summary.get('total_orders', 0)
-                    months_with_data = year_summary.get('months_with_data', 0)
-
-                    self.status_bar.setText(
-                        f"📅 {year_summary.get('year', datetime.now().year)}: {months_with_data} tháng | "
-                        f"📊 WL: {fraud_count} gian lận | "
-                        f"🛒 SAP: {sap_orders} đơn ({pending_orders} đang chờ)"
-                    )
-                else:
-                    self.status_bar.setText(
-                        f"📊 WL: {fraud_count} gian lận, {warning_count} cảnh báo | "
-                        f"🛒 SAP: {sap_orders} đơn ({pending_orders} đang chờ)"
-                    )
-
+                self.status_indicator.setStyleSheet("QLabel { color: #10b981; font-size: 20px; font-weight: bold; }")
                 self.send_button.setEnabled(True)
 
-                summary_msg = self._create_summary_message(
-                    work_log_data, sap_data, metrics, year_summary
+                # Lấy tóm tắt nhanh để hiển thị status bar
+                data = self.data_processor.get_summary_data()
+                sap = data.get('sap', {})
+                wl = data.get('work_log', {})
+
+                self.status_bar.setText(
+                    f"📊 WL: {wl.get('fraud_count', 0)} lỗi | "
+                    f"💰 Doanh thu: {sap.get('total_revenue', 0):,.0f} VND | "
+                    f"🛒 Đơn hàng: {sap.get('total_orders', 0)}"
                 )
 
-                self.add_bot_message(summary_msg)
+                # Gửi báo cáo tóm tắt tự động
+                self.show_performance_summary(data)
             else:
-                self.status_indicator.setText("○")
-                self.status_indicator.setStyleSheet("""
-                    QLabel {
-                        color: #ef4444;
-                        font-size: 20px;
-                        font-weight: bold;
-                    }
-                """)
-                self.status_bar.setText("❌ Không thể tải đầy đủ dữ liệu")
-                self.add_bot_message("Không thể tải đầy đủ dữ liệu. Vui lòng kiểm tra file dữ liệu!")
+                self.status_bar.setText("⚠️ Dữ liệu trống hoặc lỗi file")
+                self.send_button.setEnabled(True)
 
         except Exception as e:
-            print(f"❌ Lỗi tải dữ liệu: {e}")
+            print(f"❌ Error loading data: {e}")
+            self.status_bar.setText(f"❌ Lỗi: {str(e)[:40]}")
+            self.send_button.setEnabled(True)
+
+    def show_performance_summary(self, data):
+        """Hiển thị báo cáo tóm tắt ban đầu"""
+        sap = data.get('sap', {})
+        wl = data.get('work_log', {})
+        metrics = data.get('metrics', {})
+
+        summary = f"""**📊 TÓM TẮT HIỆU SUẤT CỦA BẠN**
+
+**📈 DỮ LIỆU SAP:**
+- Tổng đơn hàng: {sap.get('total_orders', 0)}
+- Tỷ lệ hoàn thành: {sap.get('completion_rate', 0):.1f}%
+- Doanh thu: {sap.get('total_revenue', 0):,.0f} VND
+
+**⚠️ WORK LOG & TUÂN THỦ:**
+- Sự kiện nghi vấn: {wl.get('fraud_count', 0)}
+- Cảnh báo nghiêm trọng: {wl.get('critical_count', 0)}
+- Tổng giờ làm: {wl.get('total_work_hours', 0)}h
+
+**🎯 ĐIỂM ĐÁNH GIÁ:**
+- Chỉ số chất lượng: {metrics.get('quality', 0):.1f}/100
+- Chỉ số tuân thủ: {metrics.get('compliance', 0):.1f}/100
+
+*Hãy hỏi tôi nếu bạn cần phân tích chi tiết hơn!*"""
+        self.add_bot_message(summary)
+
+    # ========================== EMAIL FUNCTIONALITY ==========================
+
+    def check_email_intent(self, user_input):
+        """Phát hiện ý định gửi email từ câu nói - CẢI THIỆN"""
+        user_input_lower = user_input.lower()
+
+        # Các từ khóa phát hiện ý định gửi email
+        email_keywords = [
+            'gửi mail', 'gửi email', 'send email', 'email',
+            'khiếu nại', 'phàn nàn', 'complaint', 'than phiền',
+            'đề xuất', 'suggestion', 'kiến nghị', 'ý kiến',
+            'yêu cầu', 'request', 'thắc mắc', 'vấn đề',
+            'liên hệ quản lý', 'gặp quản lý', 'báo cáo',
+            'mail cho manager', 'gửi cho sếp', 'thông báo'
+        ]
+
+        # Kiểm tra từ khóa cơ bản
+        for keyword in email_keywords:
+            if keyword in user_input_lower:
+                return True
+
+        # Kiểm tra mẫu câu phổ biến
+        email_patterns = [
+            'tôi muốn gửi',
+            'mình muốn gửi',
+            'cần gửi',
+            'hãy gửi',
+            'gửi cho',
+            'thông báo đến',
+            'thông báo tới',
+            'mail tới',
+            'email tới',
+            'soạn mail',
+            'soạn email',
+            'tạo mail',
+            'tạo email'
+        ]
+
+        for pattern in email_patterns:
+            if pattern in user_input_lower:
+                return True
+
+        return False
+
+    def detect_email_type_and_description(self, user_input):
+        """Phát hiện loại email và trích xuất mô tả từ câu nói"""
+        user_input_lower = user_input.lower()
+
+        # Phát hiện loại email
+        email_type_patterns = [
+            ('complaint', ['phàn nàn về', 'khiếu nại về', 'than phiền về']),
+            ('suggestion', ['đề xuất về', 'kiến nghị về', 'ý kiến về']),
+            ('request', ['yêu cầu về', 'xin về', 'đề nghị về']),
+            ('report', ['báo cáo về', 'thông báo về']),
+            ('complaint', ['phàn nàn', 'khiếu nại', 'than phiền']),
+            ('suggestion', ['đề xuất', 'kiến nghị', 'ý kiến']),
+            ('request', ['yêu cầu', 'xin', 'đề nghị']),
+            ('report', ['báo cáo', 'thông báo'])
+        ]
+
+        detected_type = 'complaint'  # Mặc định là khiếu nại
+        description = user_input
+
+        # Tìm loại email
+        for email_type, patterns in email_type_patterns:
+            for pattern in patterns:
+                if pattern in user_input_lower:
+                    detected_type = email_type
+                    # Trích xuất mô tả sau từ khóa
+                    pattern_index = user_input_lower.find(pattern)
+                    if pattern_index != -1:
+                        after_keyword = user_input[pattern_index + len(pattern):].strip()
+                        if after_keyword and len(after_keyword) > 3:
+                            description = after_keyword
+                    break
+            if detected_type != 'complaint':
+                break
+
+        return detected_type, description
+
+    def handle_email_confirmation(self, user_input):
+        """Xử lý phản hồi confirm của người dùng"""
+        if not self.email_request_state['waiting_confirmation']:
+            return False
+
+        user_input_lower = user_input.lower()
+        confirm_keywords = ['có', 'yes', 'y', 'ok', 'oke', 'okay', 'đồng ý', 'chắc chắn', 'được']
+        deny_keywords = ['không', 'no', 'n', 'cancel', 'hủy', 'thôi', 'đừng']
+
+        if any(keyword in user_input_lower for keyword in confirm_keywords):
+            # Người dùng đồng ý
+            self.add_bot_message("✅ Đã xác nhận. Đang mở cửa sổ soạn email...")
+            self.email_request_state['waiting_confirmation'] = False
+            QTimer.singleShot(500, self.open_complaint_email_with_description)
+            return True
+        elif any(keyword in user_input_lower for keyword in deny_keywords):
+            # Người dùng từ chối
+            self.add_bot_message("❌ Đã hủy yêu cầu gửi email.")
+            self.email_request_state['waiting_confirmation'] = False
+            self.send_button.setEnabled(True)
+            return True
+
+        return False
+
+    def prompt_email_confirmation(self, user_input, description):
+        """Hiển thị prompt xác nhận gửi email"""
+        confirmation_msg = f"""⚠️ **XÁC NHẬN GỬI EMAIL**
+
+Bạn muốn gửi email với nội dung:
+"{description[:100]}..."
+
+Gửi email khiếu nại/đề xuất này đến quản lý?
+
+Trả lời: 'Có' hoặc 'Không'"""
+
+        self.add_bot_message(confirmation_msg)
+
+        # Lưu trạng thái
+        self.email_request_state['waiting_confirmation'] = True
+        self.email_request_state['original_command'] = user_input
+        self.current_email_description = description
+
+    def open_complaint_email_with_description(self):
+        """Mở dialog với mô tả đã trích xuất"""
+        try:
+            if not email_dialog_available:
+                self.add_bot_message("❌ Chức năng gửi email chưa khả dụng")
+                return
+
+            # Lấy email type từ trạng thái
+            email_type = self.email_request_state.get('email_type', 'complaint')
+            description = self.current_email_description
+
+            dialog = EmployeeEmailDialog(
+                self,
+                self.employee_name,
+                self.gemini,
+                initial_description=description,
+                email_type=email_type
+            )
+
+            result = dialog.exec()
+
+            if result == QDialog.DialogCode.Accepted:
+                self.add_bot_message("✅ Đã gửi email khiếu nại đến quản lý thành công!")
+
+            # Reset state
+            self.email_request_state['waiting_confirmation'] = False
+            self.email_request_state['original_command'] = ''
+            self.current_email_description = ""
+
+        except Exception as e:
+            print(f"❌ Lỗi khi mở dialog email: {e}")
             import traceback
             traceback.print_exc()
-            self.status_indicator.setText("○")
-            self.status_indicator.setStyleSheet("""
-                QLabel {
-                    color: #ef4444;
-                    font-size: 20px;
-                    font-weight: bold;
-                }
-            """)
-            self.status_bar.setText(f"Lỗi: {str(e)[:50]}")
-            self.send_button.setEnabled(True)
-            self.add_bot_message(f"❌ Lỗi khi tải dữ liệu: {str(e)}")
-
-    def _create_summary_message(self, work_log_data, sap_data, metrics, year_summary):
-        """Tạo thông báo tổng hợp với dữ liệu hàng năm"""
-        current_year = datetime.now().year
-
-        fraud_count = work_log_data.get('fraud_count', 0)
-        warning_count = work_log_data.get('warning_count', 0)
-        sap_orders = sap_data.get('total_orders', 0)
-        pending_orders = sap_data.get('pending_orders', 0)
-        completion_rate = sap_data.get('completion_rate', 0)
-        revenue = sap_data.get('total_revenue', 0)
-        profit = sap_data.get('total_profit', 0)
-        profit_margin = sap_data.get('profit_margin', 0)
-
-        message = f"""**✅ ĐÃ TẢI DỮ LIỆU THÀNH CÔNG**
-
-**📅 Thời gian:** {datetime.now().strftime('%d/%m/%Y %H:%M')}
-
-"""
-
-        if year_summary:
-            total_orders_year = year_summary.get('total_orders', 0)
-            total_revenue_year = year_summary.get('total_revenue', 0)
-            total_profit_year = year_summary.get('total_profit', 0)
-            total_fraud_year = year_summary.get('total_fraud', 0)
-            months_with_data = year_summary.get('months_with_data', 0)
-            year_completion_rate = year_summary.get('completion_rate', 0)
-            best_month = year_summary.get('best_month', 0)
-            best_month_revenue = year_summary.get('best_month_revenue', 0)
-
-            message += f"""**📊 TỔNG QUAN HÀNG NĂM {current_year}:**
-• **Phạm vi dữ liệu:** {months_with_data}/12 tháng
-• **Tổng đơn hàng năm:** {total_orders_year:,}
-• **Tổng doanh thu năm:** {total_revenue_year:,.0f} VND
-• **Tổng lợi nhuận năm:** {total_profit_year:,.0f} VND
-• **Tổng gian lận năm:** {total_fraud_year}
-• **Tỷ lệ hoàn thành năm:** {year_completion_rate:.1f}%
-• **Tháng hiệu quả nhất:** Tháng {best_month} ({best_month_revenue:,.0f} VND)
-
-"""
-
-        message += f"""**🔍 PHÂN TÍCH WORK LOG (THÁNG HIỆN TẠI):**
-• Sự kiện gian lận: {fraud_count}
-• Cảnh báo nghiêm trọng: {work_log_data.get('critical_count', 0)}
-• Cảnh báo nhẹ: {warning_count}
-• Thời gian làm việc: {work_log_data.get('total_work_hours', 0)}h
-
-**📈 TỔNG QUAN DỮ LIỆU SAP (THÁNG HIỆN TẠI):**
-• Tổng đơn hàng: {sap_orders:,}
-• Đã hoàn thành: {sap_data.get('completed_orders', 0):,} ({completion_rate:.1f}%)
-• Đang chờ xử lý: {pending_orders:,}
-• Doanh thu: {revenue:,.0f} VND
-• Lợi nhuận: {profit:,.0f} VND
-• Biên lợi nhuận: {profit_margin:.1f}%
-
-**📊 CHỈ SỐ THỰC TẾ:**
-• **Hiệu suất làm việc:** {metrics.get('efficiency', 0):.1f}/100 (dựa trên đơn/giờ)
-• **Chất lượng công việc:** {metrics.get('quality', 0):.1f}/100 (dựa trên hoàn thành & lợi nhuận)
-• **Tuân thủ:** {metrics.get('compliance', 0):.1f}/100 (dựa trên quy định)
-• **Năng suất kinh doanh:** {metrics.get('productivity', 0):.1f}/100 (dựa trên doanh thu & lợi nhuận)
-• **Tỷ lệ lỗi:** {metrics.get('error_rate', 0):.1f}%
-• **Hiệu quả thời gian:** {metrics.get('time_efficiency', 0):.1f}%
-
-"""
-
-        if year_summary:
-            message += """**💡 ĐỀ XUẤT HÀNH ĐỘNG (DỰA TRÊN DỮ LIỆU NĂM):**
-1. **Hỏi "Phân tích hiệu suất hàng tháng"** - So sánh giữa các tháng
-2. **Hỏi "Tháng nào có doanh thu cao nhất?"** - Tìm điểm mạnh theo mùa
-3. **Hỏi "Làm thế nào để duy trì hiệu suất cao?"** - Nhận tư vấn chiến lược dài hạn"""
-        else:
-            message += """**💡 ĐỀ XUẤT HÀNH ĐỘNG:**
-1. **Hỏi "Đơn hàng nào chưa xử lý?"** - Kiểm tra trạng thái đơn hàng
-2. **Hỏi "Làm thế nào để cải thiện hiệu suất?"** - Nhận tư vấn chiến lược
-3. **Hỏi "Phân tích doanh thu theo tháng"** - Phân tích dữ liệu hàng tháng"""
-
-        return message
-
-    def quick_command(self, command):
-        """Xử lý lệnh nhanh"""
-        self.input_field.setText(command)
-        self.send_message()
+            self.add_bot_message(f"❌ Lỗi khi mở cửa sổ email: {str(e)}")
 
     def send_message(self):
-        """Xử lý tin nhắn người dùng"""
+        """Xử lý gửi tin nhắn"""
         user_input = self.input_field.text().strip()
         if not user_input:
             return
 
-        # Thêm tin nhắn người dùng
         self.add_user_message(user_input)
         self.input_field.clear()
-        self.send_button.setEnabled(False)
-        self.status_bar.setText("🤔 AI đang phân tích...")
 
+        # Kiểm tra nếu đang chờ confirm
+        if self.email_request_state['waiting_confirmation']:
+            if self.handle_email_confirmation(user_input):
+                return
+
+        # Kiểm tra nếu là lệnh gửi email
+        if self.check_email_intent(user_input):
+            # Trích xuất thông tin chi tiết
+            email_type, description = self.detect_email_type_and_description(user_input)
+
+            print(f"DEBUG: Phát hiện email - Loại: {email_type}, Mô tả: {description}")
+
+            # Lưu thông tin
+            self.email_request_state['email_type'] = email_type
+            self.current_email_description = description
+
+            # Hiển thị prompt xác nhận
+            self.prompt_email_confirmation(user_input, description)
+            return
+
+        # Nếu không phải lệnh email, xử lý bình thường
+        self.send_button.setEnabled(False)
+        self.status_bar.setText("🤔 AI đang suy nghĩ...")
+
+        # Lấy context dữ liệu để gửi cho AI
         context_data = {}
         if self.data_processor:
-            try:
-                context_data = self.data_processor.get_enhanced_context()
-            except Exception as e:
-                print(f"⚠️ Không thể lấy dữ liệu context: {e}")
+            context_data = self.data_processor.get_enhanced_context()
 
-        self.chat_thread = ChatThread(self.gemini, user_input, context_data)
+        # Khởi chạy thread xử lý AI
+        self.chat_thread = EmployeeChatThread(self.gemini, user_input, context_data, self.employee_name)
         self.chat_thread.response_ready.connect(self.on_ai_response)
         self.chat_thread.error_occurred.connect(self.on_ai_error)
         self.chat_thread.start()
 
     def on_ai_response(self, response):
-        """Nhận phản hồi từ AI"""
+        """Kết quả trả về từ AI"""
         self.add_bot_message(response)
         self.send_button.setEnabled(True)
         self.status_bar.setText("✅ Sẵn sàng")
 
     def on_ai_error(self, error):
-        """Xử lý lỗi AI"""
-        error_msg = f"""**❌ LỖI HỆ THỐNG**
-
-Không thể kết nối đến dịch vụ AI:
-
-**Chi tiết:** {error}
-
-**Khắc phục sự cố:**
-1. Kiểm tra kết nối Internet
-2. Đảm bảo API Key hợp lệ trong file .env
-3. Thử lại sau vài phút
-
-**Chế độ DEMO sẽ được sử dụng tạm thời.**"""
-
-        self.add_bot_message(error_msg)
+        """Xử lý khi lỗi AI"""
+        self.add_bot_message(f"❌ **Lỗi kết nối AI**: {error}\n\nĐang sử dụng phản hồi mẫu.")
         self.send_button.setEnabled(True)
-        self.status_bar.setText("⚠️ Đã xảy ra lỗi")
+        self.status_bar.setText("⚠️ Có lỗi xảy ra")
 
-    def add_bot_message(self, message):
-        """Thêm tin nhắn từ bot"""
-        timestamp = datetime.now().strftime("%H:%M")
-        self.chat_display.append(
-            f"<div style='margin: 5px 0; padding: 10px; background-color: #f1f5f9; border-radius: 8px;'>"
-            f"<b>🤖 PowerSight AI:</b> {message}<br>"
-            f"<small style='color: #64748b;'>{timestamp}</small></div>")
-        self.scroll_to_bottom()
+    def open_complaint_email(self):
+        """Mở dialog gửi khiếu nại - từ nút Quick Action"""
+        try:
+            if not email_dialog_available:
+                self.add_bot_message("❌ Chức năng gửi email chưa khả dụng")
+                return
 
-    def add_user_message(self, message):
-        """Thêm tin nhắn từ người dùng"""
-        timestamp = datetime.now().strftime("%H:%M")
-        self.chat_display.append(
-            f"<div style='margin: 5px 0; padding: 10px; background-color: #dbeafe; border-radius: 8px; text-align: right;'>"
-            f"<b>👤 {self.employee_name}:</b> {message}<br>"
-            f"<small style='color: #64748b;'>{timestamp}</small></div>")
-        self.scroll_to_bottom()
+            dialog = EmployeeEmailDialog(
+                self,
+                self.employee_name,
+                self.gemini,
+                initial_description="",
+                email_type="complaint"
+            )
 
-    def scroll_to_bottom(self):
-        """Cuộn xuống cuối"""
-        scrollbar = self.chat_display.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
+            result = dialog.exec()
 
-    def closeEvent(self, event):
-        """Xử lý đóng cửa sổ"""
-        if self.parent_window and hasattr(self.parent_window, 'on_chatbot_closed'):
-            try:
-                self.parent_window.on_chatbot_closed()
-            except:
-                pass
-        event.accept()
+            if result == QDialog.DialogCode.Accepted:
+                self.add_bot_message("✅ Đã gửi email khiếu nại đến quản lý thành công!")
+
+        except Exception as e:
+            print(f"❌ Lỗi khi mở dialog email: {e}")
+            import traceback
+            traceback.print_exc()
+            self.add_bot_message(f"❌ Lỗi khi mở cửa sổ email: {str(e)}")
 
 
-class ChatThread(QThread):
-    """Thread xử lý chat"""
+class EmployeeChatThread(QThread):
+    """Thread xử lý AI tách biệt với UI để tránh treo app"""
     response_ready = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
 
-    def __init__(self, gemini, question, context_data):
+    def __init__(self, gemini, question, context_data, employee_name):
         super().__init__()
         self.gemini = gemini
         self.question = question
         self.context_data = context_data
+        self.employee_name = employee_name
 
     def run(self):
         try:
             if not self.gemini:
-                import random
-                demo_responses = [
-                    f"**Câu hỏi:** {self.question}\n\n**Phân tích (DEMO):** Hiệu suất của bạn hiện đang ổn định. Tập trung hoàn thành đơn hàng đúng hạn để cải thiện tỷ lệ hoàn thành.",
-                    f"**Câu hỏi:** {self.question}\n\n**Phân tích (DEMO):** Dữ liệu hàng năm cho thấy bạn cần giảm cảnh báo trong quy trình làm việc. Kiểm tra kỹ các bước trước khi gửi.",
-                ]
-                response = random.choice(demo_responses)
-                self.response_ready.emit(response)
+                # Phản hồi giả lập nếu không có Gemini
+                import time
+                time.sleep(1)
+                self.response_ready.emit(
+                    f"Dữ liệu của bạn ({self.employee_name}) cho thấy hiệu suất đang ở mức tốt. Tuy nhiên cần chú ý giảm các lỗi Work Log.")
                 return
 
             response = self.gemini.analyze_question(self.question, self.context_data)
@@ -611,14 +674,10 @@ class ChatThread(QThread):
 
 
 def main():
-    """Hàm chính"""
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
-    app.setApplicationName("PowerSight Employee Assistant")
-
     window = EmployeeChatbotGUI()
     window.show()
-
     sys.exit(app.exec())
 
 

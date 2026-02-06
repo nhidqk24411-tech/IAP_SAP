@@ -16,11 +16,10 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage
 import ctypes
 from ctypes import wintypes
-import requests
+
 # Định nghĩa các hằng số WinAPI
 SW_HIDE = 0
 SW_SHOW = 5
-CUSTOMER_FEEDBACK_WEBHOOK_URL = "https://gain1109.app.n8n.cloud/webhook/349efadb-fad2-4589-9827-f99d94e3ac31"
 
 
 class TaskbarController:
@@ -73,10 +72,12 @@ if 'pydevd' in sys.modules:
 # =========================
 try:
     from SAP.SAP_automation import SAPDataCollector
+
     print("✅ SAP automation imported successfully")
 except ImportError as e:
     print(f"⚠️ Cannot import SAPDataCollector: {e}")
     SAPDataCollector = None
+
 
 # =========================
 # PATH UTILITIES
@@ -626,6 +627,7 @@ class SAPBackgroundCollector(QThread):
         """Dừng collection"""
         self.is_running = False
 
+
 # Import UI
 from MainApp.UI.UI_HOME import Ui_MainWindow as Ui_HomeWindow
 
@@ -665,6 +667,7 @@ class GlobalExcelLogger:
 
         # Kiểm tra .env file
         self.check_env_file()
+
     def check_env_file(self):
         """Kiểm tra file .env có tồn tại không"""
         env_path = os.path.join(PROJECT_ROOT, "SAP", ".env")
@@ -795,6 +798,7 @@ class GlobalExcelLogger:
 
         if is_fraud:
             self.log_alert("Mouse", event_type, details, severity, is_fraud)
+
     def log_face_alert(self, event_type, details="", severity="INFO", is_fraud=False, **face_data):
         """Ghi log face - CHỈ LƯU NẾU GIAN LẬN"""
         if is_fraud:
@@ -853,6 +857,7 @@ class GlobalExcelLogger:
             print(f"❌ Error saving global log: {e}")
             traceback.print_exc()
             return False
+
     def save_final_data(self):
         """Lưu dữ liệu cuối cùng - BÂY GIỜ CÓ THÊM SAP"""
         print(f"\n💾 SAVING FINAL DATA (WITH SAP COLLECTION)")
@@ -874,6 +879,7 @@ class GlobalExcelLogger:
 
         print(f"🎉 Final data saved for user: {self.user_name}")
         return sap_success or log_success
+
     def get_session_summary(self):
         """Lấy thông tin tổng hợp session"""
         return {
@@ -991,10 +997,100 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
         # Thêm nút automation sau khi khởi tạo
         QTimer.singleShot(1000, self.add_automation_buttons)
 
+    def show_unified_popup(self, title, message, alert_type="mouse"):
+        """Hiển thị popup thống nhất cho cả chuột và face"""
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle(title)
+
+        # Thiết lập icon theo loại cảnh báo
+        if alert_type == "mouse":
+            msg_box.setIcon(QMessageBox.Icon.Warning)
+        elif alert_type == "face":
+            msg_box.setIcon(QMessageBox.Icon.Critical)
+        else:
+            msg_box.setIcon(QMessageBox.Icon.Information)
+
+        msg_box.setText(message)
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+
+        # Thiết lập style thống nhất giống popup chuột
+        msg_box.setStyleSheet("""
+            QMessageBox {
+                background-color: #202124;
+                color: #E8EAED;
+                font-family: Arial;
+                font-size: 12px;
+                border: 2px solid #EA4335;
+                border-radius: 10px;
+            }
+            QLabel {
+                color: #E8EAED;
+                font-size: 12px;
+                line-height: 1.5;
+                padding: 10px;
+            }
+            QPushButton {
+                background-color: #EA4335;
+                color: white;
+                border: none;
+                padding: 10px 25px;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 12px;
+                min-width: 100px;
+            }
+            QPushButton:hover {
+                background-color: #D23A2D;
+            }
+        """)
+
+        # Đảm bảo popup luôn ở trên cùng
+        msg_box.setWindowFlags(
+            msg_box.windowFlags() |
+            Qt.WindowType.WindowStaysOnTopHint |
+            Qt.WindowType.FramelessWindowHint
+        )
+
+        # Hiển thị popup và đợi
+        msg_box.exec()
+
+    def show_alert_popup(self, alert_data):
+        """Override phương thức show_alert_popup để dùng giao diện thống nhất"""
+        self.is_alert_showing = True
+
+        # Pause timer và mouse tracking (giống như trong parent)
+        self.timer_widget.pause_timer()
+        if self.pause_event:
+            self.pause_event.set()
+
+        # Tạo message box thống nhất
+        title = "⚠️ SUSPICIOUS MOUSE BEHAVIOR DETECTED!"
+        message = (
+            "HIGH ANOMALY SCORE DETECTED!\n\n"
+            f"Anomaly Score: {alert_data.get('score', 0):.3f}\n"
+            f"Session ID: {alert_data.get('session_id', 'Unknown')}\n"
+            f"Time: {alert_data.get('timestamp', 'N/A')}\n\n"
+            "⚠️ Mouse tracking has been PAUSED.\n"
+            "This could indicate non-human behavior patterns.\n\n"
+            "Click OK to resume tracking."
+        )
+
+        # Gọi phương thức show_unified_popup
+        self.show_unified_popup(title, message, "mouse")
+
+        # Resume timer và mouse tracking sau khi người dùng OK
+        self.timer_widget.resume_timer()
+        if self.pause_event:
+            self.pause_event.clear()
+        if self.command_queue:
+            self.command_queue.put("RESUME")
+
+        self.is_alert_showing = False
+
     def get_display_name_from_id(self, employee_id):
         """Lấy tên hiển thị từ mã nhân viên"""
         try:
-            excel_path = os.path.join(PROJECT_ROOT, "MG","employee_ids.xlsx")
+            excel_path = os.path.join(PROJECT_ROOT, "MG", "employee_ids.xlsx")
             if os.path.exists(excel_path):
                 df = pd.read_excel(excel_path)
                 # Chuẩn hóa tên cột
@@ -1404,8 +1500,10 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
 
             if self.face_system is None:
                 print("🎭 Using demo mode...")
-                QMessageBox.information(self, "DEMO Mode",
-                                        f"DEMO: Verified as {self.display_name}\n\nYou may continue working.")
+                # Sử dụng popup thống nhất
+                title = "DEMO Mode"
+                message = f"DEMO: Verified as {self.display_name}\n\nYou may continue working."
+                self.show_unified_popup(title, message, "face")
                 self.global_logger.log_browser_alert("FACE_CHECK_DEMO", "Demo mode - Verification passed",
                                                      is_fraud=False)
                 self.on_face_check_finished(
@@ -1433,22 +1531,23 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
 
                 if detected_user == self.user_name or detected_user == self.display_name:
                     print(f"✅ User verified: {detected_user}")
-                    self.global_logger.log_browser_alert("FACE_CHECK_SUCCESS", f"Confidence: {similarity:.1%}",
-                                                         is_fraud=False)
-                    QMessageBox.information(self, "Verification Successful",
-                                            f"✅ Verified: {self.display_name}\nConfidence: {similarity:.1%}")
                     self.resume_after_check_logic(True)
                 else:
                     print(f"❌ User mismatch")
                     self.global_logger.log_browser_alert("FACE_CHECK_MISMATCH", f"Detected: {detected_user}",
                                                          is_fraud=True)
-                    QMessageBox.critical(self, "🚨 UNAUTHORIZED",
-                                         f"❌ User mismatch!\nExpected: {self.display_name}\nDetected: {detected_user}")
+                    # Sử dụng popup thống nhất
+                    title = "🚨 UNAUTHORIZED"
+                    message = f"❌ User mismatch!\nExpected: {self.display_name}\nDetected: {detected_user}"
+                    self.show_unified_popup(title, message, "face")
                     self.resume_after_check_logic(True)
             else:
                 error_msg = result.get("message", "Unknown error")
                 self.global_logger.log_browser_alert("FACE_CHECK_FAILED", error_msg, is_fraud=False)
-                QMessageBox.warning(self, "Verification Failed", f"❌ {error_msg}\n\nPlease try again.")
+                # Sử dụng popup thống nhất
+                title = "Verification Failed"
+                message = f"❌ {error_msg}\n\nPlease try again."
+                self.show_unified_popup(title, message, "face")
                 self.resume_after_check_logic(False)
 
         except Exception as e:
@@ -1513,11 +1612,9 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
         return False
 
     def show_fraud_alert(self):
-        """Hiển thị cảnh báo gian lận"""
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle("⚠️ SUSPICIOUS BEHAVIOR DETECTED")
-        msg_box.setIcon(QMessageBox.Icon.Warning)
-        msg_box.setText(
+        """Hiển thị cảnh báo gian lận - Sử dụng popup thống nhất"""
+        title = "⚠️ SUSPICIOUS BEHAVIOR DETECTED"
+        message = (
             "🚨 MULTIPLE RAPID PAUSES DETECTED!\n\n"
             "System has detected multiple rapid pauses in a short time.\n"
             "This behavior may indicate:\n"
@@ -1527,8 +1624,7 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
             "This incident has been logged.\n"
             "Continue at your own risk."
         )
-        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
-        msg_box.exec()
+        self.show_unified_popup(title, message, "mouse")
 
     def confirm_exit(self):
         """Hộp thoại xác nhận thoát"""
@@ -1740,7 +1836,6 @@ class HomeWindow(QMainWindow):
         super().__init__()
         self.user_name = user_name  # Mã nhân viên (EM001, EM002, EM001)
         self.display_name = self.get_display_name_from_id(user_name)  # Tên hiển thị
-        self.sap=self.get_display_sap_from_id(user_name)
 
         self.ui = Ui_HomeWindow()
         self.ui.setupUi(self)
@@ -1758,7 +1853,6 @@ class HomeWindow(QMainWindow):
 
         # KHỞI TẠO GLOBAL LOGGER
         self.global_logger = GlobalExcelLogger(user_name)
-        self.uipath_automation = UiPathSAPLoginAutomation(user_name, self.global_logger)
 
         # Biến hệ thống
         self.mouse_process = None
@@ -1810,7 +1904,7 @@ class HomeWindow(QMainWindow):
     def get_display_name_from_id(self, employee_id):
         """Lấy tên hiển thị từ mã nhân viên"""
         try:
-            excel_path = os.path.join(PROJECT_ROOT, "MG","employee_ids.xlsx")
+            excel_path = os.path.join(PROJECT_ROOT, "MG", "employee_ids.xlsx")
             if os.path.exists(excel_path):
                 df = pd.read_excel(excel_path)
                 # Chuẩn hóa tên cột
@@ -1838,42 +1932,6 @@ class HomeWindow(QMainWindow):
                                 name = str(row[name_column]).strip()
                                 if name and name.lower() != 'nan':
                                     return name
-        except Exception as e:
-            print(f"⚠️ Error getting display name: {e}")
-
-        return employee_id  # Trả về mã nếu không tìm thấy tên
-
-    def get_display_sap_from_id(self, employee_id):
-        """Lấy tên hiển thị từ mã nhân viên"""
-        try:
-            excel_path = os.path.join(PROJECT_ROOT, "MG", "employee_ids.xlsx")
-            if os.path.exists(excel_path):
-                df = pd.read_excel(excel_path)
-                # Chuẩn hóa tên cột
-                df.columns = [str(col).strip().lower() for col in df.columns]
-
-                # Tìm cột ID (đã đổi tên từ Employee_ID)
-                id_column = None
-                for col in df.columns:
-                    if col == 'id' or 'employee' in col or 'mã' in col:
-                        id_column = col
-                        break
-
-                if id_column:
-                    # Tìm cột tên
-                    sap_column = None
-                    for col in df.columns:
-                        if 'SAP' in col:
-                            sap_column = col
-                            break
-
-                    if sap_column:
-                        # Tìm hàng có mã trùng
-                        for idx, row in df.iterrows():
-                            if str(row[id_column]).strip().upper() == employee_id.upper():
-                                sap = str(row[sap_column]).strip()
-                                if sap and sap.lower() != 'nan':
-                                    return sap
         except Exception as e:
             print(f"⚠️ Error getting display name: {e}")
 
@@ -2027,57 +2085,38 @@ class HomeWindow(QMainWindow):
                                  "Vui lòng kiểm tra file employee_chatbot.py")
 
     def open_dashboard(self):
-        """Mở dashboard"""
-        print(f"\n{'=' * 50}")
-        print(f"📊 OPENING DASHBOARD for {self.display_name}")
-        print(f"{'=' * 50}")
-
-        if PerformanceDashboard is None:
-            QMessageBox.critical(self, "Lỗi hệ thống",
-                                 "Không thể tải dashboard system.\n\n"
-                                 "Vui lòng kiểm tra:\n"
-                                 "1. File dashboard.py có tồn tại không?\n"
-                                 "2. Đường dẫn đúng: C:\\PythonProject (1)\\PythonProject\\dashboard.py")
-            return
-
-        # Đảm bảo lưu dữ liệu trước
-        if hasattr(self, 'global_logger'):
-            try:
-                self.global_logger.save_to_excel()
-                print("💾 Work log saved successfully")
-            except Exception as e:
-                print(f"⚠️ Could not save work log: {e}")
-
-        # Đóng dashboard cũ nếu có
-        if self.dashboard_window:
-            try:
-                self.dashboard_window.close()
-                self.dashboard_window = None
-                print("🛑 Closed previous dashboard window")
-            except:
-                pass
-
+        """Mở dashboard - Đảm bảo hiển thị và có lối thoát"""
         try:
-            # Tạo và hiển thị dashboard
+            # 1. Hiện Taskbar tạm thời để tránh bị kẹt nếu crash
+            TaskbarController.set_visibility(True)
+
+            if self.dashboard_window:
+                self.dashboard_window.close()
+
             self.dashboard_window = PerformanceDashboard(self.user_name, self)
+
+            # 2. Hiển thị Dashboard
             self.dashboard_window.showFullScreen()
+
+            # 3. Chỉ ẩn taskbar sau khi Dashboard đã hiện thành công
+            QTimer.singleShot(1000, lambda: TaskbarController.set_visibility(False))
+
             self.active_window = 'dashboard'
-
-            # Cập nhật tab state
             self.update_tab_state('dashboard')
-
-            # Home window minimize
             self.showMinimized()
-            print("🏠 Home window minimized")
-
-            print(f"✅ Dashboard opened successfully for {self.display_name}")
 
         except Exception as e:
-            print(f"❌ CRITICAL ERROR opening dashboard: {e}")
-            traceback.print_exc()
-            QMessageBox.critical(self, "Lỗi hệ thống",
-                                 f"Lỗi nghiêm trọng khi mở dashboard:\n\n{str(e)[:100]}...\n\n"
-                                 "Vui lòng kiểm tra file dashboard.py")
+            TaskbarController.set_visibility(True)
+            QMessageBox.critical(self, "Lỗi", f"Không thể mở Dashboard: {e}")
+
+    def on_dashboard_closed(self):
+        """Hàm này được gọi khi bấm nút 'Home' trong Dashboard"""
+        self.dashboard_window = None
+        self.active_window = 'home'
+        self.update_tab_state('home')
+        self.showNormal()  # Hiện lại Home
+        self.raise_()
+        self.activateWindow()
 
     def update_user_name(self, user_name):
         """Cập nhật tên user trên UI"""
@@ -2275,17 +2314,13 @@ class HomeWindow(QMainWindow):
             print("✅ Log data saved")
         else:
             print("⚠️ Failed to save log data")
-        print("\n📧 Sending customer feedback email...")
-        self.send_customer_feedback_email()
 
         # 4. Chạy SAP data collection TRONG BACKGROUND (không chờ)
         print("🤖 Starting SAP data collection in background...")
-        credentials = self.uipath_automation.load_sap_credentials()
-        print(f"🔑 Credentials loaded: {credentials['username']}")
 
         # Tạo và chạy background collector
         self.sap_collector = SAPBackgroundCollector(
-            user_name=str(credentials['username']),
+            user_name=self.user_name,
             save_directory=self.global_logger.PATHS['monthly'],
             logger=self.global_logger
         )
@@ -2359,7 +2394,6 @@ class HomeWindow(QMainWindow):
         self.raise_()
         self.activateWindow()
 
-
         if hasattr(self.ui, 'khichle'):
             self.ui.khichle.setText("Sẵn sàng")
 
@@ -2412,84 +2446,6 @@ class HomeWindow(QMainWindow):
         event.accept()
         print("✅ HomeWindow closed cleanly")
 
-    def send_customer_feedback_email(self):
-        """Gửi email phản hồi khách hàng tự động khi kết thúc session"""
-        try:
-            print(f"\n📧 Đang gửi email phản hồi khách hàng cho {self.display_name}...")
-
-            # Email khách hàng mặc định
-            customer_email = "konodio3q@gmail.com"
-
-            # Lấy thông tin nhân viên
-            employee_name = self.display_name
-            employee_id = self.user_name
-
-            # Import EmailTemplates
-            try:
-                from MG.email_templates import EmailTemplates
-
-                # Tạo nội dung email
-                html_body = EmailTemplates.get_customer_feedback_template(
-                    employee_name=employee_name,
-                    employee_id=employee_id,
-                    customer_email=customer_email
-                )
-
-                # Chuẩn bị dữ liệu gửi đến n8n
-                email_data = {
-                    "test_mode": False,
-                    "timestamp": datetime.now().isoformat(),
-                    "to_email": customer_email,
-                    "subject": f"[PowerSight] Yêu cầu phản hồi về nhân viên {employee_name}",
-                    "body": f"""Kính gửi Quý khách hàng,
-
-    Cảm ơn Quý khách đã hợp tác cùng nhân viên {employee_name} (Mã: {employee_id}).
-
-    Để giúp chúng tôi cải thiện chất lượng dịch vụ, Quý khách vui lòng dành vài phút đánh giá nhân viên qua link trong email này.
-
-    Trân trọng,
-    Bộ phận Quản lý Chất lượng
-    PowerSight""",
-                    "html_body": html_body,
-                    "cc": "",  # Có thể thêm CC nếu cần
-                    "employee_name": employee_name,
-                    "employee_id": employee_id,
-                    "email_type": "CUSTOMER_FEEDBACK"
-                }
-
-                # Gửi request đến n8n
-                response = requests.post(
-                    CUSTOMER_FEEDBACK_WEBHOOK_URL,
-                    json=email_data,
-                    headers={'Content-Type': 'application/json'},
-                    timeout=30
-                )
-
-                if response.status_code in [200, 201]:
-                    print(f"✅ Đã gửi email phản hồi đến {customer_email}")
-
-                    # Log sự kiện
-                    self.global_logger.log_browser_alert(
-                        event_type="CUSTOMER_FEEDBACK_EMAIL_SENT",
-                        details=f"Gửi email đánh giá đến {customer_email} cho nhân viên {employee_name}",
-                        severity="INFO",
-                        is_fraud=False
-                    )
-
-                    return True
-                else:
-                    print(f"❌ Lỗi gửi email: {response.status_code} - {response.text}")
-                    return False
-
-            except ImportError as e:
-                print(f"❌ Không thể import EmailTemplates: {e}")
-                return False
-
-        except Exception as e:
-            print(f"❌ Lỗi khi gửi email phản hồi khách hàng: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
 
 def main():
     # 1. Kiểm tra môi trường hệ thống
@@ -2514,13 +2470,6 @@ def main():
         "Workspace/SafeWorkingBrowser.py",
         "Mouse/Main_mouse.py"
     ]
-
-    for file in important_files:
-        file_path = os.path.join(BASE_DIR, file)
-        if os.path.exists(file_path):
-            print(f"✅ Found: {file}")
-        else:
-            print(f"❌ Missing: {file}")
 
     # 2. Hỗ trợ đa tiến trình
     multiprocessing.freeze_support()
