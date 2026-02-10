@@ -1,0 +1,389 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="26dd9130-f58c-4898-988a-973858a1825b" name="Changes" comment="SAP">
+      <change afterPath="$PROJECT_DIR$/.idea/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/IAP_SAP-master.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/.idea/PythonProject.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Chatbot/.env" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Chatbot/config.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Chatbot/data_processor.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Chatbot/employee_chatbot.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Chatbot/gemini_analyzer.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Face/Save_file/embeddings.npy" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Face/Save_file/ids.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Face/Save_file/names.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Face/anh/EM001/z7318687843404_9a726472aa2f1f1e579f101253b97fcf.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Face/anh/EM002/z7384634707755_2b2f4d9675764ad9f303df1f49e262cf.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Face/anh/EM003/699cd11f-4ca7-4040-bba1-037130c4156e.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Face/anh/EM004/z7312974420011_e045cd4946002c16250b0eae64874708.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Face/face_engine.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Face/face_verification.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Face/main_face.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Face/retrieve.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MG/aggregate_dashboard.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MG/data_processor.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MG/email_templates.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MG/employee_ids.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MG/manager_chatbot.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/ML_models/xgboost_anomaly.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/Run/main_manager.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/UI_FACEID.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/UI_FACEID.ui" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/UI_HOME.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/UI_HOME.ui" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/UI_LOGIN.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/UI_LOGIN.ui" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/UI_MG_EMPLIST.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/UI_MG_EMPLIST.ui" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/UI_MG_HOME.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/UI_MG_HOME.ui" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/images/1.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/images/2.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/images/3.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/images/4.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/images/5.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/images/6.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/images/avt.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/images/avt1.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/images/background2.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/images/background5.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/images/faceid_icon.jpg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/UI/images/faceid_icon.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/MainApp/user_behavior_xgb_lasso.pkl" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Mouse/Main_mouse.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Mouse/Models/MouseEvents.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Mouse/Models/MouseResult.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Mouse/Module/Process_Excel.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Mouse/Module/real_time_processor.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Mouse/Module/real_time_tracker.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/SAP/SAP_automation - Copy (2).py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/SAP/SAP_automation - Copy.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/SAP/env" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_01/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_01/work_logs_EM001_2026_01.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_02/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_02/work_logs_EM001_2026_02.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_03/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_03/work_logs_EM001_2026_03.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_04/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_04/work_logs_EM001_2026_04.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_05/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_05/work_logs_EM001_2026_05.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_06/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_06/work_logs_EM001_2026_06.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_07/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_07/work_logs_EM001_2026_07.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_08/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_08/work_logs_EM001_2026_08.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_09/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_09/work_logs_EM001_2026_09.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_10/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_10/work_logs_EM001_2026_10.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_11/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_11/work_logs_EM001_2026_11.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_12/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM001/2026_12/work_logs_EM001_2026_12.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_01/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_01/work_logs_EM002_2026_01.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_02/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_02/work_logs_EM002_2026_02.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_03/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_03/work_logs_EM002_2026_03.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_04/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_04/work_logs_EM002_2026_04.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_05/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_05/work_logs_EM002_2026_05.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_06/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_06/work_logs_EM002_2026_06.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_07/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_07/work_logs_EM002_2026_07.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_08/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_08/work_logs_EM002_2026_08.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_09/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_09/work_logs_EM002_2026_09.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_10/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_10/work_logs_EM002_2026_10.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_11/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_11/work_logs_EM002_2026_11.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_12/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM002/2026_12/work_logs_EM002_2026_12.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_01/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_01/work_logs_EM003_2026_01.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_02/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_02/work_logs_EM003_2026_02.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_03/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_03/work_logs_EM003_2026_03.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_04/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_04/work_logs_EM003_2026_04.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_05/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_05/work_logs_EM003_2026_05.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_06/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_06/work_logs_EM003_2026_06.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_07/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_07/work_logs_EM003_2026_07.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_08/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_08/work_logs_EM003_2026_08.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_09/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_09/work_logs_EM003_2026_09.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_10/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_10/work_logs_EM003_2026_10.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_11/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_11/work_logs_EM003_2026_11.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_12/sap_data.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/EM003/2026_12/work_logs_EM003_2026_12.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Saved_file/summary_report_2026.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/Workspace/SafeWorkingBrowser.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/IAP_SAP-master/test.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/IAP_SAP-master/Chatbot/dashboard.py" beforeDir="false" afterPath="$PROJECT_DIR$/IAP_SAP-master/Chatbot/dashboard.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/IAP_SAP-master/SAP/SAP_automation.py" beforeDir="false" afterPath="$PROJECT_DIR$/IAP_SAP-master/SAP/SAP_automation.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;DangQuynhNhi&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/nhidqk24411-tech/IAP_SAP&quot;,
+    &quot;accountId&quot;: &quot;3a7bd8e3-ae97-4ac1-a8a8-c2d9e07fee22&quot;
+  }
+}</component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 0
+}</component>
+  <component name="ProjectId" id="38z5tDN7ccUlbRPS0PSUE7ZZWGV" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.App.executor&quot;: &quot;Run&quot;,
+    &quot;Python.SAP_automation - Copy (2).executor&quot;: &quot;Run&quot;,
+    &quot;Python.SAP_automation - Copy.executor&quot;: &quot;Run&quot;,
+    &quot;Python.SAP_automation.executor&quot;: &quot;Run&quot;,
+    &quot;Python.dashboard.executor&quot;: &quot;Run&quot;,
+    &quot;Python.employee_chatbot.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main_emp.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/IAP_SAP-master&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+  }
+}</component>
+  <component name="RunManager" selected="Python.App">
+    <configuration name="App" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="IAP_SAP-master" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/IAP_SAP-master/MainApp/Run" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/IAP_SAP-master/MainApp/Run/App.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="SAP_automation" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="IAP_SAP-master" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/IAP_SAP-master/SAP" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/IAP_SAP-master/SAP/SAP_automation.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="dashboard" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="IAP_SAP-master" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/IAP_SAP-master/Chatbot" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/IAP_SAP-master/Chatbot/dashboard.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="employee_chatbot" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="IAP_SAP-master" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/IAP_SAP-master/Chatbot" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/IAP_SAP-master/Chatbot/employee_chatbot.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="main_emp" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="IAP_SAP-master" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/IAP_SAP-master/MainApp/Run" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/IAP_SAP-master/MainApp/Run/main_emp.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.App" />
+        <item itemvalue="Python.main_emp" />
+        <item itemvalue="Python.dashboard" />
+        <item itemvalue="Python.SAP_automation" />
+        <item itemvalue="Python.employee_chatbot" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-98f27166c754-ba05f1cad1b1-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-242.21829.153" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="26dd9130-f58c-4898-988a-973858a1825b" name="Changes" comment="" />
+      <created>1769789772618</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1769789772618</updated>
+    </task>
+    <task id="LOCAL-00001" summary="SAP">
+      <option name="closed" value="true" />
+      <created>1769958612540</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1769958612540</updated>
+    </task>
+    <task id="LOCAL-00002" summary="SAP">
+      <option name="closed" value="true" />
+      <created>1770303421994</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1770303421994</updated>
+    </task>
+    <task id="LOCAL-00003" summary="SAP">
+      <option name="closed" value="true" />
+      <created>1770303875279</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1770303875279</updated>
+    </task>
+    <task id="LOCAL-00004" summary="SAP">
+      <option name="closed" value="true" />
+      <created>1770698016427</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1770698016427</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
+    <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="SAP" />
+    <option name="LAST_COMMIT_MESSAGE" value="SAP" />
+  </component>
+</project>
