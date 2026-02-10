@@ -66,13 +66,13 @@ class SAPDataCollector:
             # 3. Đăng nhập
             print("   Step 3: Logging in...")
             # Lấy thông tin tài khoản SAP từ .env hoặc dùng mặc định
-            sap_user = os.getenv("SAP_USER") or "NHIDQ-24411"
-            sap_pass = os.getenv("SAP_PASSWORD") or "IPASAP2025"
+            sap_user = os.getenv("SAP_USER") or ""
+            sap_pass = os.getenv("SAP_PASSWORD") or ""
 
             try:
                 self.session.findById("wnd[0]/usr/txtRSYST-BNAME").text = str(sap_user)
                 self.session.findById("wnd[0]/usr/pwdRSYST-BCODE").text = str(sap_pass)
-                self.session.findById("wnd[0]/usr/txtRSYST-MANDT").text = os.getenv("SAP_CLIENT") or "312"
+                self.session.findById("wnd[0]/usr/txtRSYST-MANDT").text = os.getenv("SAP_CLIENT") or ""
                 self.session.findById("wnd[0]").sendVKey(0)
                 time.sleep(3)
 
