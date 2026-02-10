@@ -1419,10 +1419,20 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
             print(f"❌ Error creating SAP tab: {e}")
 
     def show_secure(self):
-        """Kích hoạt chế độ toàn màn hình bảo mật"""
+        """Kích hoạt chế độ toàn màn hình thực sự - Che hoàn toàn Taskbar"""
+        # 1. Gọi WinAPI để ẩn thanh Taskbar hệ thống ngay lập tức
+        TaskbarController.set_visibility(False)
+
+        # 2. Sử dụng showFullScreen để chiếm toàn bộ các pixel màn hình
+        # Chế độ này sẽ bỏ qua "Work Area" (vùng chừa cho Taskbar)
         self.showFullScreen()
+
+        # 3. Đảm bảo cửa sổ luôn ở trên cùng và nhận được focus
         self.activateWindow()
         self.raise_()
+
+        # 4. (Tùy chọn) Một mẹo nhỏ để ép Taskbar phải ẩn nếu nó cố tình hiện lên
+        QTimer.singleShot(500, lambda: TaskbarController.set_visibility(False))
 
     def changeEvent(self, event):
         if event.type() == QEvent.Type.ActivationChange:
@@ -1741,13 +1751,13 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
     def toggle_timer_with_logging(self):
         """Điều khiển Pause/Resume timer và Mouse Tracking"""
         tw = self.timer_widget
-        if tw.is_running:
-            # Pause - dừng timer thực tế
-            tw.is_running = False
-            tw.timer.stop()
-            tw.pause_btn.setText("▶ Resume")
+        if not tw: return
 
-            # Cập nhật thời gian làm việc thực tế
+        if tw.is_running:
+            # Dùng hàm có sẵn của widget để đảm bảo UI đồng bộ
+            tw.pause_timer()
+
+            # Cập nhật thời gian làm việc thực tế cho logic nội bộ
             current_time = time.time()
             self.actual_work_time += (current_time - self.last_timer_update)
 
@@ -1758,12 +1768,10 @@ class EnhancedSafeBrowser(ProfessionalWorkBrowser):
                 self.show_fraud_alert()
                 self.global_logger.log_browser_alert("RAPID_PAUSE", "Detected multiple rapid pauses", is_fraud=True)
         else:
-            # Resume - tiếp tục timer thực tế
-            tw.is_running = True
-            tw.timer.start(1000)
-            tw.pause_btn.setText("⏸ Pause")
+            # Dùng hàm có sẵn của widget
+            tw.resume_timer()
 
-            # Cập nhật thời điểm bắt đầu lại
+            # Cập nhật thời điểm bắt đầu lại cho logic nội bộ
             self.last_timer_update = time.time()
 
             if self.pause_event: self.pause_event.clear()
@@ -2110,16 +2118,22 @@ class HomeWindow(QMainWindow):
             QMessageBox.critical(self, "Lỗi", f"Không thể mở Dashboard: {e}")
 
     def on_dashboard_closed(self):
-        print("\n🛑 Dashboard window closed")
-        # Hiện lại thanh Taskbar ngay lập tức
+        """Hàm này được gọi khi đóng Dashboard để quay về Home"""
+        print("\n🛑 Dashboard window closed - Restoring Taskbar")
+
+        # 1. Hiện lại thanh Taskbar ngay lập tức
         TaskbarController.set_visibility(True)
 
+        # 2. Reset trạng thái
         self.dashboard_window = None
         self.active_window = 'home'
         self.update_tab_state('home')
+
+        # 3. Hiển thị lại cửa sổ chính
         self.showNormal()
         self.raise_()
         self.activateWindow()
+
         if hasattr(self.ui, 'khichle'):
             self.ui.khichle.setText("Sẵn sàng")
 
@@ -2245,7 +2259,7 @@ class HomeWindow(QMainWindow):
         except Exception as e:
             print(f"❌ Error starting work session: {e}")
             traceback.print_exc()
-            QMessageBox.critical(self, "Error", f"Failed to start work session: {str(e)}")
+            QMessageBox.critical(None, "Error", f"Failed to start work session: {str(e)}")
             self.reset_ui()
 
     def show_browser(self):
@@ -2391,21 +2405,11 @@ class HomeWindow(QMainWindow):
 
     def on_chatbot_closed(self):
         """Khi chatbot đóng"""
-        print("\n🛑 Chatbot window closed")
+        print("\n🛑 Chatbot window closed - Restoring Taskbar")
+        # Hiện lại thanh Taskbar
+        TaskbarController.set_visibility(True)
+
         self.chatbot_window = None
-        self.active_window = 'home'
-        self.update_tab_state('home')
-        self.showNormal()
-        self.raise_()
-        self.activateWindow()
-
-        if hasattr(self.ui, 'khichle'):
-            self.ui.khichle.setText("Sẵn sàng")
-
-    def on_dashboard_closed(self):
-        """Khi dashboard đóng"""
-        print("\n🛑 Dashboard window closed")
-        self.dashboard_window = None
         self.active_window = 'home'
         self.update_tab_state('home')
         self.showNormal()
