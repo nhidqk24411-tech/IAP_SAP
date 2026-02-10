@@ -2013,13 +2013,18 @@ class HomeWindow(QMainWindow):
             QMessageBox.critical(self, "Lỗi", f"Không thể mở Dashboard: {e}")
 
     def on_dashboard_closed(self):
-        """Hàm này được gọi khi bấm nút 'Home' trong Dashboard"""
+        print("\n🛑 Dashboard window closed")
+        # Hiện lại thanh Taskbar ngay lập tức
+        TaskbarController.set_visibility(True)
+
         self.dashboard_window = None
         self.active_window = 'home'
         self.update_tab_state('home')
-        self.showNormal()  # Hiện lại Home
+        self.showNormal()
         self.raise_()
         self.activateWindow()
+        if hasattr(self.ui, 'khichle'):
+            self.ui.khichle.setText("Sẵn sàng")
 
     def update_user_name(self, user_name):
         """Cập nhật tên user trên UI"""
@@ -2069,7 +2074,6 @@ class HomeWindow(QMainWindow):
             if hasattr(self.ui, 'khichle'):
                 self.ui.khichle.setText("🔐 Secure work session active")
 
-            # Log bắt đầu session
             self.global_logger.log_browser_alert(
                 event_type="SESSION_START",
                 details=f"Session started for {self.display_name} with SAP auto-login",
@@ -2108,7 +2112,6 @@ class HomeWindow(QMainWindow):
                 is_fraud=False
             )
 
-            # Tạo EnhancedSafeBrowser với SAP auto-login
             self.browser_window = EnhancedSafeBrowser(
                 user_name=self.user_name,
                 global_logger=self.global_logger,
@@ -2120,10 +2123,8 @@ class HomeWindow(QMainWindow):
 
             QTimer.singleShot(100, self.browser_window.setup_timer_with_logging)
 
-            # Hiển thị browser fullscreen
             self.browser_window.show_secure()
 
-            # HomeWindow minimized
             self.showMinimized()
             self.active_window = 'browser'
 
