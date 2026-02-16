@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import traceback
 import pandas as pd
 import subprocess
+import numpy as np
 
 # Add project root to path for imports
 from PyQt6.QtWidgets import *
@@ -16,11 +17,79 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage
 import ctypes
 from ctypes import wintypes
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+
 
 # Định nghĩa các hằng số WinAPI
 SW_HIDE = 0
 SW_SHOW = 5
 
+import google.generativeai as genai
+from Chatbot import config
+
+class GeminiInsightWorker(QThread):
+    """Luồng xử lý gọi API Gemini để không làm treo giao diện"""
+    insight_ready = pyqtSignal(str)
+
+    def __init__(self, api_key, model_name, data_payload):
+        super().__init__()
+        self.api_key = api_key
+        self.model_name = model_name
+        self.data = data_payload
+
+    def run(self):
+        try:
+            if not self.api_key or self.api_key == "YOUR_API_KEY_HERE":
+                raise ValueError("API Key chưa được cấu hình")
+
+            genai.configure(api_key=self.api_key)
+
+            # --- LOGIC TỰ ĐỘNG DÒ TÌM MODEL ---
+            model_to_use = self.model_name
+            try:
+                # Thử liệt kê các model có sẵn trong tài khoản của bạn
+                available_models = [m.name for m in genai.list_models()
+                                    if 'generateContent' in m.supported_generation_methods]
+
+                # Nếu model trong config không có trong danh sách khả dụng
+                if f"models/{self.model_name}" not in available_models and self.model_name not in available_models:
+                    if available_models:
+                        # Lấy model đầu tiên tìm thấy (thường là gemini-pro hoặc gemini-1.5-flash)
+                        model_to_use = available_models[0]
+                        print(f"⚠️ Model {self.model_name} không tìm thấy. Tự động chuyển sang: {model_to_use}")
+            except Exception as e:
+                print(f"⚠️ Không thể liệt kê danh sách model: {e}")
+                model_to_use = 'gemini-pro'  # Fallback cuối cùng
+
+            model = genai.GenerativeModel(model_to_use)
+
+            # --- PROMPT ĐƯỢC CẢI TIẾN ĐỂ NHẬN XÉT CHI TIẾT ---
+            completion_rate = (self.data['completed'] / self.data['target'] * 100) if self.data['target'] > 0 else 0
+
+            prompt = f"""
+            Bạn là một Giám đốc Nhân sự chuyên nghiệp và sắc sảo. 
+            Hãy phân tích số liệu thực tế tháng này của nhân viên {self.data['name']} và đưa ra 1 câu nhận xét (tối đa 40 từ):
+
+            Dữ liệu:
+            - KPI Đơn hàng: {self.data['completed']}/{self.data['target']} (Đạt {completion_rate:.1f}%).
+            - Số lần vi phạm: {self.data['violations']} lần (Mức giới hạn cho phép: {self.data['max_v']}).
+
+            Yêu cầu giọng văn dựa trên tình huống:
+            1. VI PHẠM NẶNG: Nếu vi phạm > {self.data['max_v']}, hãy đưa ra lời CẢNH BÁO cực kỳ nghiêm khắc về thái độ và kỷ luật.
+            2. TIẾN ĐỘ CHẬM: Nếu vi phạm ít nhưng KPI < 50%, hãy NHẮC NHỞ về việc đẩy nhanh tiến độ xử lý đơn hàng.
+            3. XUẤT SẮC: Nếu KPI > 90% và vi phạm < 2, hãy KHÍCH LỆ nồng nhiệt và bày tỏ sự trân trọng đóng góp của họ.
+            4. ỔN ĐỊNH: Các trường hợp khác, khích lệ duy trì phong độ.
+
+            Lưu ý: Nói trực tiếp vào vấn đề, gọi tên nhân viên, tiếng Việt tự nhiên, không dùng ký hiệu lạ.
+            """
+
+            response = model.generate_content(prompt)
+            self.insight_ready.emit(response.text.strip())
+        except Exception as e:
+            print(f"❌ Gemini Error: {e}")
+            self.insight_ready.emit("Chào mừng bạn trở lại! Hãy tập trung hoàn thành KPI và tuân thủ quy định nhé.")
 
 class TaskbarController:
     """Điều khiển ẩn/hiện thanh Taskbar của Windows"""
@@ -635,6 +704,7 @@ from MainApp.UI.UI_HOME import Ui_MainWindow as Ui_HomeWindow
 from Face.main_face import FaceSingleCheck
 from Workspace.SafeWorkingBrowser import ProfessionalWorkBrowser
 
+from Chatbot.data_processor import  DataProcessor
 
 # ============================================
 # GLOBAL EXCEL LOGGER - TẤT CẢ MODULE DÙNG CHUNG
@@ -1847,6 +1917,30 @@ class HomeWindow(QMainWindow):
 
         self.ui = Ui_HomeWindow()
         self.ui.setupUi(self)
+        self.ui.label_4.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.chart_layout = QVBoxLayout(self.ui.widget)
+        self.chart_layout.setContentsMargins(0, 0, 0, 0)
+        self.canvas = None
+
+        self.global_logger = GlobalExcelLogger(user_name)
+        self.data_processor = DataProcessor(user_name)
+        self.MAX_ALLOWED_VIOLATIONS = 5  # Số lần vi phạm tối đa cho phép
+
+        self.update_user_name(self.display_name)
+        self.setup_tab_styles()
+
+        # BƯỚC 4: GỌI CẬP NHẬT DỮ LIỆU DASHBOARD
+        QTimer.singleShot(500, self.update_kpi_dashboard)
+
+        if not hasattr(self, 'chart_layout'):
+            self.chart_layout = QVBoxLayout(self.ui.widget)
+            self.chart_layout.setContentsMargins(0, 0, 0, 0)
+        self.canvas = None
+
+        self.update_kpi_dashboard()
+
+
         # Thêm biến cho SAP background collector
         self.sap_collector = None
 
@@ -1859,8 +1953,13 @@ class HomeWindow(QMainWindow):
                             Qt.WindowType.WindowCloseButtonHint)
         self.setFixedSize(self.size())
 
-        # KHỞI TẠO GLOBAL LOGGER
-        self.global_logger = GlobalExcelLogger(user_name)
+        if hasattr(self.ui, 'khichle'):
+            # Mở rộng chiều rộng lên 320 và chiều cao lên 50 (đủ cho 2-3 dòng)
+            self.ui.khichle.setGeometry(40, 105, 320, 55)
+            # Cho phép tự động xuống dòng
+            self.ui.khichle.setWordWrap(True)
+            # Căn lề trên để văn bản hiện từ trên xuống
+            self.ui.khichle.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
         # Biến hệ thống
         self.mouse_process = None
@@ -1874,11 +1973,6 @@ class HomeWindow(QMainWindow):
         self.is_working = False
         self.active_window = None  # Track which window is active
 
-        # Cập nhật tên user (hiển thị tên thay vì mã)
-        self.update_user_name(self.display_name)
-
-        # SETUP STYLE CHO TAB HIỆN TẠI
-        self.setup_tab_styles()
 
         # Kết nối nút HOME (pushButton_5) - TAB HIỆN TẠI
         if hasattr(self.ui, 'pushButton_5'):
@@ -1908,6 +2002,15 @@ class HomeWindow(QMainWindow):
         self.setWindowTitle(f"PowerSight - {self.display_name}")
         self.setWindowFlag(Qt.WindowType.Window, True)
         print(f"🏠 HomeWindow created for {self.display_name} ({user_name})")
+
+        self.ui.label_3.setTextFormat(Qt.TextFormat.RichText)
+        self.ui.label_4.setTextFormat(Qt.TextFormat.RichText)
+        self.ui.label_5.setTextFormat(Qt.TextFormat.RichText)
+        if hasattr(self.ui, 'khichle'):
+            self.ui.khichle.setWordWrap(True)  # Ép xuống dòng
+            self.ui.khichle.setMinimumWidth(350)  # Mở rộng khung
+            self.ui.khichle.setMinimumHeight(60)  # Tăng chiều cao cho 3 dòng chữ
+            self.ui.khichle.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
     def get_display_name_from_id(self, employee_id):
         """Lấy tên hiển thị từ mã nhân viên"""
@@ -2143,13 +2246,135 @@ class HomeWindow(QMainWindow):
             self.ui.label_7.setText(f"{user_name}!")
 
     def update_time(self):
-        """Cập nhật thời gian hiện tại"""
+        """Cập nhật thời gian và ngày tháng (Định dạng DD-MM-YYYY)"""
         current_time = datetime.now().strftime("%H:%M:%S")
-        current_date = datetime.now().strftime("%Y-%m-%d")
+        # Đổi định dạng thành Ngày-Tháng-Năm
+        current_date = datetime.now().strftime("%d-%m-%Y")
+
+        # 1. Sửa lỗi hiển thị giờ (Đảm bảo QLabel hiểu đây là RichText)
         if hasattr(self.ui, 'label_3'):
-            self.ui.label_3.setText(f"Time: {current_time}")
+            self.ui.label_3.setText(f"Time: <b>{current_time}</b>")
+
+        # 2. In đậm cả chữ Date: và số ngày trong khung xanh (label_4)
         if hasattr(self.ui, 'label_4'):
-            self.ui.label_4.setText(f"Date: {current_date}")
+            # Dùng thẻ <b> bao ngoài toàn bộ để in đậm cả chữ "Date:"
+            self.ui.label_4.setText(f"<b>Date: {current_date}</b>")
+
+    def update_kpi_dashboard(self):
+        """Cập nhật dữ liệu và kích hoạt AI phân tích"""
+        try:
+            if self.data_processor.load_all_data():
+                m = self.data_processor.metrics
+                completed = int(m.get('completed_orders', 0))
+                target = int(self.data_processor._get_kpi_value(self.data_processor.kpi_df) or 0)
+                violations = int(m.get('fraud_events_count', 0))
+
+                # --- 1. Tính toán màu sắc (Logic 4 mức độ của bạn) ---
+                percent = (completed / target * 100) if target > 0 else 0
+                if percent <= 25:
+                    order_color = '#E74C3C'  # Đỏ
+                elif percent <= 50:
+                    order_color = '#E67E22'  # Cam
+                elif percent <= 75:
+                    order_color = '#F1C40F'  # Vàng
+                else:
+                    order_color = '#2ECC71'  # Xanh
+
+                # --- 2. Cập nhật hiển thị Chữ (Đơn hàng & Vi phạm) ---
+                self.ui.goal.hide()
+                self.ui.label_5.setMinimumWidth(250)
+                self.ui.label_5.setText(
+                    f"<b>Đơn hàng: <span style='color: {order_color}; font-weight: bold;'>{completed} / {target}</span></b>&nbsp")
+
+                viol_color = '#E74C3C' if violations > self.MAX_ALLOWED_VIOLATIONS else '#1e293b'
+                self.ui.increase.setText(
+                    f"<b>Vi phạm:</b>&nbsp; <span style='color: {viol_color}; font-weight: bold;'>{violations} / {self.MAX_ALLOWED_VIOLATIONS}</span>")
+
+                # --- 3. GỌI AI NHẬN XÉT ---
+                self.ui.khichle.setText("<i>🤖 AI đang xem xét báo cáo...</i>")
+                data_payload = {
+                    'name': self.display_name,
+                    'completed': completed,
+                    'target': target,
+                    'violations': violations,
+                    'max_v': self.MAX_ALLOWED_VIOLATIONS
+                }
+
+                from Chatbot.config import Config
+                self.ai_worker = GeminiInsightWorker(Config.GEMINI_API_KEY, Config.GEMINI_MODEL, data_payload)
+                self.ai_worker.insight_ready.connect(self.display_ai_insight)
+                self.ai_worker.start()
+
+                # --- 4. Vẽ biểu đồ ---
+                self.draw_monthly_donut_chart(completed, target, order_color)
+        except Exception as e:
+            print(f"⚠️ Lỗi cập nhật Dashboard: {e}")
+
+    def display_ai_insight(self, message):
+        """Hiển thị lời nhắn từ Gemini với định dạng màu sắc thông minh"""
+        self.ui.khichle.setWordWrap(True)
+        self.ui.khichle.setText(message)
+
+        # Nhận diện mức độ nghiêm trọng qua từ khóa để đổi màu
+        msg_lower = message.lower()
+        if any(word in msg_lower for word in ["cảnh báo", "vi phạm", "nghiêm khắc", "chấn chỉnh", "kỷ luật"]):
+            text_color = "#E74C3C"  # Đỏ cảnh báo
+            weight = "bold"
+        elif any(word in msg_lower for word in ["tuyệt vời", "xuất sắc", "trân trọng", "tốt lắm"]):
+            text_color = "#27AE60"  # Xanh khen ngợi
+            weight = "bold"
+        else:
+            text_color = "#34495E"  # Xám xanh mặc định
+            weight = "normal"
+
+        self.ui.khichle.setStyleSheet(f"""
+            color: {text_color}; 
+            font-weight: {weight};
+            font-size: 10pt; 
+            font-family: 'Segoe UI'; 
+            font-style: italic;
+            line-height: 1.1;
+        """)
+
+
+    def draw_monthly_donut_chart(self, completed, target, color):
+        """Vẽ biểu đồ vành khăn với tên tiêu đề"""
+        # Xóa biểu đồ cũ
+        if hasattr(self, 'canvas') and self.canvas:
+            self.chart_layout.removeWidget(self.canvas)
+            self.canvas.deleteLater()
+            self.canvas = None
+
+        val_completed = float(completed)
+        val_target = float(target) if float(target) > 0 else 1
+
+        # Tăng figsize nhẹ lên 1.8 để đủ chỗ cho tiêu đề nếu cần
+        fig = Figure(figsize=(1.8, 1.8), dpi=100)
+        fig.patch.set_facecolor('none')
+        ax = fig.add_subplot(111)
+
+        # Mảng dữ liệu
+        remaining = max(0, val_target - val_completed)
+        sizes = [val_completed, remaining]
+        colors = [color, '#F0F0F0']
+
+        # Vẽ biểu đồ donut
+        ax.pie(sizes, colors=colors, startangle=90, counterclock=False,
+               wedgeprops={'width': 0.4, 'edgecolor': 'none'})
+
+        # --- THÊM TÊN CHO BIỂU ĐỒ TẠI ĐÂY ---
+        ax.set_title("Tiến độ KPI",
+                     fontsize=7,
+                     fontweight='bold',
+                     color='#1F5CAB',  # Màu xanh đậm đồng bộ với số liệu
+                     pad=5)  # Khoảng cách từ tên đến biểu đồ
+        # -----------------------------------
+
+        ax.axis('equal')
+
+        self.canvas = FigureCanvas(fig)
+        self.chart_layout.addWidget(self.canvas)
+        self.canvas.draw()
 
     def start_work_session(self):
         """Bắt đầu session làm việc với SAP auto-login"""
@@ -2297,52 +2522,65 @@ class HomeWindow(QMainWindow):
             self.global_logger.open_log_file()
 
     def on_browser_closed(self):
-        """Xử lý khi browser đóng - KHÔNG CHỜ SAP DATA"""
+        """Xử lý khi browser đóng - Ẩn HOME và chạy SAP automation"""
         print("\n🛑 Browser closed - Starting background cleanup...")
 
-        # 1. Log sự kiện
+        # 1. ẨN GIAO DIỆN HOME NGAY LẬP TỨC
+        self.hide()
+
+        # 2. Log sự kiện
         self.global_logger.log_browser_alert(
             event_type="SESSION_END",
-            details=f"Session ended for {self.display_name}",
+            details=f"Session ended for {self.display_name}. Starting SAP GUI...",
             severity="INFO",
             is_fraud=False
         )
 
-        # 2. Dừng mouse process (có timeout ngắn)
+        # 3. Dừng mouse process (giữ nguyên code cũ của bạn)
         if self.stop_event:
             self.stop_event.set()
-
         if self.mouse_process:
-            print("⏳ Stopping mouse process...")
-            # Chỉ chờ 3 giây thôi
             self.mouse_process.join(timeout=3)
-
             if self.mouse_process.is_alive():
-                print("⚠️ Mouse process still alive, forcing termination...")
                 try:
                     self.mouse_process.terminate()
-                    self.mouse_process.join(timeout=1)
                 except:
                     pass
 
-        # 3. Lưu log data NGAY LẬP TỨC (không chờ SAP)
-        print("\n💾 Saving log data immediately...")
-        log_success = self.global_logger.save_to_excel()
+        # 4. Lưu log data Excel (giữ nguyên)
+        self.global_logger.save_to_excel()
 
-        if log_success:
-            print("✅ Log data saved")
-        else:
-            print("⚠️ Failed to save log data")
+        # 5. CHẠY SAP DATA COLLECTION
+        print("🤖 Starting SAP GUI automation...")
 
-        # 4. Chạy SAP data collection TRONG BACKGROUND (không chờ)
-        print("🤖 Starting SAP data collection in background...")
-
-        # Tạo và chạy background collector
         self.sap_collector = SAPBackgroundCollector(
             user_name=self.user_name,
             save_directory=self.global_logger.PATHS['monthly'],
             logger=self.global_logger
         )
+
+        # Callback khi SAP chạy xong
+        def on_sap_finished(success, message):
+            """Hàm này chạy khi SAP GUI đã đóng và hoàn tất lấy dữ liệu"""
+            if success:
+                print(f"✅ SAP collection successful: {message}")
+            else:
+                print(f"⚠️ SAP collection failed: {message}")
+
+            # HIỆN LẠI GIAO DIỆN HOME SAU KHI SAP XỬ LÝ XONG
+            self.showNormal()
+            self.activateWindow()
+            self.raise_()
+
+            # Reset UI như Start ban đầu
+            self.reset_ui_immediately()
+
+            # Thông báo kết quả cuối cùng
+            QMessageBox.information(self, "Hoàn tất", f"Dữ liệu SAP đã được cập nhật thành công!")
+
+        # Kết nối signal và bắt đầu chạy
+        self.sap_collector.finished.connect(on_sap_finished)
+        self.sap_collector.start()
 
         def on_sap_finished(success, message):
             """Callback khi SAP collection hoàn thành"""
